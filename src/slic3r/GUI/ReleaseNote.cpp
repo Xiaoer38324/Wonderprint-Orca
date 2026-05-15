@@ -1378,7 +1378,7 @@ InputIpAddressDialog::InputIpAddressDialog(wxWindow *parent)
     m_line_top->SetBackgroundColour(wxColour(166, 169, 170));
 
     comfirm_before_check_text = _L("Try the following methods to update the connection parameters and reconnect to the printer.");
-    comfirm_before_enter_text = _L("1. Please confirm Orca Slicer and your printer are in the same LAN.");
+    comfirm_before_enter_text = _L("1. Please confirm Wonderprint-Orca and your printer are in the same LAN.");
     comfirm_after_enter_text  = _L("2. If the IP and Access Code below are different from the actual values on your printer, please correct them.");
     comfirm_last_enter_text   = _L("3. Please obtain the device SN from the printer side; it is usually found in the device information on the printer screen.");
 
