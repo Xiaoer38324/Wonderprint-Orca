@@ -91,9 +91,9 @@ if(ORCA_TOOLS)
             MACOSX_BUNDLE_BUNDLE_NAME "OrcaSlicer Profile Validator"
             MACOSX_BUNDLE_BUNDLE_VERSION "${SLIC3R_VERSION}"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "${SLIC3R_VERSION}"
-            MACOSX_BUNDLE_IDENTIFIER "com.orcaslicer.OrcaSlicer.profile-validator"
+            MACOSX_BUNDLE_IDENTIFIER "com.wondermaker3d.WonderprintOrca.profile-validator"
             MACOSX_BUNDLE_COPYRIGHT "© 2026 OrcaSlicer Pte Ltd All Rights Reserved"
-            MACOSX_BUNDLE_GUI_IDENTIFIER "com.orcaslicer.OrcaSlicer.profile-validator"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.wondermaker3d.WonderprintOrca.profile-validator"
         )
     else()
         add_executable(OrcaSlicer_profile_validator dev-utils/OrcaSlicer_profile_validator.cpp)
@@ -109,6 +109,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dev-utils/platform/msw/OrcaSlicer.man
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dev-utils/platform/osx/Info.plist.in ${CMAKE_CURRENT_BINARY_DIR}/Info.plist @ONLY)
 if (WIN32)
     add_library(OrcaSlicer SHARED OrcaSlicer.cpp OrcaSlicer.hpp)
+    set_target_properties(OrcaSlicer PROPERTIES OUTPUT_NAME "Wonderprint-Orca")
 else ()
     add_executable(OrcaSlicer OrcaSlicer.cpp OrcaSlicer.hpp)
 endif ()
@@ -120,8 +121,8 @@ endif (MINGW)
 
 if (NOT WIN32 AND NOT APPLE)
     # Binary name on unix like systems (Linux, Unix)
-    set_target_properties(OrcaSlicer PROPERTIES OUTPUT_NAME "orca-slicer")
-    set(SLIC3R_APP_CMD "orca-slicer")
+    set_target_properties(OrcaSlicer PROPERTIES OUTPUT_NAME "wonderprint-orca")
+    set(SLIC3R_APP_CMD "wonderprint-orca")
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dev-utils/platform/unix/build_linux_image.sh.in ${CMAKE_CURRENT_BINARY_DIR}/build_linux_image.sh USE_SOURCE_PERMISSIONS @ONLY)
 endif ()
 
@@ -175,7 +176,7 @@ if (WIN32)
     endif()
     target_compile_definitions(OrcaSlicer_app_gui PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE)
     add_dependencies(OrcaSlicer_app_gui OrcaSlicer)
-    set_target_properties(OrcaSlicer_app_gui PROPERTIES OUTPUT_NAME "orca-slicer")
+    set_target_properties(OrcaSlicer_app_gui PROPERTIES OUTPUT_NAME "wonderprint-orca")
     target_link_libraries(OrcaSlicer_app_gui PRIVATE boost_headeronly)
 endif ()
 

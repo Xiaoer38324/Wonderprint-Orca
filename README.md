@@ -203,7 +203,9 @@ OrcaSlicer began in that same spirit, drawing from BambuStudio, PrusaSlicer, and
 The OrcaSlicer logo was designed by community member Justin Levine (@freejstnalxndr).
 
 # License
-- **OrcaSlicer** is licensed under the GNU Affero General Public License, version 3.
+- **Wonderprint-Orca** is licensed under the GNU Affero General Public License, version 3.
+- **Wonderprint-Orca** is based on **OrcaSlicer**, which is also distributed under the GNU Affero General Public License, version 3.
+- OrcaSlicer is itself based on upstream open-source work including **PrusaSlicer** and **BambuStudio**. Wonderprint-Orca continues that attribution chain.
 - The **GNU Affero General Public License**, version 3 ensures that if you use any part of this software in any way (even behind a web server), your software must be released under the same license.
-- OrcaSlicer includes a **pressure advance calibration pattern test** adapted from Andrew Ellis' generator, which is licensed under GNU General Public License, version 3. Ellis' generator is itself adapted from a generator developed by Sineos for Marlin, which is licensed under GNU General Public License, version 3.
-- The **Bambu networking plugin** is based on non-free libraries from BambuLab. It is optional to the OrcaSlicer and provides extended functionalities for Bambulab printer users.
+- Wonderprint-Orca includes a **pressure advance calibration pattern test** adapted from Andrew Ellis' generator, which is licensed under GNU General Public License, version 3. Ellis' generator is itself adapted from a generator developed by Sineos for Marlin, which is licensed under GNU General Public License, version 3.
+- The **Bambu networking plugin** is based on non-free libraries from BambuLab. It is optional to Wonderprint-Orca and provides extended functionalities for Bambu Lab printer users.

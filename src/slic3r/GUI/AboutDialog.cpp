@@ -85,11 +85,11 @@ void CopyrightsDialog::fill_entries()
         { "Admesh",                                         "",      "https://admesh.readthedocs.io/" },
         { "Anti-Grain Geometry",                            "",      "http://antigrain.com" },
         { "ArcWelderLib",                                   "",      "https://plugins.octoprint.org/plugins/arc_welder" },
+        { "BambuStudio",                                    "",      "https://github.com/bambulab/BambuStudio" },
         { "Boost",                                          "",      "http://www.boost.org" },
         { "Cereal",                                         "",      "http://uscilab.github.io/cereal" },
         { "CGAL",                                           "",      "https://www.cgal.org" },
         { "Clipper",                                        "",      "http://www.angusj.co" },
-        { "libcurl",                                        "",      "https://curl.se/libcurl" },
         { "Draco",                                          "",      "https://google.github.io/draco/" },
         { "Eigen3",                                         "",      "http://eigen.tuxfamily.org" },
         { "Expat",                                          "",      "http://www.libexpat.org" },
@@ -99,18 +99,20 @@ void CopyrightsDialog::fill_entries()
         { "GNU gettext",                                    "",      "https://www.gnu.org/software/gettext" },
         { "ImGUI",                                          "",      "https://github.com/ocornut/imgui" },
         { "ImGuizmo",                                       "",      "https://github.com/CedricGuillemet/ImGuizmo" },
+        { "lib_fts",                                        "",      "https://www.forrestthewoods.com" },
+        { "libcurl",                                        "",      "https://curl.se/libcurl" },
         { "Libigl",                                         "",      "https://libigl.github.io" },
         { "libnest2d",                                      "",      "https://github.com/tamasmeszaros/libnest2d" },
-        { "lib_fts",                                        "",      "https://www.forrestthewoods.com" },
         { "Mesa 3D",                                        "",      "https://mesa3d.org" },
         { "Miniz",                                          "",      "https://github.com/richgel999/miniz" },
         { "Nanosvg",                                        "",      "https://github.com/memononen/nanosvg" },
         { "nlohmann/json",                                  "",      "https://json.nlohmann.me" },
-        { "Qhull",                                          "",      "http://qhull.org" },
         { "Open Cascade",                                   "",      "https://www.opencascade.com" },
         { "OpenGL",                                         "",      "https://www.opengl.org" },
+        { "OrcaSlicer",                                     "",      "https://github.com/SoftFever/OrcaSlicer" },
         { "PoEdit",                                         "",      "https://poedit.net" },
         { "PrusaSlicer",                                    "",      "https://www.prusa3d.com" },
+        { "Qhull",                                          "",      "http://qhull.org" },
         { "Real-Time DXT1/DXT5 C compression library",      "",      "https://github.com/Cyan4973/RygsDXTc" },
         { "SemVer",                                         "",      "https://semver.org" },
         { "Shinyprofiler",                                  "",      "https://code.google.com/p/shinyprofiler" },
@@ -147,9 +149,9 @@ wxString CopyrightsDialog::get_html_text()
                 "<font size=\"3\">",
          bgr_clr_str, text_clr_str, text_clr_str,
         _L("License"),
-        _L("Orca Slicer is licensed under "),
+        _L("Wonderprint-Orca is licensed under "),
         "https://www.gnu.org/licenses/agpl-3.0.html",_L("GNU Affero General Public License, version 3"),
-        _L("Orca Slicer is based on PrusaSlicer and BambuStudio"),
+        _L("Wonderprint-Orca is based on OrcaSlicer, which is based on PrusaSlicer and BambuStudio"),
         _L("Libraries"),
         _L("This software uses open source components whose copyright and other proprietary rights belong to their respective owners"));
 
@@ -270,41 +272,41 @@ AboutDialog::AboutDialog()
     wxBoxSizer *text_sizer = new wxBoxSizer(wxVERTICAL);
     text_sizer_horiz->Add( 0, 0, 0, wxLEFT, FromDIP(20));
 
-    std::vector<wxString> text_list;
-    text_list.push_back(_L("Open-source slicing stands on a tradition of collaboration and attribution. Slic3r, created by Alessandro Ranellucci and the RepRap community, laid the foundation. PrusaSlicer by Prusa Research built on that work, Bambu Studio forked from PrusaSlicer, and SuperSlicer extended it with community-driven enhancements. Each project carried the work of its predecessors forward, crediting those who came before."));
-    text_list.push_back(_L("OrcaSlicer began in that same spirit, drawing from PrusaSlicer, BambuStudio, SuperSlicer, and CuraSlicer. But it has since grown far beyond its origins — introducing advanced calibration tools, precise wall and seam control and hundreds of other features."));
-    text_list.push_back(_L("Today, OrcaSlicer is the most widely used and actively developed open-source slicer in the 3D printing community. Many of its innovations have been adopted by other slicers, making it a driving force for the entire industry."));
+    // std::vector<wxString> text_list;
+    // text_list.push_back(_L("Open-source slicing stands on a tradition of collaboration and attribution. Slic3r, created by Alessandro Ranellucci and the RepRap community, laid the foundation. PrusaSlicer by Prusa Research built on that work, Bambu Studio forked from PrusaSlicer, and SuperSlicer extended it with community-driven enhancements. Each project carried the work of its predecessors forward, crediting those who came before."));
+    // text_list.push_back(_L("OrcaSlicer began in that same spirit, drawing from PrusaSlicer, BambuStudio, SuperSlicer, and CuraSlicer. But it has since grown far beyond its origins — introducing advanced calibration tools, precise wall and seam control and hundreds of other features."));
+    // text_list.push_back(_L("Today, OrcaSlicer is the most widely used and actively developed open-source slicer in the 3D printing community. Many of its innovations have been adopted by other slicers, making it a driving force for the entire industry."));
 
-    text_sizer->Add( 0, 0, 0, wxTOP, FromDIP(33));
-    bool is_zh = wxGetApp().app_config->get("language") == "zh_CN";
-    for (int i = 0; i < text_list.size(); i++)
-    {
-        auto staticText = new wxStaticText( this, wxID_ANY, wxEmptyString,wxDefaultPosition,wxSize(FromDIP(520), -1), wxALIGN_LEFT );
-        staticText->SetForegroundColour(wxColour(107, 107, 107));
-        staticText->SetBackgroundColour(*wxWHITE);
-        staticText->SetMinSize(wxSize(FromDIP(520), -1));
-        staticText->SetFont(Label::Body_12);
-        if (is_zh) {
-            wxString find_txt = "";
-            wxString count_txt = "";
-            for (auto  o = 0; o < text_list[i].length(); o++) {
-                auto size = staticText->GetTextExtent(count_txt);
-                if (size.x < FromDIP(506)) {
-                    find_txt += text_list[i][o];
-                    count_txt += text_list[i][o];
-                } else {
-                    find_txt += std::string("\n") + text_list[i][o];
-                    count_txt = text_list[i][o];
-                }
-            }
-            staticText->SetLabel(find_txt);
-        } else {
-            staticText->SetLabel(text_list[i]);
-            staticText->Wrap(FromDIP(520));
-        }
+    // text_sizer->Add( 0, 0, 0, wxTOP, FromDIP(33));
+    // bool is_zh = wxGetApp().app_config->get("language") == "zh_CN";
+    // for (int i = 0; i < text_list.size(); i++)
+    // {
+    //     auto staticText = new wxStaticText( this, wxID_ANY, wxEmptyString,wxDefaultPosition,wxSize(FromDIP(520), -1), wxALIGN_LEFT );
+    //     staticText->SetForegroundColour(wxColour(107, 107, 107));
+    //     staticText->SetBackgroundColour(*wxWHITE);
+    //     staticText->SetMinSize(wxSize(FromDIP(520), -1));
+    //     staticText->SetFont(Label::Body_12);
+    //     if (is_zh) {
+    //         wxString find_txt = "";
+    //         wxString count_txt = "";
+    //         for (auto  o = 0; o < text_list[i].length(); o++) {
+    //             auto size = staticText->GetTextExtent(count_txt);
+    //             if (size.x < FromDIP(506)) {
+    //                 find_txt += text_list[i][o];
+    //                 count_txt += text_list[i][o];
+    //             } else {
+    //                 find_txt += std::string("\n") + text_list[i][o];
+    //                 count_txt = text_list[i][o];
+    //             }
+    //         }
+    //         staticText->SetLabel(find_txt);
+    //     } else {
+    //         staticText->SetLabel(text_list[i]);
+    //         staticText->Wrap(FromDIP(520));
+    //     }
 
-        text_sizer->Add( staticText, 0, wxUP | wxDOWN, FromDIP(3));
-    }
+    //     text_sizer->Add( staticText, 0, wxUP | wxDOWN, FromDIP(3));
+    // }
 
     text_sizer_horiz->Add(text_sizer, 1, wxALL,0);
     ver_sizer->Add(text_sizer_horiz, 0, wxALL,0);
@@ -315,7 +317,7 @@ AboutDialog::AboutDialog()
 
     copyright_hor_sizer->Add(copyright_ver_sizer, 0, wxLEFT, FromDIP(20));
 
-    wxStaticText *html_text = new wxStaticText(this, wxID_ANY, "Copyright(C) 2026 OrcaSlicer Pte Ltd All Rights Reserved", wxDefaultPosition, wxDefaultSize);
+    wxStaticText *html_text = new wxStaticText(this, wxID_ANY, "Copyright(C) 2026 Wondermaker 3D Co.,Ltd. All Rights Reserved", wxDefaultPosition, wxDefaultSize);
     html_text->SetForegroundColour(wxColour(107, 107, 107));
 
     copyright_ver_sizer->Add(html_text, 0, wxALL , 0);
@@ -332,7 +334,7 @@ AboutDialog::AboutDialog()
               (boost::format(
               "<html>"
               "<body>"
-              "<p style=\"text-align:left\"><a style=\"color:#009789\" href=\"https://www.orcaslicer.com\">https://www.orcaslicer.com</ a></p>"
+              "<p style=\"text-align:left\"><a style=\"color:#009789\" href=\"https://www.wondermaker3d.com\">https://www.wondermaker3d.com</a></p>"
               "</body>"
               "</html>")
             ).str());

@@ -1177,7 +1177,7 @@ static void load_downward_settings_list_from_config(std::string config_file, std
 int CLI::run(int argc, char **argv)
 {
     // Mark the main thread for the debugger and for runtime checks.
-    set_current_thread_name("orcaslicer_main");
+    set_current_thread_name("wonderprint_orca_main");
     // Save the thread ID of the main thread.
     save_main_thread_id();
 
@@ -7396,7 +7396,7 @@ LONG WINAPI VectoredExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo)
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
 extern "C" {
-    __declspec(dllexport) int __stdcall orcaslicer_main(int argc, wchar_t **argv)
+    __declspec(dllexport) int __stdcall wonderprint_orca_main(int argc, wchar_t **argv)
     {
         // Convert wchar_t arguments to UTF8.
         std::vector<std::string> 	argv_narrow;

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
-    <id>com.orcaslicer.OrcaSlicer</id>
-    <launchable type="desktop-id">com.orcaslicer.OrcaSlicer.desktop</launchable>
+    <id>com.wondermaker3d.WonderprintOrca</id>
+    <launchable type="desktop-id">com.wondermaker3d.WonderprintOrca.desktop</launchable>
     <provides>
-        <id>com.orcaslicer.OrcaSlicer.desktop</id>
+        <id>com.wondermaker3d.WonderprintOrca.desktop</id>
     </provides>
     <name>OrcaSlicer</name>
     <summary>Get even more perfect prints!</summary>

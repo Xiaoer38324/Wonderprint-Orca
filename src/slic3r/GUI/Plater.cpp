@@ -3520,7 +3520,7 @@ void Sidebar::sync_ams_list(bool is_from_big_sync_btn)
     wxGetApp().app_config ->set("ams_filament_ids", p->ams_list_device, ams_filament_ids);
     if (!unknowns.empty()) {
         MessageDialog dlg(this,
-            _L("There are some unknown or incompatible filaments mapped to generic preset.\nPlease update Orca Slicer or restart Orca Slicer to check if there is an update to system presets.") + detail,
+            _L("There are some unknown or incompatible filaments mapped to generic preset.\nPlease update Wonderprint-Orca or restart Wonderprint-Orca to check if there is an update to system presets.") + detail,
             _L("Sync filaments with AMS"), wxOK);
         dlg.ShowModal();
     }
@@ -10426,7 +10426,7 @@ void Plater::priv::set_project_name(const wxString& project_name)
     if (!m_project_name.IsEmpty())
         wxGetApp().mainframe->update_title_colour_after_set_title();
 #else
-    wxGetApp().mainframe->SetTitle(m_project_name + " - OrcaSlicer");
+    wxGetApp().mainframe->SetTitle(m_project_name + " - " + wxString(SLIC3R_APP_FULL_NAME));
     wxGetApp().mainframe->topbar()->SetTitle(m_project_name);
 #endif
 }
@@ -12065,7 +12065,7 @@ void Plater::import_model_id(wxString download_info)
                         error);
 
                     if (retry_count == max_retries) {
-                        msg = _L("Importing to Orca Slicer failed. Please download the file and manually import it.");
+                        msg = _L("Importing to Wonderprint-Orca failed. Please download the file and manually import it.");
                         cont = false;
                     }
                 })
@@ -17790,7 +17790,7 @@ void Plater::show_object_info()
 
     #ifndef __WINDOWS__
     if (non_manifold_edges > 0) {
-        info_manifold += into_u8("\n" + _L("Tips:") + "\n" +_L("\"Fix Model\" feature is currently only on Windows. Please repair the model on Orca Slicer(windows) or CAD softwares."));
+        info_manifold += into_u8("\n" + _L("Tips:") + "\n" +_L("\"Fix Model\" feature is currently only on Windows. Please repair the model on Wonderprint-Orca (Windows) or CAD softwares."));
     }
     #endif //APPLE & LINUX
 

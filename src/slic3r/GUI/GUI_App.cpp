@@ -2371,7 +2371,7 @@ void GUI_App::init_webview_runtime()
 {
     // Check WebView Runtime
     if (!WebView::CheckWebViewRuntime()) {
-        int nRet = wxMessageBox(_L("Orca Slicer requires the Microsoft WebView2 Runtime to operate certain features.\nClick Yes to install it now."),
+        int nRet = wxMessageBox(_L("Wonderprint-Orca requires the Microsoft WebView2 Runtime to operate certain features.\nClick Yes to install it now."),
                                 _L("WebView2 Runtime"), wxYES_NO);
         if (nRet == wxYES) {
             WebView::DownloadAndInstallWebViewRuntime();
@@ -2817,7 +2817,7 @@ bool GUI_App::on_init_inner()
             RichMessageDialog
                 dlg(nullptr,
                     wxString::Format(_L("%s\nDo you want to continue?"), msg),
-                    "OrcaSlicer", wxICON_QUESTION | wxYES_NO);
+                    "Wonderprint-Orca", wxICON_QUESTION | wxYES_NO);
             dlg.ShowCheckBox(_L("Remember my choice"));
             if (dlg.ShowModal() != wxID_YES) return false;
 
@@ -2947,7 +2947,7 @@ bool GUI_App::on_init_inner()
                /* wxString tips = wxString::Format(_L("Click to download new version in default browser: %s"), version_info.version_str);
                 DownloadDialog dialog(this->mainframe,
                     tips,
-                    _L("New version of Orca Slicer"),
+                    _L("New version of Wonderprint-Orca"),
                     false,
                     wxCENTER | wxICON_INFORMATION);
 
@@ -2994,7 +2994,7 @@ bool GUI_App::on_init_inner()
                 wxString tips = wxString::Format(_L("Click to download new version in default browser: %s"), version_str);
                 DownloadDialog dialog(this->mainframe,
                     tips,
-                    _L("The Orca Slicer needs an upgrade"),
+                    _L("The Wonderprint-Orca needs an upgrade"),
                     false,
                     wxCENTER | wxICON_INFORMATION);
                 dialog.SetExtendedMessage(description_text);
@@ -4857,7 +4857,7 @@ void GUI_App::on_http_error(wxCommandEvent &evt)
 
     // Version limit
     if (code == HttpErrorVersionLimited) {
-        MessageDialog msg_dlg(nullptr, _L("The version of Orca Slicer is too low and needs to be updated to the latest version before it can be used normally."), "", wxAPPLY | wxOK);
+        MessageDialog msg_dlg(nullptr, _L("The version of Wonderprint-Orca is too low and needs to be updated to the latest version before it can be used normally."), "", wxAPPLY | wxOK);
         if (msg_dlg.ShowModal() == wxOK) {
         }
 
@@ -6485,14 +6485,14 @@ bool GUI_App::load_language(wxString language, bool initial)
 
     if (!wxLocale::IsAvailable(locale_language_info->Language)) {
     	// Loading the language dictionary failed.
-	    wxString message = "Switching Orca Slicer to language " + requested_language_code + " failed.";
+	    wxString message = "Switching Wonderprint-Orca to language " + requested_language_code + " failed.";
 #if !defined(_WIN32) && !defined(__APPLE__)
         // likely some linux system
         message += "\nYou may need to reconfigure the missing locales, likely by running the \"locale-gen\" and \"dpkg-reconfigure locales\" commands.\n";
 #endif
         if (initial)
         	message + "\n\nApplication will close.";
-        wxMessageBox(message, "Orca Slicer - Switching language failed", wxOK | wxICON_ERROR);
+        wxMessageBox(message, "Wonderprint-Orca - Switching language failed", wxOK | wxICON_ERROR);
         if (initial)
 			std::exit(EXIT_FAILURE);
 		else

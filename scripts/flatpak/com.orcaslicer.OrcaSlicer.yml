@@ -1,4 +1,4 @@
-app-id: com.orcaslicer.OrcaSlicer
+app-id: com.wondermaker3d.WonderprintOrca
 runtime: org.gnome.Platform
 runtime-version: "49"
 sdk: org.gnome.Sdk
@@ -24,11 +24,12 @@ finish-args:
   - --filesystem=/run/media
   - --filesystem=/media
   - --filesystem=/run/spnav.sock:ro
-  # Allow read-only access to OrcaSlicer's legacy config and cache directories (if they exist) for migration purposes.
+  # Allow read-only access to legacy config and cache directories for migration purposes.
   - --filesystem=~/.var/app/io.github.orcaslicer.OrcaSlicer:ro
-  # Allow OrcaSlicer to own and talk to instance-check D-Bus names (InstanceCheck.cpp)
-  - --talk-name=com.orcaslicer.OrcaSlicer.InstanceCheck.*
-  - --own-name=com.orcaslicer.OrcaSlicer.InstanceCheck.*
+  - --filesystem=~/.var/app/com.orcaslicer.OrcaSlicer:ro
+  # Allow Wonderprint-Orca to own and talk to instance-check D-Bus names (InstanceCheck.cpp)
+  - --talk-name=com.wondermaker3d.WonderprintOrca.InstanceCheck.*
+  - --own-name=com.wondermaker3d.WonderprintOrca.InstanceCheck.*
   - --system-talk-name=org.freedesktop.UDisks2
   - --env=SPNAV_SOCKET=/run/spnav.sock
 
@@ -369,7 +370,7 @@ modules:
 
       # AppData metainfo for GNOME Software & Co.
       - type: file
-        path: com.orcaslicer.OrcaSlicer.metainfo.xml
+        path: com.wondermaker3d.WonderprintOrca.metainfo.xml
 
       # Startup script
       - type: file

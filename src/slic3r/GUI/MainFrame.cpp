@@ -382,7 +382,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     default:
     case GUI_App::EAppMode::Editor:
         m_taskbar_icon = std::make_unique<OrcaSlicerTaskBarIcon>(wxTBI_DOCK);
-        m_taskbar_icon->SetIcon(wxIcon(Slic3r::var("Wonderprint-Orca-mac_256px.ico"), wxBITMAP_TYPE_ICO), "OrcaSlicer");
+        m_taskbar_icon->SetIcon(wxIcon(Slic3r::var("Wonderprint-Orca-mac_256px.ico"), wxBITMAP_TYPE_ICO), "Wonderprint-Orca");
         break;
     case GUI_App::EAppMode::GCodeViewer:
         break;

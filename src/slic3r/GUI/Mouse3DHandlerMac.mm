@@ -194,7 +194,7 @@ void Mouse3DController::init()
   if (load_driver_functions()) {
     mouse_3d_controller = this;
 
-    uint16_t error = has_new_driver ? 
+    uint16_t error = has_new_driver ?
       SetConnexionHandlers(DeviceEvent, DeviceAdded, DeviceRemoved, false) :
       InstallConnexionHandlers(DeviceEvent, DeviceAdded, DeviceRemoved);
 
@@ -204,7 +204,7 @@ void Mouse3DController::init()
       //If no packets are recieved the name might be different - check cmake. If debugging try commenting
       // set_target_properties(OrcaSlicer PROPERTIES OUTPUT_NAME "orca-slicer")
       clientID = RegisterConnexionClient(
-          0, "\013OrcaSlicer", kConnexionClientModeTakeOver, kConnexionMaskAxis);
+          0, "\021Wonderprint-Orca", kConnexionClientModeTakeOver, kConnexionMaskAxis);
         BOOST_LOG_TRIVIAL(info) << "3dx mac handler registered";
     }
   }
