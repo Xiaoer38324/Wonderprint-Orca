@@ -7,7 +7,7 @@
     "instantiation": "true",
     "printer_model": "WonderMaker ZR",
     "default_print_profile": "0.20mm Standard @WonderMaker ZR",
-    "default_bed_type": "4",
+    "default_bed_type": "Textured PEI Plate",
     "nozzle_diameter": [
         "0.4"
     ],
@@ -19,6 +19,8 @@
     "machine_load_filament_time": "80",
     "machine_unload_filament_time": "40",
     "adaptive_bed_mesh_margin": "5",
+    "extruder_type": "Direct Drive",
+    "default_nozzle_volume_type": "Standard",
     "bed_mesh_max": [
         "290",
         "290"
