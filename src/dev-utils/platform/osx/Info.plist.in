@@ -5,7 +5,7 @@
   <key>CFBundleExecutable</key>
   <string>@SLIC3R_APP_KEY@</string>
   <key>CFBundleGetInfoString</key>
-  <string>@SLIC3R_APP_NAME@ Copyright(C) 2026 OrcaSlicer Pte Ltd All Rights Reserved</string>
+  <string>@SLIC3R_APP_NAME@ Copyright(C) 2026 Wondermaker 3D Co.,Ltd. All Rights Reserved</string>
   <key>CFBundleIconFile</key>
   <string>images/Wonderprint-Orca.icns</string>
   <key>CFBundleName</key>
@@ -23,8 +23,6 @@
   <key>CFBundleVersion</key>
   <string>@SLIC3R_BUILD_ID@</string>
   <key>CFBundleURLTypes</key>
-  <key>ATSApplicationFontsPath</key>
-  <string>fonts/</string>
   <array>
     <dict>
       <key>CFBundleURLName</key>
@@ -124,6 +122,8 @@
       <string>Alternate</string>
     </dict>
   </array>
+  <key>ATSApplicationFontsPath</key>
+  <string>fonts/</string>
   <key>LSMinimumSystemVersion</key>
   <string>10.10</string>
   <key>NSPrincipalClass</key>

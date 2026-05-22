@@ -92,7 +92,7 @@ if(ORCA_TOOLS)
             MACOSX_BUNDLE_BUNDLE_VERSION "${SLIC3R_VERSION}"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "${SLIC3R_VERSION}"
             MACOSX_BUNDLE_IDENTIFIER "com.wondermaker3d.WonderprintOrca.profile-validator"
-            MACOSX_BUNDLE_COPYRIGHT "© 2026 OrcaSlicer Pte Ltd All Rights Reserved"
+            MACOSX_BUNDLE_COPYRIGHT "Copyright(C) 2026 Wondermaker 3D Co.,Ltd. All Rights Reserved"
             MACOSX_BUNDLE_GUI_IDENTIFIER "com.wondermaker3d.WonderprintOrca.profile-validator"
         )
     else()
@@ -241,14 +241,15 @@ else ()
     endif ()
     if (CMAKE_MACOSX_BUNDLE)
         if (CMAKE_CONFIGURATION_TYPES)
-            set(BIN_RESOURCES_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/OrcaSlicer.app/Contents/Resources")
+            set(BIN_RESOURCES_DIR "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/Wonderprint-Orca.app/Contents/Resources")
         else()
-            set(BIN_RESOURCES_DIR "${CMAKE_CURRENT_BINARY_DIR}/OrcaSlicer.app/Contents/Resources")
+            set(BIN_RESOURCES_DIR "${CMAKE_CURRENT_BINARY_DIR}/Wonderprint-Orca.app/Contents/Resources")
         endif()
+        set_target_properties(OrcaSlicer PROPERTIES OUTPUT_NAME "Wonderprint-Orca")
         set(MACOSX_BUNDLE_ICON_FILE Icon.icns)
-        set(MACOSX_BUNDLE_BUNDLE_NAME "OrcaSlicer")
+        set(MACOSX_BUNDLE_BUNDLE_NAME "Wonderprint-Orca")
         set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${SoftFever_VERSION})
-        set(MACOSX_BUNDLE_COPYRIGHT "Copyright(C) 2022-2024 Li Jiang All Rights Reserved")
+        set(MACOSX_BUNDLE_COPYRIGHT "Copyright(C) 2026 Wondermaker 3D Co.,Ltd. All Rights Reserved")
     endif()
     add_custom_command(TARGET OrcaSlicer POST_BUILD
         COMMAND ln -sfn "${SLIC3R_RESOURCES_DIR}" "${BIN_RESOURCES_DIR}"
