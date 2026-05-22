@@ -52,6 +52,34 @@ using boost::property_tree::ptree;
 
 namespace Slic3r {
 
+static bool parse_default_bed_type(const std::string &value, BedType &out)
+{
+    std::string bed_type = boost::trim_copy(value);
+    if (bed_type.empty())
+        return false;
+
+    try {
+        size_t parsed_len = 0;
+        int bed_type_value = std::stoi(bed_type, &parsed_len);
+        if (parsed_len == bed_type.size() && bed_type_value >= BedType::btDefault && bed_type_value < BedType::btCount) {
+            out = BedType(bed_type_value);
+            return true;
+        }
+    } catch (...) {
+        // Non-numeric values are accepted below using the config enum aliases.
+    }
+
+    if (const ConfigOptionDef *bed_type_def = print_config_def.get("curr_bed_type"); bed_type_def && bed_type_def->enum_keys_map) {
+        for (const auto &item : *bed_type_def->enum_keys_map) {
+            if (boost::iequals(bed_type, item.first) && item.second >= BedType::btDefault && item.second < BedType::btCount) {
+                out = BedType(item.second);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 //BBS: add a function to load the version from xxx.json
 Semver get_version_from_json(std::string file_path)
 {
@@ -853,13 +881,11 @@ BedType Preset::get_default_bed_type(PresetBundle* preset_bundle)
     if (config.has("default_bed_type") && !config.opt_string("default_bed_type").empty()) {
         try {
             std::string str_bed_type = config.opt_string("default_bed_type");
-            
-            // Try parsing as integer first (legacy format)
-            int bed_type_value = atoi(str_bed_type.c_str());
-            if (bed_type_value > 0) {
-                return BedType(bed_type_value);
-            }
-            else {
+
+            BedType bed_type = BedType::btDefault;
+            if (parse_default_bed_type(str_bed_type, bed_type)) {
+                return bed_type;
+            } else {
                 BOOST_LOG_TRIVIAL(error) << "default_bed_type: invalid bed type: " << str_bed_type;
             }
             return BedType::btPEI;
