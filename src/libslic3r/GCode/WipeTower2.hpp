@@ -170,7 +170,7 @@ public:
         std::vector<float>  ramming_speed;
         float               nozzle_diameter;
         float               filament_area;
-		bool			    multitool_ramming;
+		bool			    multitool_ramming = false;
 		float               multitool_ramming_time = 0.f;
 		float               filament_minimal_purge_on_wipe_tower = 0.f;
         float               retract_length;
@@ -179,6 +179,8 @@ public:
         float               tower_interface_pre_extrusion_length = 0.f;
         float               tower_ironing_area = 4.f;
         float               tower_interface_purge_length = 0.f;
+        bool                pressure_advance_enabled = false;
+        float               pressure_advance = 0.f;
     };
 
 private:
@@ -275,6 +277,10 @@ private:
 	float			m_extra_flow      = 1.f;
 	float			m_extra_spacing_wipe    = 1.f;
 	float			m_extra_spacing_ramming = 1.f;
+    float           m_wipe_tower_ramming_width_ratio = 1.f;
+    bool            m_wipe_tower_enable_pressure_advance = false;
+    bool            m_wipe_tower_follow_filament_pressure_advance = false;
+    float           m_wipe_tower_ramming_pressure_advance = 0.02f;
 
     bool is_first_layer() const { return size_t(m_layer_info - m_plan.begin()) == m_first_layer_idx; }
 
@@ -339,6 +345,10 @@ private:
 		const std::string&	 	current_material,
 		const int 				old_temperature,
 		const int 				new_temperature);
+
+    bool ramming_moves_enabled() const;
+    float ramming_line_width() const;
+    void set_ramming_pressure_advance(WipeTowerWriter2 &writer);
 
 	void toolchange_Change(
 		WipeTowerWriter2 &writer,

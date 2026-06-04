@@ -14,6 +14,7 @@
 #include "BoundingBox.hpp"
 #include "LocalesUtils.hpp"
 #include "Geometry.hpp"
+#include "GCodeWriter.hpp"
 #include "PrintConfig.hpp"
 #include "Surface.hpp"
 #include "Fill/FillRectilinear.hpp"
@@ -621,9 +622,14 @@ public:
         return (*this);
     }
 
+    WipeTowerWriter2&            set_pressure_advance(double pa, int tool) {
+        m_gcode += GCodeWriter::set_pressure_advance(m_gcode_flavor, pa, false, tool);
+        return *this;
+    }
+
     WipeTowerWriter2&            disable_linear_advance() {
         if (m_gcode_flavor == gcfRepRapSprinter || m_gcode_flavor == gcfRepRapFirmware)
-            m_gcode += (std::string("M572 D") + std::to_string(m_current_tool) + " S0\n");
+            m_gcode += std::string("M572 D") + std::to_string(m_current_tool) + " S0\n";
         else if (m_gcode_flavor == gcfKlipper)
             m_gcode += "SET_PRESSURE_ADVANCE ADVANCE=0\n";
         else
@@ -1257,6 +1263,10 @@ WipeTower2::WipeTower2(const PrintConfig& config, const PrintRegionConfig& defau
     m_extra_flow(float(config.wipe_tower_extra_flow/100.)),
     m_extra_spacing_wipe(float(config.wipe_tower_extra_spacing/100. * config.wipe_tower_extra_flow/100.)),
     m_extra_spacing_ramming(float(config.wipe_tower_extra_spacing/100.)),
+    m_wipe_tower_ramming_width_ratio(float(config.wipe_tower_ramming_width_ratio / 100.)),
+    m_wipe_tower_enable_pressure_advance(config.wipe_tower_enable_pressure_advance.value),
+    m_wipe_tower_follow_filament_pressure_advance(config.wipe_tower_follow_filament_pressure_advance.value),
+    m_wipe_tower_ramming_pressure_advance(float(config.wipe_tower_ramming_pressure_advance.value)),
     m_y_shift(0.f),
     m_z_pos(0.f),
     m_bridging(float(config.wipe_tower_bridging)),
@@ -1351,6 +1361,8 @@ void WipeTower2::set_extruder(size_t idx, const PrintConfig& config)
     m_filpar[idx].tower_interface_pre_extrusion_length = config.filament_tower_interface_pre_extrusion_length.get_at(idx);
     m_filpar[idx].tower_ironing_area = config.filament_tower_ironing_area.get_at(idx);
     m_filpar[idx].tower_interface_purge_length = config.filament_tower_interface_purge_volume.get_at(idx);
+    m_filpar[idx].pressure_advance_enabled = config.enable_pressure_advance.get_at(idx);
+    m_filpar[idx].pressure_advance = float(config.pressure_advance.get_at(idx));
 
     // If this is a single extruder MM printer, we will use all the SE-specific config values.
     // Otherwise, the defaults will be used to turn off the SE stuff.
@@ -1628,6 +1640,34 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
     return construct_tcr(writer, false, old_tool, false, interface_layer);
 }
 
+bool WipeTower2::ramming_moves_enabled() const
+{
+    return (m_semm && m_enable_filament_ramming) || m_filpar[m_current_tool].multitool_ramming;
+}
+
+float WipeTower2::ramming_line_width() const
+{
+    return m_perimeter_width * m_wipe_tower_ramming_width_ratio;
+}
+
+void WipeTower2::set_ramming_pressure_advance(WipeTowerWriter2 &writer)
+{
+    const int pa_tool = m_semm ? 0 : int(m_current_tool);
+    if (!m_wipe_tower_enable_pressure_advance) {
+        writer.disable_linear_advance();
+        return;
+    }
+
+    if (m_wipe_tower_follow_filament_pressure_advance) {
+        const auto &filament = m_filpar[m_current_tool];
+        writer.set_pressure_advance(filament.pressure_advance_enabled ? filament.pressure_advance : 0., pa_tool);
+        writer.append("; Wipe tower pressure advance override\n");
+        return;
+    }
+
+    writer.set_pressure_advance(m_wipe_tower_ramming_pressure_advance, pa_tool);
+    writer.append("; Wipe tower pressure advance override\n");
+}
 
 // Ram the hot material out of the melt zone, retract the filament into the cooling tubes and let it cool.
 void WipeTower2::toolchange_Unload(
@@ -1640,7 +1680,7 @@ void WipeTower2::toolchange_Unload(
 	float xl = cleaning_box.ld.x() + 1.f * m_perimeter_width;
 	float xr = cleaning_box.rd.x() - 1.f * m_perimeter_width;
 
-    const float line_width = m_perimeter_width * m_filpar[m_current_tool].ramming_line_width_multiplicator;       // desired ramming line thickness
+    const float line_width = ramming_line_width();       // desired ramming line thickness
 	const float y_step = line_width * m_filpar[m_current_tool].ramming_step_multiplicator * m_extra_spacing_ramming; // spacing between lines in mm
 
     const Vec2f ramming_start_pos = Vec2f(xl, cleaning_box.ld.y() + m_depth_traversed + y_step/2.f);
@@ -1654,13 +1694,14 @@ void WipeTower2::toolchange_Unload(
 	float e_done = 0;									// measures E move done from each segment   
 
     // Orca: Do ramming when SEMM and ramming is enabled or when multi tool head when ramming is enabled on the multi tool.
-    const bool do_ramming = (m_semm && m_enable_filament_ramming) || m_filpar[m_current_tool].multitool_ramming;
+    const bool do_ramming = ramming_moves_enabled();
     const bool cold_ramming = m_is_mk4mmu3;
+
+    if (!m_is_mk4mmu3)
+        set_ramming_pressure_advance(writer);
 
     if (do_ramming) {
         writer.travel(ramming_start_pos); // move to starting position
-        if (! m_is_mk4mmu3)
-            writer.disable_linear_advance();
         if (cold_ramming)
             writer.set_extruder_temp(old_temperature - 20);
     }
@@ -2225,11 +2266,13 @@ void WipeTower2::plan_toolchange(float z_par, float layer_height_par, unsigned i
 
     // this is an actual toolchange - let's calculate depth to reserve on the wipe tower
     float width = m_wipe_tower_width - 3*m_perimeter_width; 
+    const bool do_ramming = (m_semm && m_enable_filament_ramming) || m_filpar[old_tool].multitool_ramming;
+    const float ramming_width = m_perimeter_width * m_wipe_tower_ramming_width_ratio;
 	float length_to_extrude = volume_to_length(0.25f * std::accumulate(m_filpar[old_tool].ramming_speed.begin(), m_filpar[old_tool].ramming_speed.end(), 0.f),
-										m_perimeter_width * m_filpar[old_tool].ramming_line_width_multiplicator,
+										ramming_width,
 										layer_height_par);
     // Orca: Set ramming depth to 0 if ramming is disabled.
-    float ramming_depth = m_enable_filament_ramming ? ((int(length_to_extrude / width) + 1) * (m_perimeter_width * m_filpar[old_tool].ramming_line_width_multiplicator * m_filpar[old_tool].ramming_step_multiplicator) * m_extra_spacing_ramming) : 0;
+    float ramming_depth = do_ramming ? ((int(length_to_extrude / width) + 1) * (ramming_width * m_filpar[old_tool].ramming_step_multiplicator) * m_extra_spacing_ramming) : 0;
     float first_wipe_line = - (width*((length_to_extrude / width)-int(length_to_extrude / width)) - width);
 
     float first_wipe_volume = length_to_volume(first_wipe_line, m_perimeter_width * m_extra_flow, layer_height_par);

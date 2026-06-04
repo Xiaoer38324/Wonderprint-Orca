@@ -337,6 +337,26 @@ std::string GCodeWriter::set_junction_deviation(double junction_deviation){
     return gcode.str();
 }
 
+std::string GCodeWriter::set_pressure_advance(GCodeFlavor flavor, double pa, bool is_bbl_printer, int tool)
+{
+    std::ostringstream gcode;
+    if (pa < 0)
+        return gcode.str();
+    if (is_bbl_printer) {
+        //SoftFever: set L1000 to use linear model
+        gcode << "M900 K" <<std::setprecision(4)<< pa << " L1000 M10 ; Override pressure advance value\n";
+    }
+    else {
+        if (flavor == gcfKlipper)
+            gcode << "SET_PRESSURE_ADVANCE ADVANCE=" << std::setprecision(4) << pa << "; Override pressure advance value\n";
+        else if (flavor == gcfRepRapSprinter || flavor == gcfRepRapFirmware)
+            gcode << "M572 D" << tool << " S" << std::setprecision(4) << pa << "; Override pressure advance value\n";
+        else
+            gcode << "M900 K" <<std::setprecision(4)<< pa << "; Override pressure advance value\n";
+    }
+    return gcode.str();
+}
+
 std::string GCodeWriter::set_pressure_advance(double pa) const
 {
     std::ostringstream gcode;

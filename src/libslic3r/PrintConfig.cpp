@@ -5503,6 +5503,35 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionEnum<WipeTowerType>(WipeTowerType::Type2));
 
+    def = this->add("wipe_tower_ramming_width_ratio", coPercent);
+    def->label = L("Wipe tower ramming width ratio");
+    def->tooltip = L("Line width ratio for wipe tower ramming moves.");
+    def->sidetext = "%";
+    def->mode = comAdvanced;
+    def->min = 1.;
+    def->max = 300.;
+    def->set_default_value(new ConfigOptionPercent(100.));
+
+    def = this->add("wipe_tower_enable_pressure_advance", coBool);
+    def->label = L("Enable wipe tower pressure advance");
+    def->tooltip = L("Apply pressure advance during wipe tower ramming moves.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("wipe_tower_follow_filament_pressure_advance", coBool);
+    def->label = L("Follow filament pressure advance");
+    def->tooltip = L("Use the unloading filament's pressure advance during wipe tower ramming moves.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("wipe_tower_ramming_pressure_advance", coFloat);
+    def->label = L("Wipe tower ramming pressure advance");
+    def->tooltip = L("Pressure advance used during wipe tower ramming moves when follow-filament mode is off.");
+    def->mode = comAdvanced;
+    def->min = 0.;
+    def->max = 2.;
+    def->set_default_value(new ConfigOptionFloat(0.02));
+
     def = this->add("purge_in_prime_tower", coBool);
     def->label = L("Purge in prime tower");
     def->tooltip = L("Purge remaining filament into prime tower.");
