@@ -3603,7 +3603,9 @@ void TabFilament::add_filament_overrides_page()
                                         "filament_wipe_distance",
                                         "filament_retract_before_wipe",
                                         "filament_long_retractions_when_cut",
-                                        "filament_retraction_distances_when_cut"
+                                        "filament_retraction_distances_when_cut",
+                                        "filament_retract_length_toolchange",
+                                        "filament_retract_restart_extra_toolchange"
                                         //SoftFever
                                         // "filament_seam_gap"
                                      })
@@ -3729,7 +3731,9 @@ void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* print
                                             "filament_wipe_distance",
                                             "filament_retract_before_wipe",
                                             "filament_long_retractions_when_cut",
-                                            "filament_retraction_distances_when_cut"
+                                            "filament_retraction_distances_when_cut",
+                                            "filament_retract_length_toolchange",
+                                            "filament_retract_restart_extra_toolchange"
                                             //SoftFever
                                             // "filament_seam_gap"
                                         };
@@ -4912,6 +4916,10 @@ if (is_marlin_flavor)
 
         optgroup = page->new_optgroup(L("Wipe tower"), "param_tower");
         optgroup->append_single_option_line("wipe_tower_type", "printer_multimaterial_wipe_tower");
+        optgroup->append_single_option_line("wipe_tower_ramming_width_ratio", "printer_multimaterial_wipe_tower#ramming-width-ratio");
+        optgroup->append_single_option_line("wipe_tower_enable_pressure_advance", "printer_multimaterial_wipe_tower#enable-pressure-advance");
+        optgroup->append_single_option_line("wipe_tower_follow_filament_pressure_advance", "printer_multimaterial_wipe_tower#follow-filament-pressure-advance");
+        optgroup->append_single_option_line("wipe_tower_ramming_pressure_advance", "printer_multimaterial_wipe_tower#ramming-pressure-advance");
         optgroup->append_single_option_line("purge_in_prime_tower", "printer_multimaterial_wipe_tower#purge-in-prime-tower");
         optgroup->append_single_option_line("enable_filament_ramming", "printer_multimaterial_wipe_tower#enable-filament-ramming");
 
@@ -5233,10 +5241,14 @@ void TabPrinter::toggle_options()
 
     if (m_active_page->title() == L("Multimaterial")) {
         const bool supports_wipe_tower_2 = !is_BBL_printer && m_config->opt_enum<WipeTowerType>("wipe_tower_type") == WipeTowerType::Type2;
+        const bool wipe_tower_pa = supports_wipe_tower_2 && m_config->opt_bool("wipe_tower_enable_pressure_advance");
+        const bool follow_filament_pa = wipe_tower_pa && m_config->opt_bool("wipe_tower_follow_filament_pressure_advance");
         toggle_line("wipe_tower_type", !is_BBL_printer);
         // SoftFever: hide specific settings for BBL printer
         for (auto el : {
                  "enable_filament_ramming",
+                 "wipe_tower_ramming_width_ratio",
+                 "wipe_tower_enable_pressure_advance",
                  "cooling_tube_retraction",
                  "cooling_tube_length",
                  "parking_pos_retraction",
@@ -5244,6 +5256,8 @@ void TabPrinter::toggle_options()
                  "high_current_on_filament_swap",
              })
             toggle_option(el, supports_wipe_tower_2);
+        toggle_option("wipe_tower_follow_filament_pressure_advance", wipe_tower_pa);
+        toggle_option("wipe_tower_ramming_pressure_advance", wipe_tower_pa && !follow_filament_pa);
 
         auto bSEMM = m_config->opt_bool("single_extruder_multi_material");
         if (!bSEMM && m_config->opt_bool("manual_filament_change")) {

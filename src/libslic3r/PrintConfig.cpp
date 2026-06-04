@@ -71,6 +71,8 @@ const std::vector<std::string> filament_extruder_override_keys = {
     "filament_deretraction_speed",
     "filament_retract_restart_extra",  //not in filament_options_with_variant, added on 20250816
     "filament_retraction_minimum_travel",
+    "filament_retract_length_toolchange",
+    "filament_retract_restart_extra_toolchange",
     // BBS: floats
     "filament_wipe_distance",
     // bools
@@ -5501,6 +5503,35 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionEnum<WipeTowerType>(WipeTowerType::Type2));
 
+    def = this->add("wipe_tower_ramming_width_ratio", coPercent);
+    def->label = L("Wipe tower ramming width ratio");
+    def->tooltip = L("Line width ratio for wipe tower ramming moves.");
+    def->sidetext = "%";
+    def->mode = comAdvanced;
+    def->min = 1.;
+    def->max = 300.;
+    def->set_default_value(new ConfigOptionPercent(100.));
+
+    def = this->add("wipe_tower_enable_pressure_advance", coBool);
+    def->label = L("Enable wipe tower pressure advance");
+    def->tooltip = L("Apply pressure advance during wipe tower ramming moves.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("wipe_tower_follow_filament_pressure_advance", coBool);
+    def->label = L("Follow filament pressure advance");
+    def->tooltip = L("Use the unloading filament's pressure advance during wipe tower ramming moves.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("wipe_tower_ramming_pressure_advance", coFloat);
+    def->label = L("Wipe tower ramming pressure advance");
+    def->tooltip = L("Pressure advance used during wipe tower ramming moves when follow-filament mode is off.");
+    def->mode = comAdvanced;
+    def->min = 0.;
+    def->max = 2.;
+    def->set_default_value(new ConfigOptionFloat(0.02));
+
     def = this->add("purge_in_prime_tower", coBool);
     def->label = L("Purge in prime tower");
     def->tooltip = L("Purge remaining filament into prime tower.");
@@ -6759,6 +6790,13 @@ void PrintConfigDef::init_fff_params()
         def->enum_values   = it_opt->second.enum_values;
         def->min        = it_opt->second.min;
         def->max        = it_opt->second.max;
+        if (opt_key == "filament_retract_length_toolchange") {
+            def->label      = L("Retraction on tool change");
+            def->full_label = L("Retraction on tool change");
+        } else if (opt_key == "filament_retract_restart_extra_toolchange") {
+            def->label      = L("Extra length on tool change");
+            def->full_label = L("Extra length on tool change");
+        }
         //BBS: shown specific filament retract config because we hide the machine retract into comDevelop mode
         if (opt_key =="filament_retraction_length"||
             opt_key=="filament_z_hop" ||
@@ -6802,10 +6840,12 @@ void PrintConfigDef::init_extruder_option_keys()
         "deretraction_speed",
         "long_retractions_when_cut",
         "retract_before_wipe",
+        "retract_length_toolchange",
         "retract_lift_above",
         "retract_lift_below",
         "retract_lift_enforce",
         "retract_restart_extra",
+        "retract_restart_extra_toolchange",
         "retract_when_changing_layer",
         "retraction_distances_when_cut",
         "retraction_length",
@@ -6834,10 +6874,12 @@ void PrintConfigDef::init_filament_option_keys()
         "deretraction_speed",
         "long_retractions_when_cut",
         "retract_before_wipe",
+        "retract_length_toolchange",
         "retract_lift_above",
         "retract_lift_below",
         "retract_lift_enforce",
         "retract_restart_extra",
+        "retract_restart_extra_toolchange",
         "retract_when_changing_layer",
         "retraction_distances_when_cut",
         "retraction_length",
@@ -7816,6 +7858,8 @@ std::set<std::string> filament_options_with_variant = {
     "filament_retract_lift_below",
     "filament_retract_lift_enforce",
     "filament_retract_restart_extra",
+    "filament_retract_length_toolchange",
+    "filament_retract_restart_extra_toolchange",
     "filament_retraction_speed",
     "filament_deretraction_speed",
     "filament_retraction_minimum_travel",

@@ -91,6 +91,44 @@ wxDEFINE_EVENT(EVT_SHOW_IP_DIALOG, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_MACHINE_LIST, wxCommandEvent);
 wxDEFINE_EVENT(EVT_UPDATE_PRESET_CB, SimpleEvent);
 
+static bool has_non_bambu_gcode_viewer_error(Plater* plater)
+{
+    if (plater == nullptr)
+        return false;
+
+    GLCanvas3D* preview_canvas = plater->get_preview_canvas3D();
+    if (preview_canvas == nullptr)
+        return false;
+
+    GCodeViewer& gcode_viewer = preview_canvas->get_gcode_viewer();
+    if (!gcode_viewer.has_data())
+        return false;
+
+    if (gcode_viewer.m_conflict_result.has_value())
+        return true;
+
+    if (gcode_viewer.m_gcode_check_result.error_code != 0)
+        return true;
+
+    if (gcode_viewer.filament_printable_reuslt.has_value())
+        return true;
+
+    if (!gcode_viewer.is_contained_in_bed())
+        return true;
+
+    const std::vector<double> layers_zs = gcode_viewer.get_layers_zs();
+    if (!layers_zs.empty()) {
+        size_t max_z_layer = gcode_viewer.get_layers_z_range().back();
+        if (max_z_layer >= layers_zs.size())
+            max_z_layer = layers_zs.size() - 1;
+
+        if (layers_zs[max_z_layer] - gcode_viewer.get_max_print_height() >= 1e-6)
+            return true;
+    }
+
+    return false;
+}
+
 
 
 // BBS: backup
@@ -2208,6 +2246,8 @@ bool MainFrame::get_enable_print_status()
     PartPlateList &part_plate_list = m_plater->get_partplate_list();
     PartPlate *current_plate = part_plate_list.get_curr_plate();
     bool is_all_plates = wxGetApp().plater()->get_preview_canvas3D()->is_all_plates_selected();
+    bool is_bbl_vendor = wxGetApp().preset_bundle && wxGetApp().preset_bundle->is_bbl_vendor();
+    bool non_bambu_gcode_viewer_error = !is_bbl_vendor && has_non_bambu_gcode_viewer_error(m_plater);
     if (m_print_select == ePrintAll)
     {
         if (!part_plate_list.is_all_slice_results_ready_for_print())
@@ -2229,11 +2269,17 @@ bool MainFrame::get_enable_print_status()
         {
             enable = false;
         }
+        if (non_bambu_gcode_viewer_error)
+        {
+            enable = false;
+        }
         enable = enable && !is_all_plates;
     }
     else if (m_print_select == eSendGcode)
     {
         if (!current_plate->is_slice_result_valid())
+            enable = false;
+        if (non_bambu_gcode_viewer_error)
             enable = false;
         if (!can_send_gcode())
             enable = false;
@@ -2242,6 +2288,8 @@ bool MainFrame::get_enable_print_status()
     else if (m_print_select == eUploadGcode)
     {
         if (!current_plate->is_slice_result_valid())
+            enable = false;
+        if (non_bambu_gcode_viewer_error)
             enable = false;
         if (!can_send_gcode())
             enable = false;
