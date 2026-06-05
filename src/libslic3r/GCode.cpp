@@ -7596,8 +7596,13 @@ std::string GCode::set_extruder(unsigned int new_filament_id, double print_z, bo
     // Process the custom change_filament_gcode.
     std::string change_filament_gcode = m_config.change_filament_gcode.value;
 
-    // Move the lift gcode here which is in the change_filament_gcode originally
-    change_filament_gcode = this->retract(false, false, LiftType::SpiralLift, true) + change_filament_gcode;
+    // Move the lift gcode here which is in the change_filament_gcode originally.
+    // Preserve BBL behavior; for other printers, do not force a spiral lift when the selected z-hop type is normal.
+    LiftType change_filament_lift_type = LiftType::SpiralLift;
+    if (!is_BBL_Printer() && m_writer.filament() != nullptr)
+        change_filament_lift_type = this->to_lift_type(ZHopType(FILAMENT_CONFIG(z_hop_types)));
+    std::string change_filament_lift_gcode = this->retract(false, false, change_filament_lift_type, true);
+    change_filament_gcode = change_filament_lift_gcode + change_filament_gcode;
 
     std::string toolchange_gcode_parsed;
     //Orca: Ignore change_filament_gcode if is the first call for a tool change and manual_filament_change is enabled
