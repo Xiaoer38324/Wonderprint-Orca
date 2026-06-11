@@ -1,0 +1,32 @@
+{
+    "type": "filament",
+    "name": "Panchroma PLA @WonderMaker ZR Ultra S 0.6 nozzle",
+    "inherits": "Panchroma PLA @base",
+    "from": "system",
+    "setting_id": "GFSL02_05",
+    "instantiation": "true",
+    "filament_retraction_length": [
+        "0.8"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "220"
+    ],
+    "close_fan_the_first_x_layers": [
+        "1"
+    ],
+    "nozzle_temperature": [
+        "220"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.6 nozzle"
+    ],
+    "pressure_advance": [
+        "0.02"
+    ],
+    "filament_flow_ratio": [
+        "0.95"
+    ],
+    "filament_max_volumetric_speed": [
+        "25"
+    ]
+}

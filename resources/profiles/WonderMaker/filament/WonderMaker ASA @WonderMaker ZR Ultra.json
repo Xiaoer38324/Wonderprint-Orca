@@ -1,0 +1,20 @@
+{
+    "type": "filament",
+    "name": "WonderMaker ASA @WonderMaker ZR Ultra",
+    "inherits": "WonderMaker ASA @base",
+    "from": "system",
+    "setting_id": "GFSB71_31",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.4 nozzle"
+    ],
+    "filament_max_volumetric_speed": [
+        "14"
+    ],
+    "pressure_advance": [
+        "0.032"
+    ],
+    "filament_flow_ratio": [
+        "0.93"
+    ]
+}

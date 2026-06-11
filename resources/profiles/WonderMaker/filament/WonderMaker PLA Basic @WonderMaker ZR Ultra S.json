@@ -1,0 +1,17 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Basic @WonderMaker ZR Ultra S",
+    "inherits": "WonderMaker PLA Basic @base",
+    "from": "system",
+    "setting_id": "GFSA70_20",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.4 nozzle"
+    ],
+    "filament_max_volumetric_speed": [
+        "15"
+    ],
+    "pressure_advance": [
+        "0.034"
+    ]
+}

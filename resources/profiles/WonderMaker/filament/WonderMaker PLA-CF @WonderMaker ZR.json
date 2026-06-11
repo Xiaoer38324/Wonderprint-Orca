@@ -1,0 +1,13 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA-CF @WonderMaker ZR",
+    "inherits": "WonderMaker PLA-CF @base",
+    "from": "system",
+    "setting_id": "GFA00_09",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR 0.2 nozzle",
+        "WonderMaker ZR 0.6 nozzle",
+        "WonderMaker ZR 0.8 nozzle"
+    ]
+}

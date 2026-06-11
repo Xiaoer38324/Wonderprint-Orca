@@ -1,0 +1,65 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Basic @WonderMaker ZR Ultra 0.8 nozzle",
+    "inherits": "WonderMaker PLA Basic @base",
+    "from": "system",
+    "setting_id": "GFSA70_12",
+    "instantiation": "true",
+    "filament_stamping_loading_speed": [
+        "29"
+    ],
+    "filament_cooling_final_speed": [
+        "3.5"
+    ],
+    "filament_retraction_length": [
+        "0.3"
+    ],
+    "filament_loading_speed_start": [
+        "50"
+    ],
+    "filament_loading_speed": [
+        "10"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "225"
+    ],
+    "nozzle_temperature_range_high": [
+        "240"
+    ],
+    "close_fan_the_first_x_layers": [
+        "1"
+    ],
+    "filament_multitool_ramming_volume": [
+        "5"
+    ],
+    "nozzle_temperature": [
+        "225"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.8 nozzle"
+    ],
+    "filament_cooling_moves": [
+        "2"
+    ],
+    "filament_multitool_ramming_flow": [
+        "20"
+    ],
+    "filament_stamping_distance": [
+        "45"
+    ],
+    "filament_cooling_initial_speed": [
+        "10"
+    ],
+    "filament_unloading_speed": [
+        "100"
+    ],
+    "filament_flow_ratio": [
+        "0.96"
+    ],
+    "filament_max_volumetric_speed": [
+        "24"
+    ],
+    "pressure_advance": [
+        "0.016"
+    ]
+}

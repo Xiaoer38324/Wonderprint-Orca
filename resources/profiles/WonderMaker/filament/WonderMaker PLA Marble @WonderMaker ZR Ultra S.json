@@ -1,0 +1,14 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Marble @WonderMaker ZR Ultra S",
+    "inherits": "WonderMaker PLA Marble @base",
+    "from": "system",
+    "setting_id": "GFSA77_13",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.2 nozzle",
+        "WonderMaker ZR Ultra S 0.4 nozzle",
+        "WonderMaker ZR Ultra S 0.6 nozzle",
+        "WonderMaker ZR Ultra S 0.8 nozzle"
+    ]
+}

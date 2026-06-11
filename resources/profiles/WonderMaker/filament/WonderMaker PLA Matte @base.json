@@ -1,0 +1,44 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Matte @base",
+    "inherits": "fdm_filament_pla",
+    "from": "system",
+    "filament_id": "GFA71",
+    "instantiation": "false",
+    "enable_pressure_advance": [
+        "1"
+    ],
+    "filament_cost": [
+        "24.99"
+    ],
+    "filament_density": [
+        "1.32"
+    ],
+    "filament_vendor": [
+        "WonderMaker"
+    ],
+    "filament_multitool_ramming": [
+        "1"
+    ],
+    "filament_flow_ratio": [
+        "0.98"
+    ],
+    "filament_scarf_gap": [
+        "0%"
+    ],
+    "filament_scarf_height": [
+        "5%"
+    ],
+    "filament_scarf_length": [
+        "10"
+    ],
+    "filament_scarf_seam_type": [
+        "none"
+    ],
+    "textured_plate_temp": [
+        "65"
+    ],
+    "textured_plate_temp_initial_layer": [
+        "65"
+    ]
+}

@@ -1,0 +1,35 @@
+{
+    "type": "filament",
+    "name": "PolyLite ABS @WonderMaker ZR Ultra S 0.6 nozzle",
+    "inherits": "PolyLite ABS @base",
+    "from": "system",
+    "setting_id": "GFSB70_01",
+    "instantiation": "true",
+    "nozzle_temperature_initial_layer": [
+        "255"
+    ],
+    "filament_max_volumetric_speed": [
+        "20"
+    ],
+    "filament_multitool_ramming_flow": [
+        "10"
+    ],
+    "filament_multitool_ramming_volume": [
+        "0.5"
+    ],
+    "close_fan_the_first_x_layers": [
+        "3"
+    ],
+    "filament_flow_ratio": [
+        "0.94"
+    ],
+    "activate_chamber_temp_control": [
+        "1"
+    ],
+    "chamber_temperatures": [
+        "60"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.6 nozzle"
+    ]
+}

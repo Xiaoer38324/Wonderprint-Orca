@@ -1,0 +1,11 @@
+{
+    "type": "filament",
+    "name": "WonderMaker TPU 95A @WonderMaker ZR Ultra",
+    "inherits": "WonderMaker TPU 95A @base",
+    "from": "system",
+    "setting_id": "GFSU71_17",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.4 nozzle"
+    ]
+}

@@ -1,0 +1,47 @@
+{
+    "type": "filament",
+    "name": "Panchroma PLA Matte @base",
+    "inherits": "fdm_filament_pla",
+    "from": "system",
+    "filament_id": "GFL06",
+    "instantiation": "false",
+    "enable_pressure_advance": [
+        "1"
+    ],
+    "filament_cost": [
+        "24.99"
+    ],
+    "filament_density": [
+        "1.32"
+    ],
+    "filament_vendor": [
+        "Polymaker"
+    ],
+    "filament_multitool_ramming": [
+        "1"
+    ],
+    "filament_multitool_ramming_flow": [
+        "10"
+    ],
+    "filament_multitool_ramming_volume": [
+        "10"
+    ],
+    "pressure_advance": [
+        "0.036"
+    ],
+    "filament_flow_ratio": [
+        "0.97"
+    ],
+    "filament_scarf_gap": [
+        "0%"
+    ],
+    "filament_scarf_height": [
+        "5%"
+    ],
+    "filament_scarf_length": [
+        "10"
+    ],
+    "filament_scarf_seam_type": [
+        "none"
+    ]
+}

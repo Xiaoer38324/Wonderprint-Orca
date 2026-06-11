@@ -8,28 +8,143 @@
     "printer_model": "WonderMaker ZR Ultra S",
     "default_print_profile": "0.40mm Standard @WonderMaker ZR Ultra 0.8 nozzle",
     "printer_variant": "0.8",
+    "retraction_length": [
+        "3",
+        "3",
+        "3",
+        "3"
+    ],
+    "deretraction_speed": [
+        "30",
+        "30",
+        "30",
+        "30"
+    ],
+    "extruder_offset": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+    ],
+    "long_retractions_when_cut": [
+        "0",
+        "0",
+        "0",
+        "0"
+    ],
+    "machine_tool_change_time": "12",
+    "max_layer_height": [
+        "0.56",
+        "0.56",
+        "0.56",
+        "0.56"
+    ],
+    "min_layer_height": [
+        "0.16",
+        "0.16",
+        "0.16",
+        "0.16"
+    ],
     "nozzle_diameter": [
         "0.8",
         "0.8",
         "0.8",
         "0.8"
     ],
-    "max_layer_height": [
-        "0.56"
-    ],
-    "min_layer_height": [
-        "0.16"
+    "retract_before_wipe": [
+        "0%",
+        "0%",
+        "0%",
+        "0%"
     ],
     "retract_length_toolchange": [
+        "10",
+        "10",
+        "10",
+        "10"
+    ],
+    "retract_lift_above": [
+        "0",
+        "0",
+        "0",
+        "0"
+    ],
+    "retract_lift_below": [
+        "289",
+        "289",
+        "289",
+        "289"
+    ],
+    "retract_lift_enforce": [
+        "All Surfaces",
+        "All Surfaces",
+        "All Surfaces",
+        "All Surfaces"
+    ],
+    "retract_restart_extra": [
+        "0",
+        "0",
+        "0",
+        "0"
+    ],
+    "retract_restart_extra_toolchange": [
+        "0",
+        "0",
+        "0",
+        "0"
+    ],
+    "retract_when_changing_layer": [
+        "1",
+        "1",
+        "1",
+        "1"
+    ],
+    "retraction_distances_when_cut": [
+        "18",
+        "18",
+        "18",
+        "18"
+    ],
+    "retraction_minimum_travel": [
+        "1",
+        "1",
+        "1",
+        "1"
+    ],
+    "retraction_speed": [
+        "30",
+        "30",
+        "30",
+        "30"
+    ],
+    "travel_slope": [
         "3",
         "3",
         "3",
         "3"
     ],
-    "retraction_length": [
-        "3",
-        "3",
-        "3",
-        "3"
+    "wipe": [
+        "1",
+        "1",
+        "1",
+        "1"
+    ],
+    "wipe_distance": [
+        "1",
+        "1",
+        "1",
+        "1"
+    ],
+    "z_hop": [
+        "0.4",
+        "0.4",
+        "0.4",
+        "0.4"
+    ],
+    "z_hop_types": [
+        "Auto Lift",
+        "Auto Lift",
+        "Auto Lift",
+        "Auto Lift"
     ]
 }

@@ -1,0 +1,59 @@
+{
+    "type": "filament",
+    "name": "Panchroma PLA @base",
+    "inherits": "fdm_filament_pla",
+    "from": "system",
+    "filament_id": "GFL02",
+    "instantiation": "false",
+    "enable_pressure_advance": [
+        "1"
+    ],
+    "filament_cost": [
+        "24.99"
+    ],
+    "filament_density": [
+        "1.26"
+    ],
+    "filament_vendor": [
+        "Polymaker"
+    ],
+    "nozzle_temperature": [
+        "230"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "230"
+    ],
+    "filament_multitool_ramming": [
+        "1"
+    ],
+    "filament_max_volumetric_speed": [
+        "18"
+    ],
+    "filament_multitool_ramming_flow": [
+        "10"
+    ],
+    "filament_multitool_ramming_volume": [
+        "10"
+    ],
+    "filament_retraction_length": [
+        "nil"
+    ],
+    "pressure_advance": [
+        "0.036"
+    ],
+    "filament_flow_ratio": [
+        "0.96"
+    ],
+    "filament_scarf_gap": [
+        "0%"
+    ],
+    "filament_scarf_height": [
+        "10%"
+    ],
+    "filament_scarf_length": [
+        "10"
+    ],
+    "filament_scarf_seam_type": [
+        "none"
+    ]
+}

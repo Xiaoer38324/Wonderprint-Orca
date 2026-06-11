@@ -1,0 +1,44 @@
+{
+    "type": "filament",
+    "name": "WonderMaker TPU 95A @WonderMaker ZR Ultra S 0.2 nozzle",
+    "inherits": "WonderMaker TPU 95A @base",
+    "from": "system",
+    "setting_id": "GFSU71_06",
+    "instantiation": "true",
+    "additional_cooling_fan_speed": [
+        "0"
+    ],
+    "enable_overhang_bridge_fan": [
+        "0"
+    ],
+    "filament_retraction_length": [
+        "1"
+    ],
+    "textured_plate_temp_initial_layer": [
+        "55"
+    ],
+    "hot_plate_temp_initial_layer": [
+        "55"
+    ],
+    "textured_plate_temp": [
+        "55"
+    ],
+    "filament_retraction_speed": [
+        "35"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.2 nozzle"
+    ],
+    "pressure_advance": [
+        "0.5"
+    ],
+    "filament_multitool_ramming_flow": [
+        "5"
+    ],
+    "hot_plate_temp": [
+        "55"
+    ],
+    "filament_max_volumetric_speed": [
+        "5"
+    ]
+}

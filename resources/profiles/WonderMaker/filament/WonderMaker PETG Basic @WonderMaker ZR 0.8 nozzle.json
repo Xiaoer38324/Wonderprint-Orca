@@ -1,0 +1,38 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PETG Basic @WonderMaker ZR 0.8 nozzle",
+    "inherits": "WonderMaker PETG Basic @base",
+    "from": "system",
+    "setting_id": "GFSG70_13",
+    "instantiation": "true",
+    "filament_minimal_purge_on_wipe_tower": [
+        "50"
+    ],
+    "filament_retraction_length": [
+        "0.4"
+    ],
+    "cool_plate_temp": [
+        "55"
+    ],
+    "filament_multitool_ramming_volume": [
+        "5"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR 0.8 nozzle"
+    ],
+    "pressure_advance": [
+        "0.02"
+    ],
+    "filament_multitool_ramming_flow": [
+        "20"
+    ],
+    "cool_plate_temp_initial_layer": [
+        "55"
+    ],
+    "filament_flow_ratio": [
+        "0.95"
+    ],
+    "filament_max_volumetric_speed": [
+        "27"
+    ]
+}

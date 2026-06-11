@@ -12,10 +12,25 @@
     "ooze_prevention": "1",
     "preheat_time": "30",
     "standby_temperature_delta": "-80",
-    "prime_tower_width": "24",
-    "prime_volume": "15",
     "compatible_printers": [
         "WonderMaker ZR Ultra 0.2 nozzle",
         "WonderMaker ZR Ultra S 0.2 nozzle"
-    ]
+    ],
+    "accel_to_decel_enable": "1",
+    "bridge_speed": "50",
+    "default_acceleration": "8000",
+    "fuzzy_skin_point_distance": "0.8",
+    "fuzzy_skin_thickness": "0.3",
+    "internal_solid_infill_pattern": "rectilinear",
+    "overhang_1_4_speed": "60",
+    "overhang_2_4_speed": "50",
+    "overhang_3_4_speed": "30",
+    "prime_volume": "20",
+    "slowdown_for_curled_perimeters": "0",
+    "sparse_infill_pattern": "grid",
+    "support_type": "tree(auto)",
+    "inner_wall_acceleration": "0",
+    "internal_bridge_speed": "50",
+    "prime_tower_width": "20",
+    "wipe_tower_wall_type": "rib"
 }

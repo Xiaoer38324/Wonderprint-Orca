@@ -1,0 +1,14 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PETG Basic @WonderMaker ZR Ultra S",
+    "inherits": "WonderMaker PETG Basic @base",
+    "from": "system",
+    "setting_id": "GFSG70_31",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.4 nozzle"
+    ],
+    "filament_max_volumetric_speed": [
+        "10"
+    ]
+}

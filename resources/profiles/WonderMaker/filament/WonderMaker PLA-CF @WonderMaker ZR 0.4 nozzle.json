@@ -1,0 +1,44 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA-CF @WonderMaker ZR 0.4 nozzle",
+    "inherits": "WonderMaker PLA-CF @base",
+    "from": "system",
+    "setting_id": "GFSA70_17",
+    "instantiation": "true",
+    "additional_cooling_fan_speed": [
+        "0"
+    ],
+    "filament_retraction_length": [
+        "1.5"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "225"
+    ],
+    "nozzle_temperature_range_high": [
+        "240"
+    ],
+    "close_fan_the_first_x_layers": [
+        "1"
+    ],
+    "filament_multitool_ramming_volume": [
+        "10"
+    ],
+    "nozzle_temperature": [
+        "220"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR 0.4 nozzle"
+    ],
+    "pressure_advance": [
+        "0.05"
+    ],
+    "filament_multitool_ramming_flow": [
+        "10"
+    ],
+    "filament_type": [
+        "PLA-CF"
+    ],
+    "filament_max_volumetric_speed": [
+        "12"
+    ]
+}

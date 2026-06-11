@@ -1,0 +1,12 @@
+{
+    "type": "filament",
+    "name": "Panchroma PLA Matte @WonderMaker ZR Ultra",
+    "inherits": "Panchroma PLA Matte @base",
+    "from": "system",
+    "setting_id": "GFSL06_16",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.2 nozzle",
+        "WonderMaker ZR Ultra 0.4 nozzle"
+    ]
+}

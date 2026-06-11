@@ -1,0 +1,11 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PETG Basic @WonderMaker ZR",
+    "inherits": "WonderMaker PETG Basic @base",
+    "from": "system",
+    "setting_id": "GFSG70_35",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR 0.4 nozzle"
+    ]
+}

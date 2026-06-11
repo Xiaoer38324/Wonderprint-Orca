@@ -1,0 +1,17 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Matte @WonderMaker ZR Ultra 0.6 nozzle",
+    "inherits": "WonderMaker PLA Matte @base",
+    "from": "system",
+    "setting_id": "GFSA71_17",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.6 nozzle"
+    ],
+    "filament_max_volumetric_speed": [
+        "25"
+    ],
+    "filament_flow_ratio": [
+        "0.94"
+    ]
+}

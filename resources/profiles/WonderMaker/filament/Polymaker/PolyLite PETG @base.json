@@ -1,0 +1,93 @@
+{
+    "type": "filament",
+    "name": "PolyLite PETG @base",
+    "inherits": "fdm_filament_pet",
+    "from": "system",
+    "filament_id": "GFG70",
+    "instantiation": "false",
+    "enable_pressure_advance": [
+        "1"
+    ],
+    "description": "To get better transparent or translucent results with the corresponding filament, please refer to this wiki: Printing tips for transparent PETG.",
+    "filament_cost": [
+        "24.99"
+    ],
+    "filament_density": [
+        "1.25"
+    ],
+    "filament_vendor": [
+        "Polymaker"
+    ],
+    "nozzle_temperature": [
+        "235"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "240"
+    ],
+    "filament_multitool_ramming": [
+        "1"
+    ],
+    "filament_max_volumetric_speed": [
+        "18"
+    ],
+    "filament_multitool_ramming_flow": [
+        "10"
+    ],
+    "filament_multitool_ramming_volume": [
+        "10"
+    ],
+    "hot_plate_temp": [
+        "70"
+    ],
+    "hot_plate_temp_initial_layer": [
+        "70"
+    ],
+    "pressure_advance": [
+        "0.05"
+    ],
+    "textured_plate_temp": [
+        "70"
+    ],
+    "textured_plate_temp_initial_layer": [
+        "70"
+    ],
+    "cool_plate_temp": [
+        "0"
+    ],
+    "cool_plate_temp_initial_layer": [
+        "0"
+    ],
+    "eng_plate_temp": [
+        "70"
+    ],
+    "eng_plate_temp_initial_layer": [
+        "70"
+    ],
+    "fan_cooling_layer_time": [
+        "30"
+    ],
+    "fan_max_speed": [
+        "40"
+    ],
+    "fan_min_speed": [
+        "10"
+    ],
+    "filament_flow_ratio": [
+        "0.98"
+    ],
+    "nozzle_temperature_range_high": [
+        "270"
+    ],
+    "nozzle_temperature_range_low": [
+        "230"
+    ],
+    "overhang_fan_speed": [
+        "90"
+    ],
+    "overhang_fan_threshold": [
+        "10%"
+    ],
+    "slow_down_layer_time": [
+        "12"
+    ]
+}

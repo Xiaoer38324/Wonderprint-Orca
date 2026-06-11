@@ -1,0 +1,32 @@
+{
+    "type": "filament",
+    "name": "PolyLite PETG @WonderMaker ZR 0.8 nozzle",
+    "inherits": "PolyLite PETG @base",
+    "from": "system",
+    "setting_id": "GFSG70_22",
+    "instantiation": "true",
+    "filament_retraction_length": [
+        "0.5"
+    ],
+    "cool_plate_temp": [
+        "55"
+    ],
+    "nozzle_temperature": [
+        "245"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR 0.8 nozzle"
+    ],
+    "pressure_advance": [
+        "0.018"
+    ],
+    "cool_plate_temp_initial_layer": [
+        "55"
+    ],
+    "filament_flow_ratio": [
+        "0.93"
+    ],
+    "filament_max_volumetric_speed": [
+        "28"
+    ]
+}

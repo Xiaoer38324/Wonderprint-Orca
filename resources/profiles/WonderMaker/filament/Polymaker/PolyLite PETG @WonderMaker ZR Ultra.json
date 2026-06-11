@@ -1,0 +1,12 @@
+{
+    "type": "filament",
+    "name": "PolyLite PETG @WonderMaker ZR Ultra",
+    "inherits": "PolyLite PETG @base",
+    "from": "system",
+    "setting_id": "GFSG70_33",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.2 nozzle",
+        "WonderMaker ZR Ultra 0.4 nozzle"
+    ]
+}

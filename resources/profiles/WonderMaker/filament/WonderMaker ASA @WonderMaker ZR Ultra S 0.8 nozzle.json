@@ -1,0 +1,41 @@
+{
+    "type": "filament",
+    "name": "WonderMaker ASA @WonderMaker ZR Ultra S 0.8 nozzle",
+    "inherits": "WonderMaker ASA @base",
+    "from": "system",
+    "setting_id": "GFSB71_05",
+    "instantiation": "true",
+    "filament_max_volumetric_speed": [
+        "20"
+    ],
+    "filament_multitool_ramming_flow": [
+        "10"
+    ],
+    "filament_multitool_ramming_volume": [
+        "0.5"
+    ],
+    "filament_retraction_length": [
+        "0.4"
+    ],
+    "close_fan_the_first_x_layers": [
+        "3"
+    ],
+    "filament_flow_ratio": [
+        "0.92"
+    ],
+    "filament_type": [
+        "ASA"
+    ],
+    "pressure_advance": [
+        "0.016"
+    ],
+    "activate_chamber_temp_control": [
+        "1"
+    ],
+    "chamber_temperatures": [
+        "60"
+    ],
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.8 nozzle"
+    ]
+}

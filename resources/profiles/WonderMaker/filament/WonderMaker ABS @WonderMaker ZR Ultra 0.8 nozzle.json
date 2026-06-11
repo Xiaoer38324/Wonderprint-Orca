@@ -1,0 +1,26 @@
+{
+    "type": "filament",
+    "name": "WonderMaker ABS @WonderMaker ZR Ultra 0.8 nozzle",
+    "inherits": "WonderMaker ABS @base",
+    "from": "system",
+    "setting_id": "GFSB70_32",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra 0.8 nozzle"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "265"
+    ],
+    "pressure_advance": [
+        "0.016"
+    ],
+    "filament_max_volumetric_speed": [
+        "28"
+    ],
+    "nozzle_temperature": [
+        "260"
+    ],
+    "filament_flow_ratio": [
+        "0.93"
+    ]
+}

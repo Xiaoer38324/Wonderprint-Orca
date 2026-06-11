@@ -53,15 +53,8 @@
     ],
     "support_air_filtration": "0",
     "support_chamber_temp_control": "0",
-    "machine_tool_change_time": "10",
     "machine_load_filament_time": "0",
     "machine_unload_filament_time": "0",
-    "retract_lift_below": [
-        "279",
-        "279",
-        "279",
-        "279"
-    ],
     "enable_long_retraction_when_cut": [
         "0",
         "0",
@@ -73,5 +66,24 @@
         "0",
         "0",
         "0"
+    ],
+    "machine_tool_change_time": "12",
+    "retract_lift_below": [
+        "289",
+        "289",
+        "289",
+        "289"
+    ],
+    "wipe_distance": [
+        "2",
+        "2",
+        "2",
+        "2"
+    ],
+    "retract_length_toolchange": [
+        "10",
+        "10",
+        "10",
+        "10"
     ]
 }

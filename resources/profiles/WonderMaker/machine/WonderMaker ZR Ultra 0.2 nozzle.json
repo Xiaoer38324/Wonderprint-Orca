@@ -25,5 +25,24 @@
         "0.4",
         "0.4",
         "0.4"
+    ],
+    "machine_tool_change_time": "12",
+    "retract_lift_below": [
+        "289",
+        "289",
+        "289",
+        "289"
+    ],
+    "wipe_distance": [
+        "2",
+        "2",
+        "2",
+        "2"
+    ],
+    "retract_length_toolchange": [
+        "10",
+        "10",
+        "10",
+        "10"
     ]
 }

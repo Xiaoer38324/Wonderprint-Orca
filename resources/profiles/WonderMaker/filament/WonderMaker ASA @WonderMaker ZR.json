@@ -1,0 +1,14 @@
+{
+    "type": "filament",
+    "name": "WonderMaker ASA @WonderMaker ZR",
+    "inherits": "WonderMaker ASA @base",
+    "from": "system",
+    "setting_id": "GFSB71_29",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR 0.2 nozzle",
+        "WonderMaker ZR 0.4 nozzle",
+        "WonderMaker ZR 0.6 nozzle",
+        "WonderMaker ZR 0.8 nozzle"
+    ]
+}

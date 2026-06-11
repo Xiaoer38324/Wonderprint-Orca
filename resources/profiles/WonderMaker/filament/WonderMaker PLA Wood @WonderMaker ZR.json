@@ -1,0 +1,14 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Wood @WonderMaker ZR",
+    "inherits": "WonderMaker PLA Wood @base",
+    "from": "system",
+    "setting_id": "GFSA76_14",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR 0.2 nozzle",
+        "WonderMaker ZR 0.4 nozzle",
+        "WonderMaker ZR 0.6 nozzle",
+        "WonderMaker ZR 0.8 nozzle"
+    ]
+}

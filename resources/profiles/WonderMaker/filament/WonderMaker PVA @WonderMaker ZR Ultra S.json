@@ -1,0 +1,14 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PVA @WonderMaker ZR Ultra S",
+    "inherits": "WonderMaker PVA @base",
+    "from": "system",
+    "setting_id": "GFSS74_14",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR Ultra S 0.2 nozzle",
+        "WonderMaker ZR Ultra S 0.4 nozzle",
+        "WonderMaker ZR Ultra S 0.6 nozzle",
+        "WonderMaker ZR Ultra S 0.8 nozzle"
+    ]
+}

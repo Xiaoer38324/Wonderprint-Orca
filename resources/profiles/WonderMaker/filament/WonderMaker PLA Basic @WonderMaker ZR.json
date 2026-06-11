@@ -1,0 +1,11 @@
+{
+    "type": "filament",
+    "name": "WonderMaker PLA Basic @WonderMaker ZR",
+    "inherits": "WonderMaker PLA Basic @base",
+    "from": "system",
+    "setting_id": "GFSA70_22",
+    "instantiation": "true",
+    "compatible_printers": [
+        "WonderMaker ZR 0.4 nozzle"
+    ]
+}
