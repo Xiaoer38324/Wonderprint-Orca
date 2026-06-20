@@ -1,0 +1,87 @@
+{
+  "type": "filament",
+  "name": "3D Aura ABS@WonderMaker ZR Ultra S",
+  "inherits": "fdm_filament_abs",
+  "from": "system",
+  "filament_id": "GFB70",
+  "instantiation": "true",
+  "compatible_printers": [
+    "WonderMaker ZR Ultra 0.4 nozzle",
+    "WonderMaker ZR Ultra S 0.4 nozzle"
+  ],
+  "chamber_temperature": [
+    "60"
+  ],
+  "activate_chamber_temp_control": [
+    "1"
+  ],
+  "enable_overhang_bridge_fan": [
+    "1"
+  ],
+  "enable_pressure_advance": [
+    "1"
+  ],
+  "filament_cooling_final_speed": [
+    "3.4"
+  ],
+  "filament_cooling_initial_speed": [
+    "2.2"
+  ],
+  "filament_cooling_moves": [
+    "4"
+  ],
+  "filament_cost": [
+    "24.99"
+  ],
+  "filament_flow_ratio": [
+    "0.95"
+  ],
+  "filament_loading_speed": [
+    "28"
+  ],
+  "filament_loading_speed_start": [
+    "3"
+  ],
+  "filament_max_volumetric_speed": [
+    "25"
+  ],
+  "filament_multitool_ramming": [
+    "1"
+  ],
+  "filament_multitool_ramming_flow": [
+    "0.1"
+  ],
+  "filament_multitool_ramming_volume": [
+    "0.1"
+  ],
+  "filament_unloading_speed": [
+    "90"
+  ],
+  "filament_vendor": [
+    "3D Aura"
+  ],
+  "nozzle_temperature": [
+    "235"
+  ],
+  "nozzle_temperature_initial_layer": [
+    "235"
+  ],
+  "pressure_advance": [
+    "0.038"
+  ],
+  "filament_retraction_length": [
+    "nil"
+  ],
+  "hot_plate_temp": [
+    "90"
+  ],
+  "hot_plate_temp_initial_layer": [
+    "90"
+  ],
+  "textured_plate_temp": [
+    "90"
+  ],
+  "textured_plate_temp_initial_layer": [
+    "90"
+  ]
+}

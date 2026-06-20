@@ -1,0 +1,84 @@
+{
+  "type": "filament",
+  "name": "3D Aura PLA PRO@WonderMaker ZR Ultra S",
+  "inherits": "fdm_filament_pla",
+  "from": "system",
+  "filament_id": "GFA70",
+  "instantiation": "true",
+  "compatible_printers": [
+    "WonderMaker ZR Ultra 0.4 nozzle",
+    "WonderMaker ZR Ultra S 0.4 nozzle"
+  ],
+  "enable_overhang_bridge_fan": [
+    "1"
+  ],
+  "enable_pressure_advance": [
+    "1"
+  ],
+  "filament_cooling_final_speed": [
+    "3.5"
+  ],
+  "filament_cooling_initial_speed": [
+    "10"
+  ],
+  "filament_cooling_moves": [
+    "2"
+  ],
+  "filament_cost": [
+    "24.99"
+  ],
+  "filament_density": [
+    "1.26"
+  ],
+  "filament_flow_ratio": [
+    "0.98"
+  ],
+  "filament_loading_speed": [
+    "10"
+  ],
+  "filament_loading_speed_start": [
+    "50"
+  ],
+  "filament_max_volumetric_speed": [
+    "18"
+  ],
+  "filament_multitool_ramming": [
+    "1"
+  ],
+  "filament_multitool_ramming_flow": [
+    "0.1"
+  ],
+  "filament_multitool_ramming_volume": [
+    "0.1"
+  ],
+  "filament_stamping_distance": [
+    "45"
+  ],
+  "filament_stamping_loading_speed": [
+    "29"
+  ],
+  "filament_unloading_speed": [
+    "100"
+  ],
+  "filament_vendor": [
+    "3D Aura"
+  ],
+  "nozzle_temperature": [
+    "235"
+  ],
+  "nozzle_temperature_initial_layer": [
+    "235"
+  ],
+  "pressure_advance": [
+    "0.034"
+  ],
+  "textured_plate_temp": [
+    "65"
+  ],
+  "textured_plate_temp_initial_layer": [
+    "65"
+  ],
+  "filament_retraction_length": [
+    "nil"
+  ]
+}

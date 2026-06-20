@@ -1,0 +1,120 @@
+{
+  "type": "filament",
+  "name": "3D Aura PETG@WonderMaker ZR Ultra S",
+  "inherits": "fdm_filament_pet",
+  "from": "system",
+  "filament_id": "GFG70",
+  "slow_down_layer_time": [
+    "0"
+  ],
+  "instantiation": "true",
+  "compatible_printers": [
+    "WonderMaker ZR Ultra 0.4 nozzle",
+    "WonderMaker ZR Ultra S 0.4 nozzle"
+  ],
+  "cool_plate_temp": [
+    "0"
+  ],
+  "cool_plate_temp_initial_layer": [
+    "0"
+  ],
+  "enable_overhang_bridge_fan": [
+    "1"
+  ],
+  "enable_pressure_advance": [
+    "1"
+  ],
+  "eng_plate_temp": [
+    "70"
+  ],
+  "eng_plate_temp_initial_layer": [
+    "70"
+  ],
+  "fan_cooling_layer_time": [
+    "30"
+  ],
+  "fan_max_speed": [
+    "40"
+  ],
+  "fan_min_speed": [
+    "10"
+  ],
+  "filament_cooling_final_speed": [
+    "3.4"
+  ],
+  "filament_cooling_initial_speed": [
+    "2.2"
+  ],
+  "filament_cooling_moves": [
+    "4"
+  ],
+  "filament_cost": [
+    "24.99"
+  ],
+  "filament_density": [
+    "1.25"
+  ],
+  "filament_flow_ratio": [
+    "0.931"
+  ],
+  "filament_loading_speed": [
+    "28"
+  ],
+  "filament_loading_speed_start": [
+    "3"
+  ],
+  "filament_max_volumetric_speed": [
+    "9"
+  ],
+  "filament_minimal_purge_on_wipe_tower": [
+    "50"
+  ],
+  "filament_multitool_ramming": [
+    "1"
+  ],
+  "filament_multitool_ramming_flow": [
+    "0.1"
+  ],
+  "filament_multitool_ramming_volume": [
+    "0.1"
+  ],
+  "filament_unloading_speed": [
+    "90"
+  ],
+  "filament_vendor": [
+    "3D Aura"
+  ],
+  "hot_plate_temp": [
+    "70"
+  ],
+  "hot_plate_temp_initial_layer": [
+    "70"
+  ],
+  "nozzle_temperature": [
+    "260"
+  ],
+  "nozzle_temperature_initial_layer": [
+    "260"
+  ],
+  "nozzle_temperature_range_high": [
+    "270"
+  ],
+  "nozzle_temperature_range_low": [
+    "230"
+  ],
+  "overhang_fan_speed": [
+    "90"
+  ],
+  "overhang_fan_threshold": [
+    "10%"
+  ],
+  "pressure_advance": [
+    "0.064"
+  ],
+  "textured_plate_temp": [
+    "70"
+  ],
+  "textured_plate_temp_initial_layer": [
+    "70"
+  ]
+}
