@@ -6,7 +6,7 @@
     "setting_id": "GFSB71_06",
     "instantiation": "true",
     "filament_max_volumetric_speed": [
-        "14"
+        "2"
     ],
     "filament_multitool_ramming_flow": [
         "10"

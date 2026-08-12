@@ -76,6 +76,10 @@
       "sub_path": "process/0.08mm Extra Fine @WonderMaker ZR.json"
     },
     {
+      "name": "0.08mm Standard @WonderMaker ZR",
+      "sub_path": "process/0.08mm Standard @WonderMaker ZR.json"
+    },
+    {
       "name": "fdm_process_wm_0.14_nozzle_0.2",
       "sub_path": "process/fdm_process_wm_0.14_nozzle_0.2.json"
     },
@@ -838,10 +842,6 @@
       "sub_path": "filament/Polymaker/PolyLite PETG @WonderMaker ZR.json"
     },
     {
-      "name": "WonderMaker TPU 95A @WonderMaker ZR 0.2 nozzle",
-      "sub_path": "filament/WonderMaker TPU 95A @WonderMaker ZR 0.2 nozzle.json"
-    },
-    {
       "name": "Panchroma PLA Matte @WonderMaker ZR Ultra 0.8 nozzle",
       "sub_path": "filament/Polymaker/Panchroma PLA Matte @WonderMaker ZR Ultra 0.8 nozzle.json"
     },
@@ -860,10 +860,6 @@
     {
       "name": "PolyLite PETG @WonderMaker ZR 0.6 nozzle",
       "sub_path": "filament/Polymaker/PolyLite PETG @WonderMaker ZR 0.6 nozzle.json"
-    },
-    {
-      "name": "WonderMaker TPU 95A @WonderMaker ZR Ultra S 0.2 nozzle",
-      "sub_path": "filament/WonderMaker TPU 95A @WonderMaker ZR Ultra S 0.2 nozzle.json"
     },
     {
       "name": "Panchroma PLA @WonderMaker ZR Ultra S",
@@ -900,10 +896,6 @@
     {
       "name": "WonderMaker PETG Basic @WonderMaker ZR Ultra S 0.2 nozzle",
       "sub_path": "filament/WonderMaker PETG Basic @WonderMaker ZR Ultra S 0.2 nozzle.json"
-    },
-    {
-      "name": "WonderMaker TPU 95A @WonderMaker ZR Ultra 0.2 nozzle",
-      "sub_path": "filament/WonderMaker TPU 95A @WonderMaker ZR Ultra 0.2 nozzle.json"
     },
     {
       "name": "WonderMaker TPU 95A @WonderMaker ZR Ultra",

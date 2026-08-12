@@ -29,6 +29,9 @@
     "filament_flow_ratio": [
         "0.94"
     ],
+    "filament_max_volumetric_speed": [
+        "2"
+    ],
     "compatible_printers": [
         "WonderMaker ZR Ultra S 0.2 nozzle"
     ]

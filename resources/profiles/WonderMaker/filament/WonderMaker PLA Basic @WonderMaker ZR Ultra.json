@@ -13,5 +13,20 @@
     ],
     "pressure_advance": [
         "0.034"
+    ],
+    "hot_plate_temp": [
+        "65"
+    ],
+    "hot_plate_temp_initial_layer": [
+        "65"
+    ],
+    "nozzle_temperature": [
+            "220"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "220"
+    ],
+    "slow_down_min_speed": [
+        "10"
     ]
 }

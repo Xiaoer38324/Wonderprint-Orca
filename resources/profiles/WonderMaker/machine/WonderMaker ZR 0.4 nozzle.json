@@ -14,6 +14,32 @@
     "default_filament_profile": [
         "WonderMaker PLA Basic"
     ],
+    "auxiliary_fan": "1",
+    "bed_exclude_area": [
+        "0x0",
+        "18x0",
+        "18x28",
+        "0x28"
+    ],
+    "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\n;[layer_z]\nG92 E0\n",
+    "cooling_tube_length": "5",
+    "cooling_tube_retraction": "91.5",
+    "deretraction_speed": [
+        "30"
+    ],
+    "emit_machine_limits_to_gcode": "1",
+    "enable_long_retraction_when_cut": "0",
+    "extra_loading_move": "-2",
+    "extruder_clearance_height_to_lid": "140",
+    "extruder_clearance_height_to_rod": "36",
+    "extruder_clearance_radius": "65",
+    "fan_kickstart": "0",
+    "fan_speedup_overhangs": "1",
+    "fan_speedup_time": "0",
+    "long_retractions_when_cut": [
+        "0"
+    ],
+    "machine_end_gcode": ";PRINT_END",
     "purge_in_prime_tower": "0",
     "enable_filament_ramming": "0",
     "machine_load_filament_time": "80",

@@ -8,6 +8,21 @@
     "compatible_printers": [
         "WonderMaker ZR Ultra S 0.4 nozzle"
     ],
+    "hot_plate_temp": [
+        "65"
+    ],
+    "hot_plate_temp_initial_layer": [
+        "65"
+    ],
+    "nozzle_temperature": [
+            "220"
+    ],
+    "nozzle_temperature_initial_layer": [
+        "220"
+    ],
+    "slow_down_min_speed": [
+        "10"
+    ],
     "filament_max_volumetric_speed": [
         "15"
     ],

@@ -85,5 +85,9 @@
         "10",
         "10",
         "10"
-    ]
+    ],
+    "wipe_tower_enable_pressure_advance": "1",
+    "wipe_tower_ramming_pressure_advance": "0.06",
+    "wipe_tower_ramming_width_ratio": "150%",
+    "change_filament_gcode": "G91\nG1 Z2 F3000\nG90"
 }

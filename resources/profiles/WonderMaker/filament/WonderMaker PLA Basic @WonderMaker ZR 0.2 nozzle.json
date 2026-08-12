@@ -18,16 +18,16 @@
         "10"
     ],
     "nozzle_temperature_initial_layer": [
-        "230"
+        "220"
     ],
     "nozzle_temperature": [
-        "230"
+        "220"
     ],
     "filament_multitool_ramming_volume": [
         "5"
     ],
     "filament_max_volumetric_speed": [
-        "18"
+        "2"
     ],
     "filament_multitool_ramming_flow": [
         "20"

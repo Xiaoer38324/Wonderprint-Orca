@@ -10,5 +10,14 @@
     "overhang_totally_speed": "50",
     "compatible_printers": [
         "WonderMaker ZR 0.4 nozzle"
-    ]
+    ],
+    "brim_type": "no_brim",
+    "min_width_top_surface": "150%",
+    "scarf_joint_speed": "80%",
+    "seam_position": "aligned_back",
+    "seam_slope_inner_walls": "1",
+    "sparse_infill_density": "10%",
+    "top_bottom_infill_wall_overlap": "22%",
+    "top_solid_infill_flow_ratio": "0.96",
+    "wipe_tower_wall_type": "rib"
 }
