@@ -382,8 +382,12 @@ jobs:
         shell: bash
         run: |
           ./build_linux.sh -istrlL
-          mv -n ./build/*.AppImage ./build/Wonderprint-Orca_Linux_AppImage${{ env.ubuntu-ver-str }}_${{ env.ver }}.AppImage
-          chmod +x ./build/Wonderprint-Orca_Linux_AppImage${{ env.ubuntu-ver-str }}_${{ env.ver }}.AppImage
+          SRC_APP=$(find ./build -maxdepth 1 -name "Wonderprint-Orca*.AppImage" | head -n 1)
+          TARGET_APP="./build/Wonderprint-Orca_Linux_AppImage${{ env.ubuntu-ver-str }}_${{ env.ver }}.AppImage"
+
+          echo "Moving $SRC_APP to $TARGET_APP"
+          mv -f "$SRC_APP" "$TARGET_APP"
+          chmod +x "$TARGET_APP"
           tar -cvpf build_tests.tar build/tests
 
         # Use tar because upload-artifacts won't always preserve directory structure
