@@ -1530,9 +1530,15 @@ Color ViewerImpl::get_vertex_color(const PathVertex& v) const
         assert(static_cast<size_t>(v.extruder_id) < m_tool_colors.size());
         return m_tool_colors[v.extruder_id];
     }
-    case EViewType::Summary: // ORCA
-    case EViewType::ColorPrint:
+    case EViewType::Summary:
     {
+        return m_layers.layer_contains_colorprint_options(static_cast<size_t>(v.layer_id)) ? DUMMY_COLOR :
+            m_color_print_colors[static_cast<size_t>(v.color_id) % m_color_print_colors.size()];
+    }
+    case EViewType::ColorPrint://Wonder
+    {
+        if (v.is_travel())
+            return get_option_color(EOptionType::Travels);
         return m_layers.layer_contains_colorprint_options(static_cast<size_t>(v.layer_id)) ? DUMMY_COLOR :
             m_color_print_colors[static_cast<size_t>(v.color_id) % m_color_print_colors.size()];
     }
