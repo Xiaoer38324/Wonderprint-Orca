@@ -663,7 +663,25 @@ public:
 		m_gcode += "\n";
 		return *this;
 	}
-
+// Emit an absolute move to the given position, even when the writer already considers itself to be there.
+	// The toolchange code only sets the logical position (set_initial_position) without emitting a move, so the
+	// nozzle may still be where the previous g-code left it. The move is tagged with never_skip_tag(), so the
+	// postprocessor keeps it even when it thinks the position did not change.
+	WipeTowerWriter& travel_absolute(const Vec2f &dest, float f = 0.f)
+	{
+		const Vec2f rot(this->rotate(dest));
+		m_gcode += "G1 X" + Slic3r::float_to_string_decimal_point(rot.x(), 3)
+		         +  " Y" + Slic3r::float_to_string_decimal_point(rot.y(), 3);
+		if (f > 0.f) {
+			char buf[64];
+			snprintf(buf, sizeof(buf), " F%d", int(floor(f + 0.5f)));
+			m_gcode += buf;
+			m_current_feedrate = f;
+		}
+		m_gcode += WipeTower::never_skip_tag() + "\n";
+		m_current_pos = dest;
+		return *this;
+	}
     	// Extrude with an explicitely provided amount of extrusion.
     WipeTowerWriter &extrude_arc_explicit(ArcSegment &arc, float f = 0.f, bool record_length = false, bool limit_volumetric_flow = true)
     {
@@ -2148,6 +2166,11 @@ void WipeTower::toolchange_Wipe(
     writer.set_extrusion_flow(m_extrusion_flow * (is_first_layer() ? 1.15f : 1.f))
 		  .append("; CP TOOLCHANGE WIPE\n");
 
+    // The toolchange g-code may have left the nozzle somewhere else than at the start of the wipe area (for
+    // example when the purge blocks are skipped). Extruding from there would drag a string across the bed, so
+    // make sure the nozzle really is at the wipe start before the first extrusion.
+    writer.travel_absolute(writer.pos(), m_travel_speed * 60.f);
+
     // BBS: add the note for gcode-check, when the flow changed, the width should follow the change
     if (is_first_layer()) {
         writer.append(";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Width) + std::to_string(1.15 * m_perimeter_width) + "\n");
@@ -3394,6 +3417,10 @@ void WipeTower::toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinat
     if (!m_nozzle_change_result.gcode.empty())
         writer.change_analyzer_line_width(m_perimeter_width);
 
+    // The toolchange g-code may have left the nozzle somewhere else than at the start of the wipe area (for
+    // example when the purge blocks are skipped). Extruding from there would drag a string across the bed, so
+    // make sure the nozzle really is at the wipe start before the first extrusion.
+    writer.travel_absolute(writer.pos(), m_travel_speed * 60.f);
     // BBS: add the note for gcode-check, when the flow changed, the width should follow the change
     if (is_first_layer()) {
         writer.append(";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Width) + std::to_string(1.15 * m_perimeter_width) + "\n");
