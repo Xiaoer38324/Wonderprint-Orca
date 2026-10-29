@@ -4951,8 +4951,9 @@ LayerResult GCode::process_layer(
         }
 
         if (!timelapse_gcode.empty()) {
-            m_writer.set_current_position_clear(false);
-
+            const bool moves = std::regex_search(timelapse_gcode,
+            std::regex(R"((^|\n)\s*G[0-3]\b)"));
+            if (moves) m_writer.set_current_position_clear(false);
             double temp_z_after_tool_change;
             if (GCodeProcessor::get_last_z_from_gcode(timelapse_gcode, temp_z_after_tool_change)) {
                 Vec3d pos = m_writer.get_position();
