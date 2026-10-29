@@ -3737,7 +3737,10 @@ void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* print
                                             //SoftFever
                                             // "filament_seam_gap"
                                         };
-
+    std::unordered_set<string> skip_have_retract_length={
+        "filament_retraction_length",
+        "filament_retract_length_toolchange"
+    };
     const int selection = 0; //m_variant_combo->GetSelection(); // TODO: Orca hack
     auto opt = dynamic_cast<ConfigOptionVectorBase *>(m_config->option("filament_retraction_length"));
     const int extruder_idx = selection < 0 || selection >= static_cast<int>(opt->size()) ? 0 : selection;
@@ -3747,7 +3750,7 @@ void TabFilament::update_filament_overrides_page(const DynamicPrintConfig* print
 
     for (const std::string& opt_key : opt_keys)
     {
-        bool is_checked = opt_key=="filament_retraction_length" ? true : have_retract_length;
+        bool is_checked = skip_have_retract_length.count(opt_key)!=0 ? true : have_retract_length;
         m_overrides_options[opt_key]->Enable(is_checked);
 
         is_checked &= !dynamic_cast<ConfigOptionVectorBase*>(m_config->option(opt_key))->is_nil(extruder_idx);
