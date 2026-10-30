@@ -187,6 +187,9 @@ public:
     void change_filament(size_t from_id, size_t to_id);  // 0 base
     void edit_filament();
     void add_custom_filament(wxColour new_col);
+    void add_filament_mix(const wxColour& colour);
+    void edit_filament_mix(size_t index);
+    void rebuild_filament_mix_rows();
     bool is_new_project_in_gcode3mf();
     // BBS
     void on_bed_type_change(BedType bed_type);

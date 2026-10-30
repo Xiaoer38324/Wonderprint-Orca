@@ -27,6 +27,10 @@
 #include <wx/bmpcbox.h>
 #include <wx/display.h>
 #include <wx/statbox.h>
+#include <wx/bmpbuttn.h>
+#include <wx/menu.h>
+#include <wx/dialog.h>
+#include <wx/textctrl.h>
 #include <wx/statbmp.h>
 #include <wx/filedlg.h>
 #include <wx/dnd.h>
@@ -463,6 +467,20 @@ struct Sidebar::priv
     //wxComboBox *                m_comboBox_print_preset;
     wxStaticLine *              m_staticline1;
     StaticBox* m_panel_filament_title;
+    StaticBox* m_panel_filament_settings_title;
+    StaticBox* m_panel_filament_mix_title = nullptr;
+    wxPanel* m_panel_filament_mix_content = nullptr;
+    wxBoxSizer* m_sizer_filament_mix = nullptr;
+    struct FilamentMixEntry {
+        wxColour colour;
+        wxString text;
+    };
+    std::vector<FilamentMixEntry> m_filament_mix_entries;
+    std::vector<wxPanel*>         m_filament_mix_row_panels;
+    wxStaticText* m_staticText_filament_total_settings;
+    ScalableButton* m_filament_total_settings_icon = nullptr;
+    ScalableButton* m_filament_mix_icon = nullptr;
+    ScalableButton* m_filament_mix_add_btn = nullptr;
     wxStaticText* m_staticText_filament_settings;
     ScalableButton *  m_bpButton_add_filament;
     ScalableButton *  m_bpButton_del_filament;
@@ -1570,6 +1588,60 @@ void Sidebar::update_sync_ams_btn_enable(wxUpdateUIEvent &e)
      }
  }
 
+namespace {
+
+// Wonder: colour dialog for the "Filament Mix" entries.
+// m_on_apply is called each time the apply button is pressed, so the same dialog is used
+// both for adding a new entry (close_on_apply == false) and for re-colouring an existing one.
+class FilamentMixDialog : public wxDialog
+{
+public:
+    FilamentMixDialog(wxWindow* parent, const wxColour& initial_colour, const wxString& apply_label,
+                      std::function<void(const wxColour&)> on_apply, bool close_on_apply)
+        : wxDialog(parent, wxID_ANY, _L("Color Mixing"), wxDefaultPosition, wxDefaultSize)
+        , m_on_apply(on_apply)
+        , m_close_on_apply(close_on_apply)
+    {
+        SetBackgroundColour(*wxWHITE);
+
+        auto* main_sizer = new wxBoxSizer(wxVERTICAL);
+
+        auto* colour_sizer = new wxBoxSizer(wxHORIZONTAL);
+        colour_sizer->Add(new Label(this, _L("Color")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+        m_colour_picker = new wxColourPickerCtrl(this, wxID_ANY, initial_colour, wxDefaultPosition,
+                                                 wxDefaultSize, wxCLRP_SHOW_LABEL);
+        colour_sizer->Add(m_colour_picker, 0, wxALIGN_CENTER_VERTICAL);
+        main_sizer->Add(colour_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(12));
+
+        auto* apply_btn = new Button(this, apply_label);
+        apply_btn->SetStyle(ButtonStyle::Confirm, ButtonType::Compact);
+        apply_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+            const wxColour colour = m_colour_picker->GetColour();
+            if (m_on_apply)
+                m_on_apply(colour);
+            if (m_close_on_apply)
+                EndModal(wxID_OK);
+        });
+        main_sizer->Add(apply_btn, 0, wxALIGN_CENTER | wxALL, FromDIP(12));
+
+        auto* close_btn = new Button(this, _L("Close"));
+        close_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CLOSE); });
+        main_sizer->Add(close_btn, 0, wxALIGN_CENTER | wxBOTTOM, FromDIP(12));
+
+        SetSizerAndFit(main_sizer);
+        const int width = GetSize().GetWidth();
+        SetSize(wxSize(width < FromDIP(320) ? FromDIP(320) : width, GetSize().GetHeight()));
+        CentreOnParent();
+    }
+
+private:
+    wxColourPickerCtrl*                  m_colour_picker{nullptr};
+    std::function<void(const wxColour&)> m_on_apply;
+    bool                                 m_close_on_apply{false};
+};
+
+} // namespace
+
 Sidebar::Sidebar(Plater *parent)
     : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(42 * wxGetApp().em_unit(), -1)), p(new priv(parent))
 {
@@ -2004,22 +2076,61 @@ Sidebar::Sidebar(Plater *parent)
 
     {
 
-    // Orca: Sidebar - Filament titlebar UI
+   
+ 
+     //Wonder:Add Total Title
+    p->m_panel_filament_settings_title = new StaticBox(p->scrolled, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
+    p->m_panel_filament_settings_title->SetBackgroundColor(title_bg);
+    p->m_panel_filament_settings_title->SetBackgroundColor2(0xF1F1F1);
+    p->m_panel_filament_settings_title->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent &e) {
+        // Wonder: collapse/expand the whole filament section (filament bar + filament list)
+        const bool show = !p->m_panel_filament_content->IsShown();
+        p->m_panel_filament_title->Show(show);
+        p->m_panel_filament_content->Show(show);
+        if (p->m_panel_filament_mix_title) p->m_panel_filament_mix_title->Show(show);
+        if (p->m_panel_filament_mix_content) p->m_panel_filament_mix_content->Show(show);
+        p->m_panel_filament_settings_title->Layout();
+        m_scrolled_sizer->Layout();
+    });
+     // Orca: Sidebar - Filament titlebar UI
     // add filament title
-    p->m_panel_filament_title = new StaticBox(p->scrolled, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
+    p->m_panel_filament_title = new StaticBox(p->m_panel_filament_settings_title, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
     p->m_panel_filament_title->SetBackgroundColor(title_bg);
     p->m_panel_filament_title->SetBackgroundColor2(0xF1F1F1);
     p->m_panel_filament_title->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent &e) {
-        if (e.GetPosition().x > (p->m_flushing_volume_btn->IsShown()
+          if (e.GetPosition().x > (p->m_flushing_volume_btn->IsShown()
                 ? p->m_flushing_volume_btn->GetPosition().x : (p->m_bpButton_add_filament->GetPosition().x - FromDIP(30)))) // ORCA exclude area of del button from titlebar collapse/expand feature to fix undesired collapse when user spams del filament button 
             return;
         p->m_panel_filament_content->Show(!p->m_panel_filament_content->IsShown());
+        p->m_panel_filament_settings_title->Layout();
         m_scrolled_sizer->Layout();
     });
+    wxBoxSizer* bSizer38 = new wxBoxSizer(wxVERTICAL);
+    wxBoxSizer* bSizer38_header = new wxBoxSizer(wxHORIZONTAL);
+    
+    //Wonder: header row of the new "Filament Management" section
+    p->m_filament_total_settings_icon = new ScalableButton(p->m_panel_filament_settings_title, wxID_ANY, "filament_management");
+    bSizer38_header->Add(FromDIP(10), 0, 0, 0, 0);
+    p->m_staticText_filament_total_settings = new Label(p->m_panel_filament_settings_title, _L("Filament Management"), LB_PROPAGATE_MOUSE_EVENT);
+    bSizer38_header->Add(p->m_filament_total_settings_icon, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::TitlebarMargin()));
+    bSizer38_header->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
+    bSizer38_header->Add(p->m_staticText_filament_total_settings, 0, wxALIGN_CENTER);
+    bSizer38_header->AddStretchSpacer(1);
+    bSizer38_header->SetMinSize(-1, FromDIP(30));
+    bSizer38->Add(bSizer38_header, 0, wxEXPAND);
+    //Wonder: the original "Filament" title bar is a child of the new section now
+    bSizer38->Add(p->m_panel_filament_title, 0, wxEXPAND);
+
+    p->m_panel_filament_settings_title->SetSizer( bSizer38 );
+    p->m_panel_filament_settings_title->Layout();
 
     wxBoxSizer* bSizer39;
     bSizer39 = new wxBoxSizer( wxHORIZONTAL );
+    
+    //OCRA
+    bSizer39->Add(FromDIP(10), 0, 0, 0, 0);
     p->m_filament_icon = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "filament");
+    bSizer39->Add(FromDIP(10), 0, 0, 0, 0);
     p->m_staticText_filament_settings = new Label(p->m_panel_filament_title, _L("Project Filaments"), LB_PROPAGATE_MOUSE_EVENT);
     bSizer39->Add(p->m_filament_icon, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::TitlebarMargin()));
     bSizer39->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
@@ -2032,7 +2143,7 @@ Sidebar::Sidebar(Plater *parent)
     auto spliter_1 = new ::StaticLine(p->scrolled);
     spliter_1->SetLineColour("#A6A9AA");
     scrolled_sizer->Add(spliter_1, 0, wxEXPAND);
-    scrolled_sizer->Add(p->m_panel_filament_title, 0, wxEXPAND | wxALL, 0);
+    scrolled_sizer->Add(p->m_panel_filament_settings_title, 0, wxEXPAND, 0);
     auto spliter_2 = new ::StaticLine(p->scrolled);
     spliter_2->SetLineColour("#CECECE");
     scrolled_sizer->Add(spliter_2, 0, wxEXPAND);
@@ -2105,7 +2216,7 @@ Sidebar::Sidebar(Plater *parent)
     bSizer39->AddSpacer(FromDIP(SidebarProps::TitlebarMargin()));
 
     // add filament content
-    p->m_panel_filament_content = new wxScrolledWindow( p->scrolled, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL );
+    p->m_panel_filament_content = new wxScrolledWindow( p->m_panel_filament_settings_title, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL );
     p->m_panel_filament_content->SetScrollbars(0, 100, 1, 2);
     p->m_panel_filament_content->SetScrollRate(0, 5);
     //p->m_panel_filament_content->SetMaxSize(wxSize{-1, FromDIP(174)});
@@ -2117,23 +2228,73 @@ Sidebar::Sidebar(Plater *parent)
     // Orca: Sidebar - Filament content UI: setup filament selection combos panel layout
     // Creates a two-column grid layout for filament selection dropdowns within the scrollable panel
     p->sizer_filaments = new wxBoxSizer(wxHORIZONTAL);
-    p->sizer_filaments->Add(new wxBoxSizer(wxVERTICAL), 1, wxEXPAND);
-    p->sizer_filaments->Add(new wxBoxSizer(wxVERTICAL), 1, wxEXPAND);
 
+    p->sizer_filaments->Add(new wxBoxSizer(wxVERTICAL), 1, wxEXPAND);
+    p->sizer_filaments->Add(new wxBoxSizer(wxVERTICAL), 1, wxEXPAND);
     p->combos_filament.push_back(nullptr);
 
     /* first filament item */
     init_filament_combo(&p->combos_filament[0], 0);
 
     //bSizer_filament_content->Add(p->sizer_filaments, 1, wxALIGN_CENTER | wxALL);
+    // Wonder: indent the filament list by the same amount as the "Filament" title bar.
+    // NOTE: p->sizer_filaments itself must keep its two column sizers at index 0/1,
+    //       so wrap it in a row sizer instead of adding a spacer inside it.
+    wxBoxSizer* sizer_filaments_row = new wxBoxSizer(wxHORIZONTAL);
+    sizer_filaments_row->AddSpacer(FromDIP(10));
+    sizer_filaments_row->Add(p->sizer_filaments, 1, wxEXPAND, 0);
+
     wxSizer *sizer_filaments2 = new wxBoxSizer(wxVERTICAL);
-    sizer_filaments2->Add(p->sizer_filaments, 0, wxEXPAND, 0);
+    sizer_filaments2->Add(sizer_filaments_row, 0, wxEXPAND, 0);
     p->m_panel_filament_content->SetSizer(sizer_filaments2);
     p->m_panel_filament_content->Layout();
     
     update_filaments_area_height(); // ORCA
 
-    scrolled_sizer->Add(p->m_panel_filament_content, 0, wxEXPAND | wxTOP | wxBOTTOM, FromDIP(SidebarProps::ContentMarginV())); // ORCA use vertical margin on parent otherwise it shows scrollbar even on 1 filament
+    bSizer38->Add(p->m_panel_filament_content, 0, wxEXPAND | wxTOP | wxBOTTOM, FromDIP(SidebarProps::ContentMarginV())); // ORCA use vertical margin on parent otherwise it shows scrollbar even on 1 filament
+
+    // Wonder: "Filament Mix" bar, same level as the Filament bar
+    p->m_panel_filament_mix_title = new StaticBox(p->m_panel_filament_settings_title, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
+    p->m_panel_filament_mix_title->SetBackgroundColor(title_bg);
+    p->m_panel_filament_mix_title->SetBackgroundColor2(0xF1F1F1);
+    p->m_panel_filament_mix_title->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent &e) {
+        p->m_panel_filament_mix_content->Show(!p->m_panel_filament_mix_content->IsShown());
+        p->m_panel_filament_mix_title->Layout();
+        m_scrolled_sizer->Layout();
+    });
+    wxBoxSizer* bSizer_mix = new wxBoxSizer(wxHORIZONTAL);
+    bSizer_mix->AddSpacer(FromDIP(20)); // align with the "Filament" bar icon
+    p->m_filament_mix_icon = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix");
+    bSizer_mix->Add(p->m_filament_mix_icon, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::TitlebarMargin()));
+    bSizer_mix->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
+    bSizer_mix->Add(new Label(p->m_panel_filament_mix_title, _L("Color Mixing"), LB_PROPAGATE_MOUSE_EVENT), 0, wxALIGN_CENTER);
+    bSizer_mix->AddStretchSpacer(1);
+    p->m_filament_mix_add_btn = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix_add");
+    p->m_filament_mix_add_btn->SetToolTip(_L("Create a color mix"));
+    p->m_filament_mix_add_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        FilamentMixDialog dlg(wxGetApp().mainframe, wxColour("#009688"), _L("Test: Add Mix Entry"),
+                              [this](const wxColour& colour) { add_filament_mix(colour); }, false);
+        dlg.ShowModal();
+    });
+    bSizer_mix->Add(p->m_filament_mix_add_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::TitlebarMargin()));
+
+    bSizer_mix->SetMinSize(-1, FromDIP(30));
+    p->m_panel_filament_mix_title->SetSizer(bSizer_mix);
+    p->m_panel_filament_mix_title->Layout();
+    bSizer38->Add(p->m_panel_filament_mix_title, 0, wxEXPAND);
+
+    // Wonder: container for the entries added from the "Color Mixing" dialog
+    p->m_panel_filament_mix_content = new wxPanel(p->m_panel_filament_settings_title);
+    p->m_panel_filament_mix_content->SetBackgroundColour(*wxWHITE);
+    p->m_sizer_filament_mix = new wxBoxSizer(wxHORIZONTAL); // two columns, like the filament list
+    wxBoxSizer* sizer_filament_mix_row = new wxBoxSizer(wxHORIZONTAL);
+    sizer_filament_mix_row->AddSpacer(FromDIP(10));
+    sizer_filament_mix_row->Add(p->m_sizer_filament_mix, 1, wxEXPAND, 0);
+    p->m_panel_filament_mix_content->SetSizer(sizer_filament_mix_row);
+    bSizer38->Add(p->m_panel_filament_mix_content, 0, wxEXPAND);
+
+    p->m_panel_filament_settings_title->Layout();
+    m_scrolled_sizer->Layout();
     }
 
     {
@@ -2826,6 +2987,9 @@ void Sidebar::msw_rescale()
         p->big_bed_image_popup = nullptr;
     }
 
+    if (p->m_filament_total_settings_icon) p->m_filament_total_settings_icon->msw_rescale();
+    if (p->m_filament_mix_icon) p->m_filament_mix_icon->msw_rescale();
+    if (p->m_filament_mix_add_btn) p->m_filament_mix_add_btn->msw_rescale();
     p->m_filament_icon->msw_rescale();
     p->m_bpButton_add_filament->msw_rescale();
     p->m_bpButton_del_filament->msw_rescale();
@@ -2911,6 +3075,9 @@ void Sidebar::sys_color_changed()
     p->m_printer_icon->msw_rescale();
     p->m_printer_setting->msw_rescale();
     p->m_printer_setting->msw_rescale();
+    if (p->m_filament_total_settings_icon) p->m_filament_total_settings_icon->msw_rescale();
+    if (p->m_filament_mix_icon) p->m_filament_mix_icon->msw_rescale();
+    if (p->m_filament_mix_add_btn) p->m_filament_mix_add_btn->msw_rescale();
     p->m_filament_icon->msw_rescale();
     p->m_bpButton_add_filament->msw_rescale();
     p->m_bpButton_del_filament->msw_rescale();
@@ -3044,6 +3211,10 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     p->m_panel_filament_title->Refresh();
     update_ui_from_settings();
     update_dynamic_filament_list();
+
+    // the mix numbers continue after the filaments, so refresh them when the filament count changes
+    if (!p->m_filament_mix_entries.empty())
+        rebuild_filament_mix_rows();
 }
 
 void Sidebar::on_filaments_delete(size_t filament_id)
@@ -3104,6 +3275,10 @@ void Sidebar::on_filaments_delete(size_t filament_id)
     p->m_panel_filament_title->Refresh();
     update_ui_from_settings();
     dynamic_filament_list.update();
+
+    // the mix numbers continue after the filaments, so refresh them when the filament count changes
+    if (!p->m_filament_mix_entries.empty())
+        rebuild_filament_mix_rows();
 }
 
 void Sidebar::add_filament() {
@@ -3169,6 +3344,143 @@ void Sidebar::add_custom_filament(wxColour new_col) {
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
     wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
     auto_calc_flushing_volumes(filament_count - 1);
+}
+
+// Wonder: add one entry under the "Color Mixing" bar.
+void Sidebar::add_filament_mix(const wxColour& colour)
+{
+    if (p->m_sizer_filament_mix == nullptr || p->m_panel_filament_mix_content == nullptr)
+        return;
+
+    p->m_filament_mix_entries.push_back({colour, colour.GetAsString(wxC2S_HTML_SYNTAX)});
+    rebuild_filament_mix_rows();
+}
+
+// Wonder: re-colour an existing entry (used by "Edit" in the "..." menu and by clicking the colour square).
+void Sidebar::edit_filament_mix(size_t index)
+{
+    if (index >= p->m_filament_mix_entries.size())
+        return;
+
+    const wxColour initial = p->m_filament_mix_entries[index].colour;
+    FilamentMixDialog dlg(wxGetApp().mainframe, initial, _L("Apply"),
+                          [this, index](const wxColour& colour) {
+                              if (index >= p->m_filament_mix_entries.size())
+                                  return;
+                              p->m_filament_mix_entries[index].colour = colour;
+                              p->m_filament_mix_entries[index].text   = colour.GetAsString(wxC2S_HTML_SYNTAX);
+                          },
+                          true);
+    dlg.ShowModal();
+
+    // deferred: the caller may be the "..." button, which must not be destroyed from its own handler
+    CallAfter([this]() { rebuild_filament_mix_rows(); });
+}
+
+// Wonder: (re)build the "Color Mixing" entries as a two-column grid, like the filament list.
+// Each entry = numbered colour square + read-only text box (colour code for now) + "..." menu.
+void Sidebar::rebuild_filament_mix_rows()
+{
+    if (p->m_sizer_filament_mix == nullptr || p->m_panel_filament_mix_content == nullptr)
+        return;
+
+    // drop the old grid: first the sizer items, then the row windows
+    p->m_sizer_filament_mix->Clear(false); // keep the windows alive, they are destroyed explicitly below
+    for (wxPanel* row : p->m_filament_mix_row_panels)
+        row->Destroy();
+    p->m_filament_mix_row_panels.clear();
+
+    auto* left_column  = new wxBoxSizer(wxVERTICAL);
+    auto* right_column = new wxBoxSizer(wxVERTICAL);
+    p->m_sizer_filament_mix->Add(left_column, 1, wxEXPAND);
+    p->m_sizer_filament_mix->Add(right_column, 1, wxEXPAND);
+
+    // numbers continue after the filament numbers (1..N filaments, then N+1.. for the mixes)
+    const int first_number = int(p->combos_filament.size()) + 1;
+
+    for (size_t i = 0; i < p->m_filament_mix_entries.size(); ++i) {
+        const priv::FilamentMixEntry& entry = p->m_filament_mix_entries[i];
+
+        wxPanel*    row_panel = new wxPanel(p->m_panel_filament_mix_content);
+        row_panel->SetBackgroundColour(*wxWHITE);
+        wxBoxSizer* row_sizer = new wxBoxSizer(wxHORIZONTAL);
+        row_panel->SetSizer(row_sizer);
+
+        // numbered colour square
+        const wxString number = wxString::Format("%d", first_number + int(i));
+        wxBitmap*      colour_bmp = get_extruder_color_icon(entry.colour.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(),
+                                                            number.ToStdString(), FromDIP(20), FromDIP(20));
+        wxBitmapButton* colour_btn = new wxBitmapButton(row_panel, wxID_ANY, *colour_bmp, wxDefaultPosition,
+                                                        wxSize(FromDIP(20), FromDIP(20)),
+                                                        wxBU_EXACTFIT | wxBU_AUTODRAW | wxBORDER_NONE);
+        colour_btn->SetBackgroundColour(*wxWHITE);
+
+        // read-only "text box": a white rounded field with the text centred both horizontally and
+        // vertically (a plain wxTextCtrl only centres horizontally on some platforms).
+        // Clicking it opens the edit dialog, exactly like clicking the colour square.
+        StaticBox* text_field = new StaticBox(row_panel, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0);
+        text_field->SetBackgroundColor(*wxWHITE);
+        text_field->SetBorderColor(wxColour("#CECECE"));
+        text_field->SetCornerRadius(4);
+        text_field->SetMinSize(wxSize(-1, FromDIP(30)));
+        text_field->SetCursor(wxCURSOR_HAND);
+
+        wxBoxSizer* text_field_sizer = new wxBoxSizer(wxHORIZONTAL);
+        text_field_sizer->AddStretchSpacer(1);
+        Label* text_value = new Label(text_field, entry.text, LB_PROPAGATE_MOUSE_EVENT);
+        text_value->SetCursor(wxCURSOR_HAND);
+        text_field_sizer->Add(text_value, 0, wxALIGN_CENTER_VERTICAL);
+        text_field_sizer->AddStretchSpacer(1);
+        text_field->SetSizer(text_field_sizer);
+
+        // swallow the default mouse handling so the field never takes focus; click = edit
+        text_field->Bind(wxEVT_LEFT_DOWN, [](wxMouseEvent&) {});
+        text_field->Bind(wxEVT_LEFT_UP, [this, i](wxMouseEvent&) { edit_filament_mix(i); });
+
+        // "..." action menu
+        ScalableButton* menu_btn = new ScalableButton(row_panel, wxID_ANY, "menu_filament");
+        menu_btn->SetToolTip(_L("Click to edit or delete"));
+
+        colour_btn->Bind(wxEVT_BUTTON, [this, i](wxCommandEvent&) { edit_filament_mix(i); });
+
+        menu_btn->Bind(wxEVT_MENU, [this, i](wxCommandEvent& evt) {
+            if (evt.GetId() == wxID_EDIT) {
+                edit_filament_mix(i);
+            } else if (evt.GetId() == wxID_DELETE) {
+                // remove the entry only after the menu event has been fully processed
+                CallAfter([this, i]() {
+                    if (i >= p->m_filament_mix_entries.size())
+                        return;
+                    p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + i);
+                    rebuild_filament_mix_rows();
+                });
+            }
+        });
+        menu_btn->Bind(wxEVT_BUTTON, [menu_btn](wxCommandEvent&) {
+            wxMenu menu;
+            menu.Append(wxID_EDIT, _L("Edit"));
+            menu.Append(wxID_DELETE, _L("Delete"));
+            menu_btn->PopupMenu(&menu, wxPoint(0, menu_btn->GetSize().GetHeight()));
+        });
+
+        row_sizer->AddSpacer(FromDIP((i % 2) == 0 ? 12 : 3));
+        row_sizer->Add(colour_btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2));
+        row_sizer->Add(text_field, 1, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(2));
+        row_sizer->Add(menu_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2));
+        row_sizer->AddSpacer(FromDIP(SidebarProps::ContentMargin()));
+
+        (i % 2 == 0 ? left_column : right_column)->Add(row_panel, 0, wxEXPAND);
+        p->m_filament_mix_row_panels.push_back(row_panel);
+    }
+
+    if (p->m_filament_mix_entries.size() % 2 != 0)
+        right_column->AddStretchSpacer(1);
+
+    p->m_panel_filament_mix_content->SetMinSize(wxSize(-1, p->m_sizer_filament_mix->GetMinSize().GetHeight()));
+    p->m_panel_filament_mix_content->Layout();
+    p->m_panel_filament_settings_title->Layout();
+    m_scrolled_sizer->Layout();
+    p->scrolled->Layout();
 }
 
 bool Sidebar::is_new_project_in_gcode3mf()
