@@ -9672,7 +9672,7 @@ void GLCanvas3D::_set_warning_notification(EWarning warning, bool state)
                         wxString    region = L"en";
                         if (language.find("zh") == 0)
                         	region = L"zh";
-                        wxGetApp().open_browser_with_warning_dialog(wxString::Format(L"https://wiki.bambulab.com/%s/filament-acc/filament/h2d-pla-and-petg-mutual-support", region));
+                        wxGetApp().open_browser_with_warning_dialog(wxString::Format(L"https://wiki.wondermaker3d.com/zh/Beginner%E2%80%99s-Guide%E2%80%8B/Multi-material-Printing", region));
                         return false;
                     });
             }
