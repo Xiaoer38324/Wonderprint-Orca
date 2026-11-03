@@ -3609,7 +3609,7 @@ void Sidebar::replace_filament_mix(size_t index, int target_filament)
     if (target_filament < 1 || target_filament > physical)
         return;
 
-    wxGetApp().plater()->take_snapshot("Del and Replaced With");
+    wxGetApp().plater()->take_snapshot("Delete And Replaced With");
 
     const int virtual_state = physical + int(index) + 1; // 1-based painted state of this mix
 
@@ -3850,7 +3850,7 @@ void Sidebar::rebuild_filament_mix_rows()
             wxMenu* replace_menu = new wxMenu;
             for (int filament = 1; filament <= int(p->combos_filament.size()); ++filament)
                 replace_menu->Append(wxID_HIGHEST + 3000 + filament, wxString::Format("F%d", filament));
-            menu.AppendSubMenu(replace_menu, _L("Del and Replaced With"));
+            menu.AppendSubMenu(replace_menu, _L("Delete And Replaced With"));
             menu_btn->PopupMenu(&menu, wxPoint(0, menu_btn->GetSize().GetHeight()));
         });
 
