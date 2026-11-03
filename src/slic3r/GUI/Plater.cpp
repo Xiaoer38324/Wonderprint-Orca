@@ -2071,7 +2071,7 @@ Sidebar::Sidebar(Plater *parent)
     
     //Wonder: header row of the new "Filament Management" section
     p->m_filament_total_settings_icon = new ScalableButton(p->m_panel_filament_settings_title, wxID_ANY, "filament_management");
-    bSizer38_header->Add(FromDIP(10), 0, 0, 0, 0);
+    
     p->m_staticText_filament_total_settings = new Label(p->m_panel_filament_settings_title, _L("Filament Management"), LB_PROPAGATE_MOUSE_EVENT);
     bSizer38_header->Add(p->m_filament_total_settings_icon, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::TitlebarMargin()));
     bSizer38_header->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
