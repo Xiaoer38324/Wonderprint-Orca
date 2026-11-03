@@ -98,6 +98,12 @@ jobs:
     runs-on: ${{ vars.SELF_HOSTED && 'orca-lnx-server' || 'ubuntu-24.04' }}
     needs: build_linux
     if: ${{ !cancelled() && success() }}
+    # 显式声明该 Job 所需的 API 权限
+    permissions:
+      checks: write          # 允许创建 Check Run（解决 403 的核心）
+      pull-requests: write   # 允许在 PR 下方留言反馈测试结果
+      contents: read         # 允许拉取源码
+      issues: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
