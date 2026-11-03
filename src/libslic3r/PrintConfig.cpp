@@ -2293,6 +2293,14 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionStrings{ "#F2754E" });
 
+    // Orca: serialized Color Mixing (mixed filament) definitions.
+    def = this->add("mixed_filament_definitions", coString);
+    def->label = L("Mixed filament custom definitions");
+    def->tooltip = L("Serialized custom mixed filament rows.");
+    def->gui_flags = "serialized";
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionString(""));
+
     // PS
     def = this->add("filament_notes", coStrings);
     def->label = L("Filament notes");
@@ -4578,6 +4586,13 @@ void PrintConfigDef::init_fff_params()
     def->min = 1;
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionInt(1));
+
+    // Orca: index of the Color Mixing entry used by a painted region (-1 = regular region).
+    def = this->add("mixed_filament_index", coInt);
+    def->label = L("Mixed filament index");
+    def->tooltip = L("Index of the Mixed Filament entry used by this region. Internal use only.");
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionInt(-1));
 
     def = this->add("inner_wall_line_width", coFloatOrPercent);
     def->label = L("Inner wall");

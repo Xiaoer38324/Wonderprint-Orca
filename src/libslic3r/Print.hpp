@@ -17,11 +17,13 @@
 #include "GCode/ThumbnailData.hpp"
 #include "GCode/GCodeProcessor.hpp"
 #include "MultiMaterialSegmentation.hpp"
+#include "MixedFilament.hpp"
 #include "libslic3r.h"
 
 #include <Eigen/Geometry>
 
 #include <functional>
+#include <algorithm>
 #include <set>
 
 #include "calib.hpp"
@@ -905,6 +907,9 @@ public:
 
     ApplyStatus         apply(const Model &model, DynamicPrintConfig config) override;
 
+    // Orca: rebuild the mixed-filament manager from mixed_filament_definitions.
+    void                load_mixed_filaments();
+
     void                process(long long *time_cost_with_cache = nullptr, bool use_cache = false) override;
     // Exports G-code into a file name based on the path_template, returns the file path of the generated G-code file.
     // If preview_data is not null, the preview_data is filled in for the G-code visualization (not used by the command line Slic3r).
@@ -945,6 +950,19 @@ public:
     const PrintConfig&          config() const { return m_config; }
     const PrintObjectConfig&    default_object_config() const { return m_default_object_config; }
     const PrintRegionConfig& default_region_config() const { return m_default_region_config; }
+    // Orca: Color Mixing (mixed virtual filaments) definitions for this print.
+    const MixedFilamentManager& mixed_filament_manager() const { return m_mixed_filament_mgr; }
+    MixedFilamentManager&       mixed_filament_manager() { return m_mixed_filament_mgr; }
+    // Orca: physical filaments that mixed virtual filaments resolve to. ToolOrdering uses this
+    // to keep the wipe tower aware of the real materials behind a painted mixed filament.
+    const std::vector<unsigned int>& mixed_component_filaments() const { return m_mixed_component_filaments; }
+    void add_mixed_component_filaments(const std::vector<unsigned int> &filaments) {
+        m_mixed_component_filaments.insert(m_mixed_component_filaments.end(), filaments.begin(), filaments.end());
+        std::sort(m_mixed_component_filaments.begin(), m_mixed_component_filaments.end());
+        m_mixed_component_filaments.erase(std::unique(m_mixed_component_filaments.begin(), m_mixed_component_filaments.end()),
+                                          m_mixed_component_filaments.end());
+    }
+    void clear_mixed_component_filaments() { m_mixed_component_filaments.clear(); }
     ConstPrintObjectPtrsAdaptor objects() const { return ConstPrintObjectPtrsAdaptor(&m_objects); }
     PrintObject*                get_object(size_t idx) { return const_cast<PrintObject*>(m_objects[idx]); }
     const PrintObject*          get_object(size_t idx) const { return m_objects[idx]; }
@@ -1129,6 +1147,8 @@ private:
     PrintConfig                             m_config;
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
+    MixedFilamentManager                    m_mixed_filament_mgr;
+    std::vector<unsigned int>               m_mixed_component_filaments;
     PrintObjectPtrs                         m_objects;
     PrintRegionPtrs                         m_print_regions;
     

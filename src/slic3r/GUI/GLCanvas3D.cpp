@@ -5,6 +5,7 @@
 
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ClipperUtils.hpp"
+#include "libslic3r/ColorMix.hpp"
 #include "libslic3r/PrintConfig.hpp"
 #include "libslic3r/GCode/ThumbnailData.hpp"
 #include "libslic3r/Geometry/ConvexHull.hpp"
@@ -2533,6 +2534,9 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                 continue;
 
             unsigned int filaments_count = (unsigned int)dynamic_cast<const ConfigOptionStrings*>(m_config->option("filament_colour"))->values.size();
+            // Orca: the painted states also cover the virtual filaments of the Color Mixing entries.
+            if (const PresetBundle* preset_bundle = wxGetApp().preset_bundle)
+                filaments_count += (unsigned int)preset_bundle->mixed_filaments.enabled_count();
             model_volume.update_extruder_count(filaments_count);
         }
     }

@@ -1195,6 +1195,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       scarf_joint_speed))
     ((ConfigOptionFloat,                scarf_joint_flow_ratio))
     ((ConfigOptionPercent,              scarf_overhang_threshold))
+    // Orca: index of the Color Mixing entry used by this region (-1 = not a mixed region)
+    ((ConfigOptionInt,                  mixed_filament_index))
 )
 
 PRINT_CONFIG_CLASS_DEFINE(
@@ -1268,6 +1270,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBools,               filament_soluble))
     ((ConfigOptionStrings,             filament_ids))
     ((ConfigOptionStrings,             filament_colour))
+    // Orca: serialized Color Mixing (mixed filament) definitions
+    ((ConfigOptionString,              mixed_filament_definitions))
     ((ConfigOptionStrings,             filament_vendor))
     ((ConfigOptionBools,               filament_is_support))
     ((ConfigOptionInts,                filament_printable))

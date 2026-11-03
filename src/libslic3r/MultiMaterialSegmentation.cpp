@@ -1,5 +1,6 @@
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
+#include "ColorMix.hpp"
 #include "EdgeGrid.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"
@@ -2034,6 +2035,11 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
             for (size_t extruder_idx = range.begin(); extruder_idx < range.end(); ++extruder_idx) {
                 throw_on_cancel_callback();
                 const indexed_triangle_set custom_facets = facets_info.facets_annotation.get_facets(*mv, EnforcerBlockerType(extruder_idx));
+                if (extruder_idx >= 4)
+                    BOOST_LOG_TRIVIAL(warning) << "[CMIX] segvol name=" << mv->name
+                                               << " part=" << mv->is_model_part()
+                                               << " state=" << extruder_idx
+                                               << " facets=" << custom_facets.indices.size();
                 if (!mv->is_model_part() || custom_facets.indices.empty())
                     continue;
 
@@ -2122,6 +2128,23 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
     BOOST_LOG_TRIVIAL(debug) << "Print object segmentation - projection of painted triangles - end";
     BOOST_LOG_TRIVIAL(debug) << "Print object segmentation - painted layers count: "
                              << std::count_if(painted_lines.begin(), painted_lines.end(), [](const std::vector<PaintedLine> &pl) { return !pl.empty(); });
+    {
+        size_t total_painted_lines = 0;
+        size_t first_painted_layer = size_t(-1);
+        size_t first_painted_count = 0;
+        for (size_t i = 0; i < painted_lines.size(); ++i) {
+            total_painted_lines += painted_lines[i].size();
+            if (first_painted_layer == size_t(-1) && !painted_lines[i].empty()) {
+                first_painted_layer = i;
+                first_painted_count = painted_lines[i].size();
+            }
+        }
+        BOOST_LOG_TRIVIAL(warning) << "[CMIX] painted lines total=" << total_painted_lines
+                                   << " layers=" << num_layers
+                                   << " layer0=" << (painted_lines.empty() ? 0 : painted_lines[0].size())
+                                   << " first_layer=" << (first_painted_layer == size_t(-1) ? -1 : int(first_painted_layer))
+                                   << " first_count=" << first_painted_count;
+    }
 
     BOOST_LOG_TRIVIAL(debug) << "Print object segmentation - layers segmentation in parallel - begin";
     tbb::parallel_for(tbb::blocked_range<size_t>(0, num_layers), [&edge_grids, &input_expolygons, &painted_lines, &segmented_regions, &num_facets_states, &throw_on_cancel_callback](const tbb::blocked_range<size_t> &range) {
@@ -2195,7 +2218,9 @@ std::vector<std::vector<ExPolygons>> segmentation_by_painting(const PrintObject 
 
 // Returns multi-material segmentation based on painting in multi-material segmentation gizmo
 std::vector<std::vector<ExPolygons>> multi_material_segmentation_by_painting(const PrintObject &print_object, const std::function<void()> &throw_on_cancel_callback) {
-    const size_t num_facets_states  = print_object.print()->config().filament_colour.size() + 1;
+    // Orca: painted states also cover the virtual filaments of the Color Mixing entries.
+    const MixedFilamentManager &mixed_mgr = print_object.print()->mixed_filament_manager();
+    const size_t num_facets_states = mixed_mgr.total_filaments(print_object.print()->config().filament_colour.size()) + 1;
     const float  max_width          = float(print_object.config().mmu_segmented_region_max_width.value);
     const float  interlocking_depth = float(print_object.config().mmu_segmented_region_interlocking_depth.value);
     const bool   interlocking_beam  = print_object.config().interlocking_beam.value;

@@ -1,4 +1,5 @@
 #include "ExtrusionEntity.hpp"
+#include "ColorMix.hpp"
 #include "Print.hpp"
 #include "ToolOrdering.hpp"
 #include "Layer.hpp"
@@ -656,6 +657,10 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
     std::vector<int> firstLayerExtruders;
     firstLayerExtruders.clear();
 
+    // Orca: every printed region always contributes its filament to the layer tools below.
+    // The old "only non-overridable extrusions" optimization hid painted / Color Mixing regions
+    // from the wipe tower, so the tower planned only the base filament.
+
     // Collect the object extruders.
     for (auto layer : object.layers()) {
         LayerTools &layer_tools = this->tools_for_layer(layer->print_z);
@@ -672,28 +677,23 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
             const PrintRegion &region = layerm->region();
 
             if (! layerm->perimeters.entities.empty()) {
-                bool something_nonoverriddable = true;
-
                 if (m_print_config_ptr) { // in this case print->config().print_sequence != PrintSequence::ByObject (see ToolOrdering constructors)
-                    something_nonoverriddable = false;
-                    for (const auto& eec : layerm->perimeters.entities) // let's check if there are nonoverriddable entities
-                        if (!layer_tools.wiping_extrusions().is_overriddable_and_mark(dynamic_cast<const ExtrusionEntityCollection&>(*eec), *m_print_config_ptr, object, region))
-                            something_nonoverriddable = true;
+                    // Mark the extrusions for the wiping logic. Their return value used to decide whether
+                    // the filament enters layer_tools; that optimization made painted / Color Mixing
+                    // regions invisible to the wipe tower, so the filaments are always collected below.
+                    for (const auto& eec : layerm->perimeters.entities)
+                        layer_tools.wiping_extrusions().is_overriddable_and_mark(dynamic_cast<const ExtrusionEntityCollection&>(*eec), *m_print_config_ptr, object, region);
                 }
 
-                if (something_nonoverriddable){
-               		layer_tools.extruders.emplace_back((extruder_override == 0) ? region.config().wall_filament.value : extruder_override);
-                    if (layerCount == 0) {
-                        firstLayerExtruders.emplace_back((extruder_override == 0) ? region.config().wall_filament.value : extruder_override);
-                    }
-                }
+                layer_tools.extruders.emplace_back((extruder_override == 0) ? region.config().wall_filament.value : extruder_override);
+                if (layerCount == 0)
+                    firstLayerExtruders.emplace_back((extruder_override == 0) ? region.config().wall_filament.value : extruder_override);
 
                 layer_tools.has_object = true;
             }
 
             bool has_infill       = false;
             bool has_solid_infill = false;
-            bool something_nonoverriddable = false;
             for (const ExtrusionEntity *ee : layerm->fills.entities) {
                 // fill represents infill extrusions of a single island.
                 const auto *fill = dynamic_cast<const ExtrusionEntityCollection*>(ee);
@@ -703,21 +703,17 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
                 else if (role != erNone)
                     has_infill = true;
 
-                if (m_print_config_ptr) {
-                    if (! layer_tools.wiping_extrusions().is_overriddable_and_mark(*fill, *m_print_config_ptr, object, region))
-                        something_nonoverriddable = true;
-                }
+                if (m_print_config_ptr)
+                    layer_tools.wiping_extrusions().is_overriddable_and_mark(*fill, *m_print_config_ptr, object, region);
             }
 
-            if (something_nonoverriddable || !m_print_config_ptr) {
-            	if (extruder_override == 0) {
-	                if (has_solid_infill)
-	                    layer_tools.extruders.emplace_back(region.config().solid_infill_filament);
-	                if (has_infill)
-	                    layer_tools.extruders.emplace_back(region.config().sparse_infill_filament);
-            	} else if (has_solid_infill || has_infill)
-            		layer_tools.extruders.emplace_back(extruder_override);
-            }
+            if (extruder_override == 0) {
+                if (has_solid_infill)
+                    layer_tools.extruders.emplace_back(region.config().solid_infill_filament.value);
+                if (has_infill)
+                    layer_tools.extruders.emplace_back(region.config().sparse_infill_filament.value);
+            } else if (has_solid_infill || has_infill)
+                layer_tools.extruders.emplace_back(extruder_override);
             if (has_solid_infill || has_infill)
                 layer_tools.has_object = true;
         }

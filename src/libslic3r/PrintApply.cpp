@@ -1,4 +1,5 @@
 #include "ClipperUtils.hpp"
+#include "ColorMix.hpp"
 #include "Model.hpp"
 #include "Print.hpp"
 
@@ -737,6 +738,7 @@ bool verify_update_print_object_regions(
     ModelVolumePtrs                     model_volumes,
     const PrintRegionConfig            &default_region_config,
     size_t                              num_extruders,
+    size_t                              num_filaments,
     PrintObjectRegions                 &print_object_regions,
     const std::function<void(const PrintRegionConfig&, const PrintRegionConfig&, const t_config_option_keys&)> &callback_invalidate)
 {
@@ -815,9 +817,14 @@ bool verify_update_print_object_regions(
         for (const PrintObjectRegions::PaintedRegion &region : layer_range.painted_regions) {
             const PrintObjectRegions::VolumeRegion &parent_region   = layer_range.volume_regions[region.parent];
             PrintRegionConfig                       cfg             = parent_region.region->config();
-            cfg.wall_filament.value    = region.extruder_id;
-            cfg.solid_infill_filament.value = region.extruder_id;
-            cfg.sparse_infill_filament.value       = region.extruder_id;
+            // Orca: painted region ids are physical filaments; the Color Mixing virtual states were
+            // already expanded to their components when painting_extruders was collected.
+            if (region.extruder_id > num_filaments)
+                continue;
+            cfg.wall_filament.value          = region.extruder_id;
+            cfg.solid_infill_filament.value  = region.extruder_id;
+            cfg.sparse_infill_filament.value = region.extruder_id;
+            cfg.mixed_filament_index.value   = -1;
             if (cfg != region.region->config()) {
                 // Region configuration changed.
                 if (print_region_ref_cnt(*region.region) == 0) {
@@ -959,6 +966,7 @@ static PrintObjectRegions* generate_print_object_regions(
     const PrintRegionConfig                     &default_region_config,
     const Transform3d                           &trafo,
     size_t                                       num_extruders,
+    size_t                                       num_filaments,
     const float                                  xy_contour_compensation,
     const std::vector<unsigned int>             &painting_extruders,
     const bool                                   has_painted_fuzzy_skin)
@@ -992,7 +1000,7 @@ static PrintObjectRegions* generate_print_object_regions(
             layer_ranges_regions.push_back({ range.layer_height_range, range.config });
     }
 
-    const bool is_mm_painted = num_extruders > 1 && std::any_of(model_volumes.cbegin(), model_volumes.cend(), [](const ModelVolume *mv) { return mv->is_mm_painted(); });
+    const bool is_mm_painted = num_filaments > 1 && std::any_of(model_volumes.cbegin(), model_volumes.cend(), [](const ModelVolume *mv) { return mv->is_mm_painted(); });
     update_volume_bboxes(layer_ranges_regions, out->cached_volume_ids, model_volumes, out->trafo_bboxes, is_mm_painted ? 0.f : std::max(0.f, xy_contour_compensation));
 
     std::vector<PrintRegion*> region_set;
@@ -1059,10 +1067,15 @@ static PrintObjectRegions* generate_print_object_regions(
             for (int parent_region_id = 0; parent_region_id < int(layer_range.volume_regions.size()); ++ parent_region_id)
                 if (const PrintObjectRegions::VolumeRegion &parent_region = layer_range.volume_regions[parent_region_id];
                     parent_region.model_volume->is_model_part() || parent_region.model_volume->is_modifier()) {
+                    // Orca: painting_extruders was already expanded to physical component filaments
+                    // when the mixed virtual states were collected in Print::apply().
+                    if (painted_extruder_id > num_filaments)
+                        continue;
                     PrintRegionConfig cfg = parent_region.region->config();
-                    cfg.wall_filament.value    = painted_extruder_id;
-                    cfg.solid_infill_filament.value = painted_extruder_id;
-                    cfg.sparse_infill_filament.value       = painted_extruder_id;
+                    cfg.wall_filament.value          = painted_extruder_id;
+                    cfg.solid_infill_filament.value  = painted_extruder_id;
+                    cfg.sparse_infill_filament.value = painted_extruder_id;
+                    cfg.mixed_filament_index.value   = -1;
                     layer_range.painted_regions.push_back({ painted_extruder_id, parent_region_id, get_create_region(std::move(cfg))});
                 }
         // Sort the regions by parent region::print_object_region_id() and extruder_id to help the slicing algorithm when applying MM segmentation.
@@ -1070,6 +1083,14 @@ static PrintObjectRegions* generate_print_object_regions(
             int lid = layer_range.volume_regions[l.parent].region->print_object_region_id();
             int rid = layer_range.volume_regions[r.parent].region->print_object_region_id();
             return lid < rid || (lid == rid && l.extruder_id < r.extruder_id); });
+        // Orca: several mixed slots may share a physical component, so a (parent, component)
+        // painted target can be generated more than once. Keep a single target per pair.
+        layer_range.painted_regions.erase(
+            std::unique(layer_range.painted_regions.begin(), layer_range.painted_regions.end(),
+                        [](const PrintObjectRegions::PaintedRegion &l, const PrintObjectRegions::PaintedRegion &r) {
+                            return l.parent == r.parent && l.extruder_id == r.extruder_id;
+                        }),
+            layer_range.painted_regions.end());
     }
 
     if (has_painted_fuzzy_skin) {
@@ -1102,6 +1123,23 @@ static PrintObjectRegions* generate_print_object_regions(
     }
 
     return out.release();
+}
+
+// Orca: rebuild the virtual mixed filaments from the serialized definitions stored in the
+// print configuration. The manager is shared by the slicing pipeline (segmentation, tool
+// ordering, wipe tower) and by the G-code generator.
+void Print::load_mixed_filaments()
+{
+    m_mixed_filament_mgr = MixedFilamentManager();
+    const std::vector<std::string> &colours = m_config.filament_colour.values;
+    const std::string              &definitions = m_config.mixed_filament_definitions.value;
+    if (colours.size() >= 2 && !definitions.empty()) {
+        m_mixed_filament_mgr.load_custom_entries(definitions, colours);
+        // Orca: the authoritative cycle cadence is derived here from mix_b_percent
+        // (minority = 1 layer, majority = round(major/minor)), exactly like the reference
+        // PrintApply. Definitions only carry the blend percentage.
+        m_mixed_filament_mgr.apply_gradient_settings(0, 0.04f, 0.16f, false);
+    }
 }
 
 Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_config)
@@ -1235,6 +1273,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
     // Apply variables to placeholder parser. The placeholder parser is used by G-code export,
     // which should be stopped if print_diff is not empty.
     size_t num_extruders  = m_config.filament_diameter.size();
+    size_t num_filaments  = m_config.filament_colour.size();
     bool   num_extruders_changed  = false;
     if (! full_config_diff.empty()) {
         //BBS: add more logs
@@ -1264,6 +1303,11 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             num_extruders  = m_config.filament_diameter.size();
             num_extruders_changed  = true;
         }
+        num_filaments = m_config.filament_colour.size();
+        // Orca: reload the Color Mixing definitions (persisted in mixed_filament_definitions)
+        // whenever the print configuration changed.
+        this->clear_mixed_component_filaments();
+        this->load_mixed_filaments();
     }
 
     ModelObjectStatusDB model_object_status_db;
@@ -1652,7 +1696,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         }
         std::vector<unsigned int> painting_extruders;
         if (const auto &volumes = print_object.model_object()->volumes;
-            num_extruders > 1 &&
+            num_filaments > 1 &&
             std::find_if(volumes.begin(), volumes.end(), [](const ModelVolume *v) { return ! v->mmu_segmentation_facets.empty(); }) != volumes.end()) {
 
             std::array<bool, static_cast<size_t>(EnforcerBlockerType::ExtruderMax) + 1> used_facet_states{};
@@ -1667,6 +1711,46 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             for (size_t state_idx = static_cast<size_t>(EnforcerBlockerType::Extruder1); state_idx < used_facet_states.size(); ++state_idx) {
                 if (used_facet_states[state_idx])
                     painting_extruders.emplace_back(state_idx);
+            }
+
+            // Orca: expand virtual mixed-filament painted states into their physical component
+            // filaments. Painted target regions are created for physical filaments only; the mixed
+            // channel itself is collapsed onto one of them per layer in apply_mm_segmentation().
+            if (!painting_extruders.empty()) {
+                const MixedFilamentManager &mixed_mgr = this->mixed_filament_manager();
+                std::vector<unsigned int>    expanded;
+                expanded.reserve(painting_extruders.size());
+                for (unsigned int painted_id : painting_extruders) {
+                    if (painted_id <= num_filaments) {
+                        expanded.push_back(painted_id);
+                    } else if (const MixedFilament *mixed = mixed_mgr.mixed_filament_from_id(painted_id, num_filaments)) {
+                        if (mixed->component_a >= 1 && mixed->component_a <= num_filaments)
+                            expanded.push_back(mixed->component_a);
+                        if (mixed->component_b >= 1 && mixed->component_b <= num_filaments)
+                            expanded.push_back(mixed->component_b);
+                        for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed->gradient_component_ids, num_filaments))
+                            if (id >= 1 && id <= num_filaments)
+                                expanded.push_back(id);
+                        // Manual patterns may address further physical filaments by token.
+                        const std::string flattened = MixedFilamentManager::normalize_manual_pattern(mixed->manual_pattern);
+                        if (!flattened.empty()) {
+                            for (const std::string &group : MixedFilamentManager::split_pattern_groups(flattened)) {
+                                for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, num_filaments)) {
+                                    const unsigned int id =
+                                        MixedFilamentManager::physical_filament_from_token(token, *mixed, num_filaments);
+                                    if (id >= 1 && id <= num_filaments)
+                                        expanded.push_back(id);
+                                }
+                            }
+                        }
+                    }
+                }
+                std::sort(expanded.begin(), expanded.end());
+                expanded.erase(std::unique(expanded.begin(), expanded.end()), expanded.end());
+                painting_extruders = std::move(expanded);
+                // Remember the real materials behind the painted mixed states, so the wipe
+                // tower / tool ordering plans them instead of only the base filament.
+                this->add_mixed_component_filaments(painting_extruders);
             }
         }
         if (model_object_status.print_object_regions_status == ModelObjectStatus::PrintObjectRegionsStatus::Valid) {
@@ -1686,6 +1770,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                     print_object.model_object()->volumes,
                     m_default_region_config,
                     num_extruders,
+                    num_filaments,
                     *print_object_regions,
                     [it_print_object, it_print_object_end, &update_apply_status](const PrintRegionConfig &old_config, const PrintRegionConfig &new_config, const t_config_option_keys &diff_keys) {
                         for (auto it = it_print_object; it != it_print_object_end; ++it)
@@ -1711,9 +1796,15 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 m_default_region_config,
                 model_object_status.print_instances.front().trafo,
                 num_extruders ,
+                num_filaments,
                 print_object.is_mm_painted() ? 0.f : float(print_object.config().xy_contour_compensation.value),
                 painting_extruders,
                 print_object.is_fuzzy_skin_painted());
+            // Orca: generate_print_object_regions() rebuilds PrintObjectRegions::all_regions from
+            // scratch, so Print::m_print_regions (raw pointers into all_regions) must be rebuilt as
+            // well. Otherwise G-code would resolve the region by a stale print_region_id and would
+            // not see the painted region config (e.g. mixed_filament_index).
+            print_regions_reshuffled = true;
         }
         for (auto it = it_print_object; it != it_print_object_end; ++it)
             if ((*it)->m_shared_regions) {
@@ -1727,7 +1818,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 
     if (print_regions_reshuffled) {
         // Update Print::m_print_regions from objects.
-        struct cmp { bool operator() (const PrintRegion *l, const PrintRegion *r) const { return l->config_hash() == r->config_hash() && l->config() == r->config(); } };
+        struct cmp { bool operator()(const PrintRegion *l, const PrintRegion *r) const { return l->config_hash() == r->config_hash() && l->config() == r->config(); } };
         std::set<const PrintRegion*, cmp> region_set;
         m_print_regions.clear();
         PrintObjectRegions *print_object_regions = nullptr;

@@ -2,7 +2,10 @@
 
 #include <tbb/parallel_for.h>
 
+#include <atomic>
+
 #include "ClipperUtils.hpp"
+#include "ColorMix.hpp"
 #include "ElephantFootCompensation.hpp"
 #include "I18N.hpp"
 #include "Layer.hpp"
@@ -846,6 +849,8 @@ template<typename ThrowOnCancel>
 static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel)
 {
     // Returns MM segmentation based on painting in MM segmentation gizmo
+    BOOST_LOG_TRIVIAL(warning) << "[CMIX] mm seg: filaments=" << print_object.print()->config().filament_colour.size()
+                               << " mixed=" << print_object.print()->mixed_filament_manager().enabled_count();
     std::vector<std::vector<ExPolygons>> segmentation = multi_material_segmentation_by_painting(print_object, throw_on_cancel);
     assert(segmentation.size() == print_object.layer_count());
     tbb::parallel_for(
@@ -854,8 +859,11 @@ static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCance
             const auto  &layer_ranges   = print_object.shared_regions()->layer_ranges;
             double       z              = print_object.get_layer(int(range.begin()))->slice_z;
             auto         it_layer_range = layer_range_first(layer_ranges, z);
-            // BBS
-            const size_t num_extruders = print_object.print()->config().filament_diameter.size();
+            // Orca: physical filaments are the real ones. Color Mixing entries are painted as extra
+            // virtual channels after them and are collapsed onto a physical component per layer.
+            const MixedFilamentManager &mixed_mgr   = print_object.print()->mixed_filament_manager();
+            const size_t                num_physical = print_object.print()->config().filament_colour.size();
+            const size_t                num_channels = mixed_mgr.total_filaments(num_physical);
 
             struct ByExtruder {
                 ExPolygons  expolygons;
@@ -874,17 +882,52 @@ static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCance
                 Layer &layer = *print_object.get_layer(int(layer_id));
                 it_layer_range = layer_range_next(layer_ranges, it_layer_range, layer.slice_z);
                 const PrintObjectRegions::LayerRangeRegions &layer_range = *it_layer_range;
-                // Gather per extruder expolygons.
-                by_extruder.assign(num_extruders, ByExtruder());
+                // Gather per physical extruder expolygons.
+                by_extruder.assign(num_physical, ByExtruder());
                 by_region.assign(layer.region_count(), ByRegion());
                 bool layer_split = false;
-                for (size_t extruder_id = 0; extruder_id < num_extruders; ++ extruder_id) {
-                    ByExtruder &region = by_extruder[extruder_id];
-                    append(region.expolygons, std::move(segmentation[layer_id][extruder_id]));
+                for (size_t ch = 0; ch < num_physical && ch < segmentation[layer_id].size(); ++ch) {
+                    ByExtruder &region = by_extruder[ch];
+                    append(region.expolygons, std::move(segmentation[layer_id][ch]));
                     if (! region.expolygons.empty()) {
                         region.bbox = get_extents(region.expolygons);
                         layer_split = true;
                     }
+                }
+
+                // Orca: a mixed channel (state > num_physical) is not printed directly. Resolve it
+                // to the physical component selected for this layer and move its masks there, so
+                // that the split below uses the physical painted region created in PrintApply.
+                for (size_t ch = num_physical; ch < num_channels && ch < segmentation[layer_id].size(); ++ch) {
+                    if (segmentation[layer_id][ch].empty())
+                        continue;
+                    const unsigned int state_id = unsigned(ch) + 1;
+                    const unsigned int resolved = mixed_mgr.resolve(state_id, num_physical,
+                                                                    int(layer_id), float(layer.print_z), float(layer.height));
+                    if (resolved < 1 || resolved > num_physical)
+                        continue;
+                    const size_t component = size_t(resolved) - 1;
+                    ByExtruder &target = by_extruder[component];
+                    append(target.expolygons, std::move(segmentation[layer_id][ch]));
+                    target.bbox = get_extents(target.expolygons);
+                    layer_split = true;
+                    static std::atomic<int> dbg_mix_layers{0};
+                    if (dbg_mix_layers.fetch_add(1) < 10)
+                        BOOST_LOG_TRIVIAL(warning) << "[CMIX] seg layer=" << layer_id
+                                                   << " mixed_state=" << state_id << " -> filament=" << resolved;
+                }
+
+                if (layer_id == 0) {
+                    std::string info;
+                    for (size_t s = 0; s < by_extruder.size(); ++s)
+                        info += std::to_string(int(s) + 1) + ":" + std::to_string(by_extruder[s].expolygons.size()) + " ";
+                    std::string painted;
+                    for (const PrintObjectRegions::PaintedRegion &pr : layer_range.painted_regions)
+                        painted += std::to_string(pr.extruder_id) + " ";
+                    BOOST_LOG_TRIVIAL(warning) << "[CMIX] seg layer0 states=" << segmentation[layer_id].size()
+                                               << " physical=" << num_physical
+                                               << " split=" << layer_split
+                                               << " by_state[" << info << "] painted_regions=[" << painted << "]";
                 }
 
                 if (!layer_split)
@@ -1179,7 +1222,7 @@ void PrintObject::slice_volumes()
 
     // Is any ModelVolume multi-material painted?
     if (const auto& volumes = this->model_object()->volumes;
-        m_print->config().filament_diameter.size() > 1 && // BBS
+        m_print->config().filament_colour.size() > 1 && // Orca: painted states index filament_colour
         std::find_if(volumes.begin(), volumes.end(), [](const ModelVolume* v) { return !v->mmu_segmentation_facets.empty(); }) != volumes.end()) {
 
         // If XY Size compensation is also enabled, notify the user that XY Size compensation

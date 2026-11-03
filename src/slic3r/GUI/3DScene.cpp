@@ -7,6 +7,8 @@
 #include "Plater.hpp"
 #include "BitmapCache.hpp"
 #include "Camera.hpp"
+#include "libslic3r/ColorMix.hpp"
+#include "libslic3r/PresetBundle.hpp"
 
 #include "libslic3r/BuildVolume.hpp"
 #include "libslic3r/ExtrusionEntity.hpp"
@@ -565,8 +567,27 @@ void GLVolume::render_with_outline(const GUI::Size& cnv_size)
 }
 
 //BBS add render for simple case
+// Orca: the painting palette also contains the virtual filaments of the Color Mixing entries.
+static std::vector<ColorRGBA> make_painting_palette(const std::vector<ColorRGBA>& extruder_colors)
+{
+    std::vector<ColorRGBA> colors = extruder_colors;
+    if (PresetBundle* preset_bundle = GUI::wxGetApp().preset_bundle) {
+        for (const MixedFilament& mixed : preset_bundle->mixed_filaments.mixed_filaments()) {
+            if (!mixed.enabled || mixed.deleted)
+                continue;
+            const wxColour colour(wxString::FromUTF8(mixed.display_color.c_str()));
+            if (colour.IsOk())
+                colors.emplace_back(float(colour.Red()) / 255.f, float(colour.Green()) / 255.f, float(colour.Blue()) / 255.f, 1.f);
+            else
+                colors.emplace_back(0.8f, 0.8f, 0.8f, 1.f);
+        }
+    }
+    return colors;
+}
+
 void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_objects, std::vector<ColorRGBA>& extruder_colors, bool ban_light)
 {
+    std::vector<ColorRGBA> painting_colors = make_painting_palette(extruder_colors);
     if (this->is_left_handed())
         glFrontFace(GL_CW);
     glsafe(::glCullFace(GL_BACK));
@@ -602,7 +623,7 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
     if (color_volume && !picking) {
         // when force_transparent, we need to keep the alpha
         if (force_native_color && render_color.is_transparent()) {
-            for (auto &extruder_color : extruder_colors)
+            for (auto &extruder_color : painting_colors)
                 extruder_color.a(render_color.a());
         }
 
@@ -615,7 +636,7 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
                 if (idx == 0) {
                     int extruder_id = model_volume->extruder_id();
                     //to make black not too hard too see
-                    ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[extruder_id - 1]);
+                    ColorRGBA new_color = adjust_color_for_rendering(painting_colors[extruder_id - 1]);
                     if (ban_light) {
                         new_color[3] = (255 - (extruder_id - 1))/255.0f;
                     }
@@ -623,9 +644,9 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
                     // shader->set_uniform("uniform_color", new_color);
                 }
                 else {
-                    if (idx <= extruder_colors.size()) {
+                    if (idx <= (int)painting_colors.size()) {
                         //to make black not too hard too see
-                        ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[idx - 1]);
+                        ColorRGBA new_color = adjust_color_for_rendering(painting_colors[idx - 1]);
                         if (ban_light) {
                             new_color[3] = (255 - (idx - 1))/255.0f;
                         }
@@ -634,7 +655,7 @@ void GLVolume::simple_render(GLShaderProgram* shader, ModelObjectPtrs& model_obj
                     }
                     else {
                         //to make black not too hard too see
-                        ColorRGBA new_color = adjust_color_for_rendering(extruder_colors[0]);
+                        ColorRGBA new_color = adjust_color_for_rendering(painting_colors[0]);
                         if (ban_light) {
                             new_color[3] = (255 - 0) / 255.0f;
                         }
@@ -848,7 +869,7 @@ int GLVolumeCollection::load_wipe_tower_preview(
     if (height == 0.0f)
         height = 0.1f;
 
-    std::vector<ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors();
+    std::vector<ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(true);
     std::vector<ColorRGBA> colors;
     GUI::PartPlateList& ppl = GUI::wxGetApp().plater()->get_partplate_list();
     std::vector<int> plate_extruders = ppl.get_plate(plate_idx)->get_extruders(true);
@@ -890,7 +911,7 @@ int GLVolumeCollection::load_real_wipe_tower_preview(
     int plate_idx = obj_idx - 1000;
     if (wt_mesh.its.vertices.empty()) return int(this->volumes.size() - 1);
 
-    std::vector<Slic3r::ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors();
+    std::vector<Slic3r::ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(true);
     GUI::PartPlateList               &ppl              = GUI::wxGetApp().plater()->get_partplate_list();
     std::vector<int>                  plate_extruders  = ppl.get_plate(plate_idx)->get_extruders(true);
     std::vector<Slic3r::ColorRGBA>    colors;

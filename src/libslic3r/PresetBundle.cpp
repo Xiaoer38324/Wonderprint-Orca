@@ -37,6 +37,8 @@ namespace Slic3r {
 static std::vector<std::string> s_project_options {
     "flush_volumes_vector",
     "flush_volumes_matrix",
+    // Orca: Color Mixing definitions are project-scoped and must survive 3MF load/save.
+    "mixed_filament_definitions",
     // BBS
     "filament_colour",
     "filament_colour_type",

@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <limits>
 #include <vector>
@@ -52,6 +53,9 @@
 #include <wx/aui/aui.h>
 
 #include "libslic3r/libslic3r.h"
+#include "libslic3r/AppConfig.hpp"
+#include "libslic3r/ColorMix.hpp"
+#include "libslic3r/MixedFilament.hpp"
 #include "libslic3r/Format/STL.hpp"
 #include "libslic3r/Format/DRC.hpp"
 #include "libslic3r/Format/STEP.hpp"
@@ -77,6 +81,9 @@
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
+#include "ColorMixDialog.hpp"
+#include "MixedFilamentDialog.hpp"
+#include "MixedFilamentBatchDialog.hpp"
 #include "GuiColor.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_Utils.hpp"
@@ -181,6 +188,11 @@ static const std::pair<unsigned int, unsigned int> THUMBNAIL_SIZE_3MF = { 512, 5
 
 namespace Slic3r {
 namespace GUI {
+
+namespace {
+std::vector<std::string> current_filament_colours();
+ColorMixConfig           color_mix_config_from_mixed(const Slic3r::MixedFilament &mixed);
+}
 
 wxDEFINE_EVENT(EVT_SCHEDULE_BACKGROUND_PROCESS,     SimpleEvent);
 wxDEFINE_EVENT(EVT_SLICING_UPDATE,                  SlicingStatusEvent);
@@ -472,11 +484,14 @@ struct Sidebar::priv
     wxPanel* m_panel_filament_mix_content = nullptr;
     wxBoxSizer* m_sizer_filament_mix = nullptr;
     struct FilamentMixEntry {
-        wxColour colour;
-        wxString text;
+        wxColour        colour;
+        wxString        text;
+        MixedFilament   mixed;
     };
     std::vector<FilamentMixEntry> m_filament_mix_entries;
     std::vector<wxPanel*>         m_filament_mix_row_panels;
+    bool                          m_filament_mix_loaded = false;
+    std::string                   m_filament_mix_definitions_loaded;
     wxStaticText* m_staticText_filament_total_settings;
     ScalableButton* m_filament_total_settings_icon = nullptr;
     ScalableButton* m_filament_mix_icon = nullptr;
@@ -1588,60 +1603,6 @@ void Sidebar::update_sync_ams_btn_enable(wxUpdateUIEvent &e)
      }
  }
 
-namespace {
-
-// Wonder: colour dialog for the "Filament Mix" entries.
-// m_on_apply is called each time the apply button is pressed, so the same dialog is used
-// both for adding a new entry (close_on_apply == false) and for re-colouring an existing one.
-class FilamentMixDialog : public wxDialog
-{
-public:
-    FilamentMixDialog(wxWindow* parent, const wxColour& initial_colour, const wxString& apply_label,
-                      std::function<void(const wxColour&)> on_apply, bool close_on_apply)
-        : wxDialog(parent, wxID_ANY, _L("Color Mixing"), wxDefaultPosition, wxDefaultSize)
-        , m_on_apply(on_apply)
-        , m_close_on_apply(close_on_apply)
-    {
-        SetBackgroundColour(*wxWHITE);
-
-        auto* main_sizer = new wxBoxSizer(wxVERTICAL);
-
-        auto* colour_sizer = new wxBoxSizer(wxHORIZONTAL);
-        colour_sizer->Add(new Label(this, _L("Color")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
-        m_colour_picker = new wxColourPickerCtrl(this, wxID_ANY, initial_colour, wxDefaultPosition,
-                                                 wxDefaultSize, wxCLRP_SHOW_LABEL);
-        colour_sizer->Add(m_colour_picker, 0, wxALIGN_CENTER_VERTICAL);
-        main_sizer->Add(colour_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(12));
-
-        auto* apply_btn = new Button(this, apply_label);
-        apply_btn->SetStyle(ButtonStyle::Confirm, ButtonType::Compact);
-        apply_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-            const wxColour colour = m_colour_picker->GetColour();
-            if (m_on_apply)
-                m_on_apply(colour);
-            if (m_close_on_apply)
-                EndModal(wxID_OK);
-        });
-        main_sizer->Add(apply_btn, 0, wxALIGN_CENTER | wxALL, FromDIP(12));
-
-        auto* close_btn = new Button(this, _L("Close"));
-        close_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CLOSE); });
-        main_sizer->Add(close_btn, 0, wxALIGN_CENTER | wxBOTTOM, FromDIP(12));
-
-        SetSizerAndFit(main_sizer);
-        const int width = GetSize().GetWidth();
-        SetSize(wxSize(width < FromDIP(320) ? FromDIP(320) : width, GetSize().GetHeight()));
-        CentreOnParent();
-    }
-
-private:
-    wxColourPickerCtrl*                  m_colour_picker{nullptr};
-    std::function<void(const wxColour&)> m_on_apply;
-    bool                                 m_close_on_apply{false};
-};
-
-} // namespace
-
 Sidebar::Sidebar(Plater *parent)
     : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(42 * wxGetApp().em_unit(), -1)), p(new priv(parent))
 {
@@ -2269,12 +2230,32 @@ Sidebar::Sidebar(Plater *parent)
     bSizer_mix->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
     bSizer_mix->Add(new Label(p->m_panel_filament_mix_title, _L("Color Mixing"), LB_PROPAGATE_MOUSE_EVENT), 0, wxALIGN_CENTER);
     bSizer_mix->AddStretchSpacer(1);
+    Button* batch_btn = new Button(p->m_panel_filament_mix_title, _L("Batch"));
+    batch_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
+    batch_btn->SetToolTip(_L("Match model colors to mixed filaments in batch"));
+    batch_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        try {
+            MixedFilamentBatchDialog dlg(wxGetApp().mainframe);
+            if (dlg.ShowModal() == wxID_OK) {
+                const BatchMatchResult& result = dlg.GetResult();
+                for (const Slic3r::MixedFilament& mixed : result.mixed_filaments)
+                    add_filament_mix(mixed);
+            }
+        } catch (const std::exception& e) {
+            wxLogError("Color Mixing: %s", e.what());
+        }
+    });
+    bSizer_mix->Add(batch_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(6));
     p->m_filament_mix_add_btn = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix_add");
     p->m_filament_mix_add_btn->SetToolTip(_L("Create a color mix"));
     p->m_filament_mix_add_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        FilamentMixDialog dlg(wxGetApp().mainframe, wxColour("#009688"), _L("Test: Add Mix Entry"),
-                              [this](const wxColour& colour) { add_filament_mix(colour); }, false);
-        dlg.ShowModal();
+        try {
+            MixedFilamentDialog dlg(wxGetApp().mainframe, current_filament_colours());
+            if (dlg.ShowModal() == wxID_OK)
+                add_filament_mix(dlg.GetResult());
+        } catch (const std::exception& e) {
+            wxLogError("Color Mixing: %s", e.what());
+        }
     });
     bSizer_mix->Add(p->m_filament_mix_add_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::TitlebarMargin()));
 
@@ -2647,6 +2628,9 @@ void Sidebar::update_all_preset_comboboxes()
     // Orca:: show device tab based on vendor type
     p_mainframe->show_device(preset_bundle.use_bbl_device_tab());
     p_mainframe->m_tabpanel->SetSelection(p_mainframe->m_tabpanel->GetSelection());
+
+    // the filament list is known now: restore the persisted Color Mixing entries (once)
+    load_filament_mix_configs();
 }
 
 void Sidebar::update_presets(Preset::Type preset_type)
@@ -3346,35 +3330,424 @@ void Sidebar::add_custom_filament(wxColour new_col) {
     auto_calc_flushing_volumes(filament_count - 1);
 }
 
-// Wonder: add one entry under the "Color Mixing" bar.
-void Sidebar::add_filament_mix(const wxColour& colour)
+// Orca: bridge between the reference MixedFilamentDialog rows and the sidebar ColorMixConfig.
+namespace {
+
+std::vector<std::string> current_filament_colours()
+{
+    // The physical filament colours as shown by the plater. project_config may not carry
+    // filament_colour on 2.3.2 until the print config is assembled, and passing an empty
+    // colour list to MixedFilamentDialog crashes while painting its preview strip.
+    if (Plater* plater = wxGetApp().plater())
+        if (std::vector<std::string> colours = plater->get_extruder_colors_from_plater_config(); !colours.empty())
+            return colours;
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle) {
+        // full_config() merges project + filament presets and is reliable even before the
+        // print config has been assembled.
+        const DynamicPrintConfig full = preset_bundle->full_config();
+        if (const auto* colours = full.option<ConfigOptionStrings>("filament_colour"); colours != nullptr && !colours->values.empty())
+            return colours->values;
+        if (const auto* colours = preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour"); colours != nullptr && !colours->values.empty())
+            return colours->values;
+        // Last-resort fallback: one neutral colour per configured filament, so the dialog always
+        // gets a consistent (non-empty) colour list.
+        if (!preset_bundle->filament_presets.empty())
+            return std::vector<std::string>(preset_bundle->filament_presets.size(), "#26A69A");
+    }
+    return {};
+}
+
+Slic3r::MixedFilament mixed_from_color_mix_config(const ColorMixConfig& config)
+{
+    Slic3r::MixedFilament mixed;
+    if (!config.valid())
+        return mixed;
+    const std::vector<int>& components = config.filament_indices;
+
+    int component_a = components[0] + 1;
+    int component_b = components[1] + 1;
+    const auto has_component = [&components](int one_based) {
+        return std::find(components.begin(), components.end(), one_based - 1) != components.end();
+    };
+    if (has_component(1)) component_a = 1;
+    if (has_component(2) && component_b != 2) component_b = 2;
+    if (component_a == component_b)
+        for (int component : components)
+            if (component + 1 != component_a) { component_b = component + 1; break; }
+    if (component_a == component_b)
+        return mixed;
+
+    mixed.component_a = unsigned(component_a);
+    mixed.component_b = unsigned(component_b);
+    const std::vector<int> counts = color_mix_integer_counts(config.ratios);
+    std::string pattern;
+    for (size_t i = 0; i < components.size() && i < counts.size(); ++i) {
+        const int  id    = components[i] + 1;
+        const char token = (id == component_a) ? '1' : (id == component_b) ? '2' : char('0' + std::min(id, 9));
+        pattern.append(size_t(std::max(0, counts[i])), token);
+    }
+    mixed.manual_pattern = pattern;
+    std::vector<unsigned int> ids;
+    ids.reserve(components.size());
+    for (int component : components)
+        ids.push_back(unsigned(component) + 1);
+    mixed.gradient_component_ids = MixedFilamentManager::encode_gradient_component_ids(ids);
+    for (size_t i = 0; i < components.size() && i < counts.size(); ++i) {
+        if (components[i] + 1 == component_a) mixed.ratio_a = std::max(1, counts[i]);
+        if (components[i] + 1 == component_b) mixed.ratio_b = std::max(1, counts[i]);
+    }
+    mixed.mix_b_percent = int(std::lround(100.0 * mixed.ratio_b / double(std::max(1, mixed.ratio_a + mixed.ratio_b))));
+    mixed.custom        = true;
+    mixed.enabled       = true;
+    return mixed;
+}
+
+ColorMixConfig color_mix_config_from_mixed(const Slic3r::MixedFilament& mixed)
+{
+    ColorMixConfig config;
+    std::vector<int> ids;
+    const auto push = [&ids](int one_based) {
+        if (one_based >= 1 && std::find(ids.begin(), ids.end(), one_based) == ids.end())
+            ids.push_back(one_based);
+    };
+    push(int(mixed.component_a));
+    push(int(mixed.component_b));
+    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 0))
+        push(int(id));
+    if (ids.size() > 4)
+        ids.resize(4);
+    if (ids.size() < 2)
+        return config;
+
+    std::vector<int> counts(ids.size(), 0);
+    if (!mixed.manual_pattern.empty()) {
+        for (char c : mixed.manual_pattern) {
+            int id = 0;
+            if (c == '1') id = int(mixed.component_a);
+            else if (c == '2') id = int(mixed.component_b);
+            else if (c >= '3' && c <= '9') id = c - '0';
+            if (id <= 0) continue;
+            if (auto it = std::find(ids.begin(), ids.end(), id); it != ids.end())
+                ++counts[size_t(it - ids.begin())];
+        }
+    }
+    double total = 0.0;
+    for (size_t i = 0; i < ids.size(); ++i) {
+        if (counts[i] == 0) {
+            if (ids[i] == int(mixed.component_a)) counts[i] = std::max(1, mixed.ratio_a);
+            else if (ids[i] == int(mixed.component_b)) counts[i] = std::max(1, mixed.ratio_b);
+            else counts[i] = 1;
+        }
+        total += counts[i];
+    }
+    config.filament_indices = ids;
+    for (int& index : config.filament_indices)
+        --index;
+    config.ratios.resize(ids.size());
+    for (size_t i = 0; i < ids.size(); ++i)
+        config.ratios[i] = total > 0.0 ? double(counts[i]) / total : 1.0 / double(ids.size());
+    return config;
+}
+
+std::string mixed_display_pattern(const MixedFilament& mixed)
+{
+    // Orca: show the composition instead of the layer sequence, e.g. "F1*23%+F2*77%".
+    if (mixed.gradient_enabled || mixed.ui_mode == 3)
+        return "F" + std::to_string(mixed.component_a) + "->F" + std::to_string(mixed.component_b);
+
+    std::vector<unsigned int> ids;
+    std::vector<double>      weights;
+
+    const std::string normalized = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
+    if (!normalized.empty()) {
+        for (const std::string &group : MixedFilamentManager::split_pattern_groups(normalized)) {
+            for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, 64)) {
+                const unsigned int id = MixedFilamentManager::physical_filament_from_token(token, mixed, 64);
+                if (id < 1)
+                    continue;
+                auto it = std::find(ids.begin(), ids.end(), id);
+                if (it == ids.end()) {
+                    ids.push_back(id);
+                    weights.push_back(1.0);
+                } else {
+                    weights[size_t(it - ids.begin())] += 1.0;
+                }
+            }
+        }
+    } else {
+        ids = MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 0);
+        if (ids.size() < 2) {
+            ids = {mixed.component_a, mixed.component_b};
+        }
+
+        std::string token;
+        for (char c : mixed.gradient_component_weights) {
+            if (c >= '0' && c <= '9') {
+                token.push_back(c);
+            } else if (!token.empty()) {
+                weights.push_back(double(std::max(1, std::atoi(token.c_str()))));
+                token.clear();
+            }
+        }
+        if (!token.empty())
+            weights.push_back(double(std::max(1, std::atoi(token.c_str()))));
+
+        if (weights.size() != ids.size()) {
+            weights.assign(ids.size(), 1.0);
+            if (ids.size() == 2 && mixed.mix_b_percent > 0) {
+                weights[0] = double(100 - std::clamp(mixed.mix_b_percent, 0, 100));
+                weights[1] = double(std::clamp(mixed.mix_b_percent, 0, 100));
+            }
+        }
+    }
+
+    if (ids.size() < 2)
+        return {};
+
+    double total = 0.0;
+    for (double w : weights)
+        total += std::max(0.0, w);
+    if (total <= 0.0)
+        return {};
+
+    std::vector<int> percentages(ids.size(), 0);
+    int sum = 0;
+    for (size_t i = 0; i < ids.size(); ++i) {
+        percentages[i] = int(std::lround(100.0 * std::max(0.0, weights[i]) / total));
+        sum += percentages[i];
+    }
+    percentages.back() += 100 - sum;
+
+    std::string out;
+    for (size_t i = 0; i < ids.size(); ++i) {
+        if (i > 0)
+            out += "+";
+        out += "F" + std::to_string(ids[i]) + "*" + std::to_string(percentages[i]) + "%";
+    }
+    return out;
+}
+wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::string>& colours)
+{
+    if (!mixed.display_color.empty()) {
+        const wxColour stored(wxString::FromUTF8(mixed.display_color.c_str()));
+        if (stored.IsOk())
+            return stored;
+    }
+    MixedFilamentDisplayContext context;
+    context.num_physical   = colours.size();
+    context.physical_colors = colours;
+    const std::string hex = compute_mixed_filament_display_color(mixed, context);
+    const wxColour    colour(wxString::FromUTF8(hex.c_str()));
+    return colour.IsOk() ? colour : wxColour(0x80, 0x80, 0x80);
+}
+
+} // namespace
+
+// Wonder: add one entry under the "Color Mixing" bar (the dialog already computed the row).
+void Sidebar::add_filament_mix(const MixedFilament& mixed)
 {
     if (p->m_sizer_filament_mix == nullptr || p->m_panel_filament_mix_content == nullptr)
         return;
+    if (mixed.component_a == 0 || mixed.component_b == 0)
+        return;
 
-    p->m_filament_mix_entries.push_back({colour, colour.GetAsString(wxC2S_HTML_SYNTAX)});
+    const std::vector<std::string> colours = current_filament_colours();
+    priv::FilamentMixEntry entry;
+    entry.mixed  = mixed;
+    entry.colour = mixed_entry_colour(entry.mixed, colours);
+    entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
+    p->m_filament_mix_entries.push_back(entry);
+
+    sync_color_mix_store();
+    save_filament_mix_configs();
     rebuild_filament_mix_rows();
+
+    // Orca: after adding a virtual filament, reveal the Color Mixing section automatically so
+    // the new row is immediately visible.
+    if (p->m_panel_filament_mix_content != nullptr) {
+        p->m_panel_filament_mix_content->Show(true);
+        if (p->m_panel_filament_mix_title != nullptr)
+            p->m_panel_filament_mix_title->Layout();
+        m_scrolled_sizer->Layout();
+        p->m_panel_filament_mix_content->Layout();
+        p->m_panel_filament_mix_content->Refresh();
+    }
 }
 
-// Wonder: re-colour an existing entry (used by "Edit" in the "..." menu and by clicking the colour square).
+// Wonder: edit an existing entry (used by "Edit" in the "..." menu and by clicking the colour square).
 void Sidebar::edit_filament_mix(size_t index)
 {
     if (index >= p->m_filament_mix_entries.size())
         return;
 
-    const wxColour initial = p->m_filament_mix_entries[index].colour;
-    FilamentMixDialog dlg(wxGetApp().mainframe, initial, _L("Apply"),
-                          [this, index](const wxColour& colour) {
-                              if (index >= p->m_filament_mix_entries.size())
-                                  return;
-                              p->m_filament_mix_entries[index].colour = colour;
-                              p->m_filament_mix_entries[index].text   = colour.GetAsString(wxC2S_HTML_SYNTAX);
-                          },
-                          true);
-    dlg.ShowModal();
+    try {
+        MixedFilamentDialog dlg(wxGetApp().mainframe, current_filament_colours(), p->m_filament_mix_entries[index].mixed);
+        if (dlg.ShowModal() == wxID_OK) {
+            priv::FilamentMixEntry& entry = p->m_filament_mix_entries[index];
+            entry.mixed  = dlg.GetResult();
+            entry.colour = mixed_entry_colour(entry.mixed, current_filament_colours());
+            entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
+            sync_color_mix_store();
+            save_filament_mix_configs();
+        }
+    } catch (const std::exception& e) {
+        wxLogError("Color Mixing: %s", e.what());
+    }
 
     // deferred: the caller may be the "..." button, which must not be destroyed from its own handler
     CallAfter([this]() { rebuild_filament_mix_rows(); });
+}
+
+// Orca: repaint every painted occurrence of a virtual mixed filament with a real filament,
+// then remove the virtual entry from the project.
+void Sidebar::replace_filament_mix(size_t index, int target_filament)
+{
+    if (index >= p->m_filament_mix_entries.size())
+        return;
+
+    const int physical = int(p->combos_filament.size());
+    if (target_filament < 1 || target_filament > physical)
+        return;
+
+    wxGetApp().plater()->take_snapshot("Del and Replaced With");
+
+    const int virtual_state = physical + int(index) + 1; // 1-based painted state of this mix
+
+    EnforcerBlockerStateMap state_map;
+    for (size_t state = 0; state < state_map.size(); ++state)
+        state_map[state] = EnforcerBlockerType(state);
+    if (virtual_state > 0 && virtual_state < int(state_map.size()))
+        state_map[size_t(virtual_state)] = EnforcerBlockerType(target_filament);
+    // After removing the entry, the remaining virtual states shift down by one; keep the
+    // palette indices of the other mixed filaments valid.
+    for (int state = virtual_state + 1; state < int(state_map.size()); ++state)
+        state_map[size_t(state)] = EnforcerBlockerType(state - 1);
+
+    for (ModelObject* object : wxGetApp().model().objects) {
+        for (ModelVolume* volume : object->volumes) {
+            if (!volume->mmu_segmentation_facets.empty())
+                volume->mmu_segmentation_facets.remap_enforcer_block_types(*volume, EnforcerBlockerType::ExtruderMax, state_map);
+        }
+    }
+
+    p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
+    sync_color_mix_store();
+    save_filament_mix_configs();
+    rebuild_filament_mix_rows();
+    wxGetApp().plater()->update();
+}
+
+void Sidebar::save_filament_mix_configs()
+{
+    // Orca: Color Mixing rows are project data. They are written to
+    // project_config.mixed_filament_definitions (and therefore into the 3MF) by
+    // sync_color_mix_store(); nothing is stored in the global app config anymore.
+}
+
+void Sidebar::reset_filament_mix_state()
+{
+    p->m_filament_mix_entries.clear();
+    p->m_filament_mix_loaded = false;
+    p->m_filament_mix_definitions_loaded.clear();
+    if (p->m_sizer_filament_mix != nullptr && p->m_panel_filament_mix_content != nullptr) {
+        rebuild_filament_mix_rows();
+        p->m_panel_filament_mix_content->Layout();
+        p->m_panel_filament_mix_content->Refresh();
+    }
+}
+
+// Orca: publish the sidebar rows to PresetBundle::mixed_filaments (the single source of truth
+// for the ported UI, the painting palette and the slicing pipeline).
+void Sidebar::sync_color_mix_store()
+{
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr)
+        return;
+
+    MixedFilamentManager manager;
+    manager.mixed_filaments().reserve(p->m_filament_mix_entries.size());
+    for (const priv::FilamentMixEntry& entry : p->m_filament_mix_entries) {
+        MixedFilament mixed = entry.mixed;
+        mixed.custom        = true;
+        mixed.enabled       = true;
+        mixed.deleted       = false;
+        manager.mixed_filaments().push_back(std::move(mixed));
+    }
+    const std::vector<std::string> colours = current_filament_colours();
+    // Orca: same authoritative cadence as PrintApply::load_mixed_filaments(). The dialog only
+    // stores the blend percentage; the manager derives the integer cycle from it here
+    // (minority = 1 layer, majority = round(major/minor), e.g. 23%/77% -> 1:3 -> "3444").
+    manager.apply_gradient_settings(0, 0.04f, 0.16f, false);
+    manager.refresh_display_colors(colours);
+
+    // Reflect the normalized ratios back into the sidebar rows, so the pattern text matches
+    // what will actually be sliced.
+    for (size_t i = 0; i < p->m_filament_mix_entries.size() && i < manager.mixed_filaments().size(); ++i) {
+        priv::FilamentMixEntry& entry = p->m_filament_mix_entries[i];
+        entry.mixed  = manager.mixed_filaments()[i];
+        entry.colour = mixed_entry_colour(entry.mixed, colours);
+        entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
+    }
+
+    preset_bundle->mixed_filaments = manager;
+    if (ConfigOptionString* definitions = preset_bundle->project_config.option<ConfigOptionString>("mixed_filament_definitions", true))
+        definitions->value = preset_bundle->mixed_filaments.serialize_custom_entries();
+}
+
+void Sidebar::load_filament_mix_configs()
+{
+    std::string current_definitions;
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle) {
+        if (const auto* definitions = preset_bundle->project_config.option<ConfigOptionString>("mixed_filament_definitions"))
+            current_definitions = definitions->value;
+        // Some import paths merge the 3MF settings into the full config without touching
+        // project_config, so fall back to the assembled full config.
+        if (current_definitions.empty()) {
+            const DynamicPrintConfig full = preset_bundle->full_config();
+            if (const auto* definitions = full.option<ConfigOptionString>("mixed_filament_definitions"))
+                current_definitions = definitions->value;
+        }
+    }
+
+    // Reload when the project definitions changed (e.g. opening another 3MF).
+    if (p->m_filament_mix_loaded && current_definitions == p->m_filament_mix_definitions_loaded)
+        return;
+    // wait until the filament list is available (this is called from update_all_preset_comboboxes)
+    if (p->combos_filament.size() < 2)
+        return;
+    p->m_filament_mix_loaded = true;
+    p->m_filament_mix_definitions_loaded = current_definitions;
+    p->m_filament_mix_entries.clear();
+
+    // Orca: prefer the Color Mixing definitions stored in the project (3MF), then fall back
+    // to the definitions saved in the app config.
+    const std::vector<std::string> colours = current_filament_colours();
+    std::vector<MixedFilament>     rows;
+    if (!current_definitions.empty()) {
+        MixedFilamentManager manager;
+        manager.load_custom_entries(current_definitions, colours);
+        for (const MixedFilament& mixed : manager.mixed_filaments())
+            if (mixed.enabled && !mixed.deleted)
+                rows.push_back(mixed);
+    }
+    if (rows.empty()) {
+        // Project scope only: a project without mixed definitions must open with no rows.
+    }
+
+    for (const MixedFilament& mixed : rows) {
+        if (mixed.component_a == 0 || mixed.component_b == 0)
+            continue;
+        priv::FilamentMixEntry entry;
+        entry.mixed  = mixed;
+        entry.colour = mixed_entry_colour(entry.mixed, colours);
+        entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
+        p->m_filament_mix_entries.push_back(entry);
+    }
+
+    sync_color_mix_store();
+
+    if (!p->m_filament_mix_entries.empty())
+        rebuild_filament_mix_rows();
 }
 
 // Wonder: (re)build the "Color Mixing" entries as a two-column grid, like the filament list.
@@ -3427,7 +3800,14 @@ void Sidebar::rebuild_filament_mix_rows()
 
         wxBoxSizer* text_field_sizer = new wxBoxSizer(wxHORIZONTAL);
         text_field_sizer->AddStretchSpacer(1);
-        Label* text_value = new Label(text_field, entry.text, LB_PROPAGATE_MOUSE_EVENT);
+        // Keep the field width stable: long composition strings are truncated with an ellipsis
+        // instead of widening the sidebar. The full text is available in the tooltip.
+        static constexpr size_t k_max_text_chars = 16;
+        wxString text_display = entry.text;
+        if (text_display.length() > k_max_text_chars)
+            text_display = text_display.Left(int(k_max_text_chars) - 3) + "...";
+        Label* text_value = new Label(text_field, text_display, LB_PROPAGATE_MOUSE_EVENT);
+        text_value->SetToolTip(entry.text);
         text_value->SetCursor(wxCURSOR_HAND);
         text_field_sizer->Add(text_value, 0, wxALIGN_CENTER_VERTICAL);
         text_field_sizer->AddStretchSpacer(1);
@@ -3452,14 +3832,25 @@ void Sidebar::rebuild_filament_mix_rows()
                     if (i >= p->m_filament_mix_entries.size())
                         return;
                     p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + i);
+                    sync_color_mix_store();
+                    save_filament_mix_configs();
                     rebuild_filament_mix_rows();
                 });
+            } else if (evt.GetId() > wxID_HIGHEST + 3000 &&
+                       evt.GetId() <= wxID_HIGHEST + 3000 + int(p->combos_filament.size())) {
+                const int target = evt.GetId() - (wxID_HIGHEST + 3000);
+                CallAfter([this, i, target]() { replace_filament_mix(i, target); });
             }
         });
-        menu_btn->Bind(wxEVT_BUTTON, [menu_btn](wxCommandEvent&) {
+        menu_btn->Bind(wxEVT_BUTTON, [this, menu_btn](wxCommandEvent&) {
             wxMenu menu;
             menu.Append(wxID_EDIT, _L("Edit"));
             menu.Append(wxID_DELETE, _L("Delete"));
+            menu.AppendSeparator();
+            wxMenu* replace_menu = new wxMenu;
+            for (int filament = 1; filament <= int(p->combos_filament.size()); ++filament)
+                replace_menu->Append(wxID_HIGHEST + 3000 + filament, wxString::Format("F%d", filament));
+            menu.AppendSubMenu(replace_menu, _L("Del and Replaced With"));
             menu_btn->PopupMenu(&menu, wxPoint(0, menu_btn->GetSize().GetHeight()));
         });
 
@@ -12346,6 +12737,10 @@ void Plater::load_project(wxString const& filename2,
     sidebar().set_flushing_volume_warning(has_modify);
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << __LINE__ << " load project done";
+    // Orca: Color Mixing belongs to the project (mixed_filament_definitions in the 3MF).
+    // Drop the previous project's rows and reload from the freshly loaded project config.
+    sidebar().reset_filament_mix_state();
+    CallAfter([this]() { sidebar().load_filament_mix_configs(); });
     m_loading_project = false;
 }
 
@@ -14673,7 +15068,18 @@ void Plater::deselect_all() { p->deselect_all(); }
 void Plater::exit_gizmo() { p->exit_gizmo(); }
 
 void Plater::remove(size_t obj_idx) { p->remove(obj_idx); }
-void Plater::reset(bool apply_presets_change) { p->reset(apply_presets_change); }
+void Plater::reset(bool apply_presets_change)
+{
+    p->reset(apply_presets_change);
+    // Orca: Color Mixing is project data. Clear the previous project's definitions and the
+    // preset-level manager before a new/loaded project fills them in again.
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle) {
+        preset_bundle->mixed_filaments = MixedFilamentManager();
+        if (ConfigOptionString* definitions = preset_bundle->project_config.option<ConfigOptionString>("mixed_filament_definitions", true))
+            definitions->value.clear();
+    }
+    sidebar().reset_filament_mix_state();
+}
 void Plater::reset_with_confirm()
 {
     if (p->model.objects.empty() || MessageDialog(static_cast<wxWindow *>(this), _L("All objects will be removed, continue?"),
@@ -15689,6 +16095,12 @@ int Plater::export_3mf(const boost::filesystem::path& output_path, SaveStrategy 
 
     DynamicPrintConfig cfg = wxGetApp().preset_bundle->full_config_secure();
     const std::string path_u8 = into_u8(path);
+    // Orca: Color Mixing definitions are project data. Make sure the manager is in sync and
+    // force the option into the exported project settings (full_config_secure may drop
+    // project-only options depending on the preset state).
+    this->sidebar().sync_color_mix_store();
+    cfg.set_key_value("mixed_filament_definitions",
+                      new ConfigOptionString(wxGetApp().preset_bundle->mixed_filaments.serialize_custom_entries()));
     wxBusyCursor wait;
 
     BOOST_LOG_TRIVIAL(trace) << __FUNCTION__ << boost::format(": path=%1%, backup=%2%, export_plate_idx=%3%, SaveStrategy=%4%")
@@ -15972,6 +16384,8 @@ bool Plater::is_multi_extruder_ams_empty()
 void Plater::reslice()
 {
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", Line %1%: enter, process_completed_with_error=%2%")%__LINE__ %p->process_completed_with_error;
+    // Orca: make sure the slicer sees the current Color Mixing entries (they are virtual filaments).
+    this->sidebar().sync_color_mix_store();
     // There is "invalid data" button instead "slice now"
     if (p->process_completed_with_error == p->partplate_list.get_curr_plate_index())
     {
@@ -16561,7 +16975,9 @@ void Plater::on_filament_count_change(size_t num_filaments)
 
     for (ModelObject* mo : wxGetApp().model().objects) {
         for (ModelVolume* mv : mo->volumes) {
-            mv->update_extruder_count(num_filaments);
+            // Orca: keep the states of the Color Mixing virtual filaments.
+            const size_t mixed_count = wxGetApp().preset_bundle != nullptr ? wxGetApp().preset_bundle->mixed_filaments.enabled_count() : 0;
+            mv->update_extruder_count(num_filaments + mixed_count);
         }
     }
 }
@@ -16622,10 +17038,10 @@ void Plater::on_filaments_delete(size_t num_filaments, size_t filament_id, int r
     }
 }
 
-std::vector<Slic3r::ColorRGBA> Plater::get_extruders_colors()
+std::vector<Slic3r::ColorRGBA> Plater::get_extruders_colors(bool include_mixed)
 {
     unsigned char                     rgba_color[4] = {};
-    std::vector<std::string>          colors        = get_extruder_colors_from_plater_config();
+    std::vector<std::string>          colors        = get_extruder_colors_from_plater_config(nullptr, include_mixed);
     std::vector<Slic3r::ColorRGBA> colors_out(colors.size());
     for (const std::string &color : colors) {
         Slic3r::GUI::BitmapCache::parse_color4(color, rgba_color);
@@ -16904,19 +17320,26 @@ void Plater::on_activate()
 }
 
 // Get vector of extruder colors considering filament color, if extruder color is undefined.
-std::vector<std::string> Plater::get_extruder_colors_from_plater_config(const GCodeProcessorResult* const result) const
+std::vector<std::string> Plater::get_extruder_colors_from_plater_config(const GCodeProcessorResult* const result, bool include_mixed) const
 {
-    if (wxGetApp().is_gcode_viewer() && result != nullptr)
-        return result->extruder_colors;
-    else {
+    std::vector<std::string> filament_colors;
+    if (wxGetApp().is_gcode_viewer() && result != nullptr) {
+        filament_colors = result->extruder_colors;
+    } else {
         const Slic3r::DynamicPrintConfig* config = &wxGetApp().preset_bundle->project_config;
-        std::vector<std::string> filament_colors;
         if (!config->has("filament_colour")) // in case of a SLA print
             return filament_colors;
 
         filament_colors = (config->option<ConfigOptionStrings>("filament_colour"))->values;
-        return filament_colors;
     }
+
+    // Orca: virtual mixed filaments are addressed after the physical ones. Callers that map
+    // painted/extruder ids (wipe tower preview, palette) need their display colours appended.
+    if (include_mixed && wxGetApp().preset_bundle != nullptr) {
+        for (const std::string &color : wxGetApp().preset_bundle->mixed_filaments.display_colors())
+            filament_colors.emplace_back(color);
+    }
+    return filament_colors;
 }
 
 std::vector<std::string> Plater::get_filament_colors_render_info() const

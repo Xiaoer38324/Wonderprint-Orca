@@ -16,6 +16,7 @@
 #include "Print.hpp"
 #include "Utils.hpp"
 #include "ClipperUtils.hpp"
+#include "ColorMix.hpp"
 #include "libslic3r.h"
 #include "LocalesUtils.hpp"
 #include "libslic3r/format.hpp"
@@ -33,6 +34,7 @@
 #include <string_view>
 
 #include <regex>
+#include <atomic>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/find.hpp>
 #include <boost/foreach.hpp>

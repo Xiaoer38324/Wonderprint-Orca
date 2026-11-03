@@ -97,6 +97,10 @@ set(lisbslic3r_sources
     ClipperZUtils.hpp
     Color.cpp
     Color.hpp
+    ColorMix.cpp
+    ColorMix.hpp
+    FilamentColorLibrary.cpp
+    FilamentColorLibrary.hpp
     CommonDefs.hpp
     Config.cpp
     Config.hpp
@@ -300,6 +304,12 @@ set(lisbslic3r_sources
     ModelArrange.hpp
     Model.cpp
     Model.hpp
+    MixedFilament.cpp
+    MixedFilament.hpp
+    MixedFilamentConfigRemap.hpp
+    filament_mixer.cpp
+    filament_mixer.h
+    filament_mixer_model.h
     MTUtils.hpp
     MultiMaterialSegmentation.cpp
     MultiMaterialSegmentation.hpp
@@ -487,6 +497,9 @@ add_library(libslic3r STATIC ${lisbslic3r_sources}
     "${CMAKE_CURRENT_BINARY_DIR}/libslic3r_version.h"
     ${OpenVDBUtils_SOURCES})
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${lisbslic3r_sources})
+
+# Orca: deps_src is the include root for header-only libraries (e.g. <fast_float/fast_float.h>).
+target_include_directories(libslic3r SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/deps_src)
 
 if (SLIC3R_STATIC)
     set(CGAL_Boost_USE_STATIC_LIBS ON CACHE BOOL "" FORCE)

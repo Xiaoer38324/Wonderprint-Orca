@@ -7,6 +7,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/BitmapCache.hpp"
 #include "slic3r/GUI/format.hpp"
+#include "libslic3r/ColorMix.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/GUI.hpp"
@@ -72,9 +73,27 @@ static std::vector<int> get_extruder_id_for_volumes(const ModelObject &model_obj
     return extruders_idx;
 }
 
+// Orca: palette of the painting tool = real filaments + the virtual filaments of the Color Mixing entries.
+static std::vector<ColorRGBA> make_extruders_palette()
+{
+    std::vector<ColorRGBA> colors = wxGetApp().plater()->get_extruders_colors();
+    if (const PresetBundle *preset_bundle = wxGetApp().preset_bundle) {
+        for (const MixedFilament &mixed : preset_bundle->mixed_filaments.mixed_filaments()) {
+            if (!mixed.enabled || mixed.deleted)
+                continue;
+            const wxColour colour(wxString::FromUTF8(mixed.display_color.c_str()));
+            if (colour.IsOk())
+                colors.emplace_back(float(colour.Red()) / 255.f, float(colour.Green()) / 255.f, float(colour.Blue()) / 255.f, 1.f);
+            else
+                colors.emplace_back(0.8f, 0.8f, 0.8f, 1.f);
+        }
+    }
+    return colors;
+}
+
 void GLGizmoMmuSegmentation::init_extruders_data()
 {
-    m_extruders_colors      = wxGetApp().plater()->get_extruders_colors();
+    m_extruders_colors      = make_extruders_palette();
     m_selected_extruder_idx = 0;
 
     // keep remap table consistent with current extruder count
@@ -171,16 +190,17 @@ void GLGizmoMmuSegmentation::data_changed(bool is_serializing)
         return;
 
     ModelObject* model_object = m_c->selection_info()->model_object();
+    // Orca: the palette contains the real filaments plus the Color Mixing virtual filaments.
+    const std::vector<ColorRGBA> palette = make_extruders_palette();
     int prev_extruders_count = int(m_extruders_colors.size());
-    if (prev_extruders_count != wxGetApp().filaments_cnt()) {
-        if (wxGetApp().filaments_cnt() > int(GLGizmoMmuSegmentation::EXTRUDERS_LIMIT))
+    if (prev_extruders_count != int(palette.size())) {
+        if (int(palette.size()) > int(GLGizmoMmuSegmentation::EXTRUDERS_LIMIT))
             show_notification_extruders_limit_exceeded();
 
         this->init_extruders_data();
         // Reinitialize triangle selectors because of change of extruder count need also change the size of GLIndexedVertexArray
-        if (prev_extruders_count != wxGetApp().filaments_cnt())
-            this->init_model_triangle_selectors();
-    } else if (wxGetApp().plater()->get_extruders_colors() != m_extruders_colors) {
+        this->init_model_triangle_selectors();
+    } else if (palette != m_extruders_colors) {
         this->init_extruders_data();
         this->update_triangle_selectors_colors();
     }
@@ -860,8 +880,7 @@ void GLGizmoMmuSegmentation::update_from_model_object(bool first_update)
 
     // Extruder colors need to be reloaded before calling init_model_triangle_selectors to render painted triangles
     // using colors from loaded 3MF and not from printer profile in Slicer.
-    if (int prev_extruders_count = int(m_extruders_colors.size());
-        prev_extruders_count != wxGetApp().filaments_cnt() || wxGetApp().plater()->get_extruders_colors() != m_extruders_colors)
+    if (m_extruders_colors != make_extruders_palette())
         this->init_extruders_data();
 
     this->init_model_triangle_selectors();

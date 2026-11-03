@@ -9,6 +9,7 @@
 // BBS
 #include <wx/notebook.h>
 
+#include "libslic3r/MixedFilament.hpp"
 #include "Selection.hpp"
 
 #include "libslic3r/enum_bitmask.hpp"
@@ -126,6 +127,8 @@ public:
     static int ElementSpacing(){ return 5 ;} // Use if elements has relation between them like edit button for combo box etc.
 };
 
+struct ColorMixConfig;
+
 class Sidebar : public wxPanel
 {
     ConfigOptionMode    m_mode;
@@ -187,9 +190,18 @@ public:
     void change_filament(size_t from_id, size_t to_id);  // 0 base
     void edit_filament();
     void add_custom_filament(wxColour new_col);
-    void add_filament_mix(const wxColour& colour);
+    void add_filament_mix(const MixedFilament& mixed);
+    // Orca: repaint every occurrence of a virtual mixed filament with a real filament and
+    // remove the virtual entry.
+    void replace_filament_mix(size_t index, int target_filament);
+    // Orca: drop the Color Mixing rows when a project is closed/opened; the rows belong to
+    // the project (3MF), not to the application.
+    void reset_filament_mix_state();
     void edit_filament_mix(size_t index);
     void rebuild_filament_mix_rows();
+    void save_filament_mix_configs();
+    void load_filament_mix_configs();
+    void sync_color_mix_store();
     bool is_new_project_in_gcode3mf();
     // BBS
     void on_bed_type_change(BedType bed_type);
@@ -559,7 +571,7 @@ public:
     void on_filament_change(size_t filament_idx);
     void on_filament_count_change(size_t extruders_count);
     void on_filaments_delete(size_t extruders_count, size_t filament_id, int replace_filament_id = -1);
-    std::vector<Slic3r::ColorRGBA> get_extruders_colors();
+    std::vector<Slic3r::ColorRGBA> get_extruders_colors(bool include_mixed = false);
     // BBS
     void on_bed_type_change(BedType bed_type);
 
@@ -570,7 +582,7 @@ public:
     void force_print_bed_update();
     // On activating the parent window.
     void on_activate();
-    std::vector<std::string> get_extruder_colors_from_plater_config(const GCodeProcessorResult* const result = nullptr) const;
+    std::vector<std::string> get_extruder_colors_from_plater_config(const GCodeProcessorResult* const result = nullptr, bool include_mixed = false) const;
     std::vector<std::string> get_filament_colors_render_info() const;
     std::vector<std::string> get_filament_color_render_type() const;
     std::vector<std::string> get_colors_for_color_print(const GCodeProcessorResult* const result = nullptr) const;
