@@ -3272,6 +3272,41 @@ void Sidebar::add_filament() {
     add_custom_filament(new_col);
 }
 
+// Orca: helpers for deleting a physical filament referenced by virtual mixed filaments.
+static bool mixed_uses_physical_filament(const MixedFilament &mixed, unsigned int filament_id)
+{
+    if (mixed.component_a == filament_id || mixed.component_b == filament_id)
+        return true;
+    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
+        if (id == filament_id)
+            return true;
+    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
+    if (!pattern.empty()) {
+        for (const std::string &group : MixedFilamentManager::split_pattern_groups(pattern)) {
+            for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, 64)) {
+                if (MixedFilamentManager::physical_filament_from_token(token, mixed, 64) == filament_id)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
+static void shift_mixed_physical_ids(MixedFilament &mixed, unsigned int deleted_id)
+{
+    if (mixed.component_a > deleted_id)
+        --mixed.component_a;
+    if (mixed.component_b > deleted_id)
+        --mixed.component_b;
+
+    std::vector<unsigned int> ids =
+        MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64);
+    for (unsigned int &id : ids)
+        if (id > deleted_id)
+            --id;
+    mixed.gradient_component_ids = MixedFilamentManager::encode_gradient_component_ids(ids);
+}
+
 void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     if (is_new_project_in_gcode3mf()) { return; }
     if (p->combos_filament.size() <= 1) return;
@@ -3287,6 +3322,37 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     if (filament_id > filament_count)
         return;
 
+    // Orca: a physical filament may be referenced by virtual mixed filaments. Warn the user
+    // and delete those virtual filaments together with the physical one.
+    const unsigned int deleted_physical = unsigned(filament_id) + 1;
+    std::vector<size_t> dependent_entries;
+    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index) {
+        if (mixed_uses_physical_filament(p->m_filament_mix_entries[index].mixed, deleted_physical))
+            dependent_entries.push_back(index);
+    }
+    if (!dependent_entries.empty()) {
+        const int first_virtual = int(p->combos_filament.size()) + 1;
+        wxString list;
+        for (size_t index : dependent_entries) {
+            if (!list.empty())
+                list += ", ";
+            list += wxString::Format("F%d", first_virtual + int(index));
+        }
+        MessageDialog dlg(wxGetApp().mainframe,
+                          wxString::Format(_L("The following virtual filaments use physical filament F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"),
+                                           deleted_physical, list.c_str()),
+                          _L("Delete filament"), wxICON_WARNING | wxOK | wxCANCEL);
+        if (dlg.ShowModal() != wxID_OK)
+            return;
+
+        std::sort(dependent_entries.begin(), dependent_entries.end(), std::greater<size_t>());
+        for (size_t index : dependent_entries)
+            p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
+    }
+    // Remaining virtual filaments that referenced filaments after the deleted one shift down.
+    for (priv::FilamentMixEntry& entry : p->m_filament_mix_entries)
+        shift_mixed_physical_ids(entry.mixed, deleted_physical);
+
     if (wxGetApp().preset_bundle->is_the_only_edited_filament(filament_id) || (filament_id == 0)) {
         wxGetApp().get_tab(Preset::TYPE_FILAMENT)->select_preset(wxGetApp().preset_bundle->filament_presets[0], false, "", true);
     }
@@ -3300,6 +3366,10 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     wxGetApp().plater()->on_filaments_delete(filament_count, filament_id, replace_filament_id > (int)filament_id ? (replace_filament_id - 1) : replace_filament_id);
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
     wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
+
+    // Refresh the Color Mixing manager/rows after the physical filament count changed.
+    sync_color_mix_store();
+    rebuild_filament_mix_rows();
 
     wxGetApp().plater()->update();
 }
