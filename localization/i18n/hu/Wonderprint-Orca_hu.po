@@ -18454,10 +18454,10 @@ msgstr ""
 "a nyomtatott elem. A fúvóka átmérőjének százalékában van kifejezve"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Visszahúzás szerszámcserékor"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Extra hosszúság szerszámcsere esetén"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22586,6 +22586,48 @@ msgstr ""
 "Tudtad, hogy a kunkorodásra hajlamos anyagok (például ABS) nyomtatásakor a "
 "tárgyasztal hőmérsékletének növelése csökkentheti a kunkorodás "
 "valószínűségét?"
+
+msgid "Filament Management"
+msgstr "Filament kezelés"
+
+msgid "Color Mixing"
+msgstr "Színkeverés"
+
+msgid "Filament Selection"
+msgstr "Filament kiválasztása"
+
+msgid "Mixing Ratio"
+msgstr "Keverési arány"
+
+msgid "Mix Effect"
+msgstr "Mix Effect"
+
+msgid "Mixing Recommendations"
+msgstr "Keverési ajánlások"
+
+msgid "Target Color"
+msgstr "Célszín"
+
+msgid "Min Mix Ratio"
+msgstr "Minimmaros keverék arány"
+
+msgid "Ratio"
+msgstr "Arány"
+
+msgid "Cycle"
+msgstr "Ciklus"
+
+msgid "Match"
+msgstr "Mérkőzés"
+
+msgid "Gradient"
+msgstr "Gördőpont"
+
+msgid "Del and Replaced With"
+msgstr "Del és helyettesítve"
+
+msgid "Delete And Replaced With"
+msgstr "Törlés és helyettesítés"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"

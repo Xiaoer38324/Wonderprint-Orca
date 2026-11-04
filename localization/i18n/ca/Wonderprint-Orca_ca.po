@@ -18601,10 +18601,10 @@ msgstr ""
 "propi element. S'expressa en percentatge sobre el diàmetre del broquet"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Retracció en canvi d'eina"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Longitud addicional en el canvi d'eina"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22781,6 +22781,48 @@ msgstr ""
 "Sabíeu que quan imprimiu materials propensos a deformar-se, com ara l'ABS, "
 "augmentar adequadament la temperatura del llit pot reduir la probabilitat de "
 "deformació?"
+
+msgid "Filament Management"
+msgstr "Gestió del filament"
+
+msgid "Color Mixing"
+msgstr "Mescla de colors"
+
+msgid "Filament Selection"
+msgstr "Selecció de filament"
+
+msgid "Mixing Ratio"
+msgstr "Ràtio de mescla"
+
+msgid "Mix Effect"
+msgstr "Efecte de mescla"
+
+msgid "Mixing Recommendations"
+msgstr "Recomanacions de mescla"
+
+msgid "Target Color"
+msgstr "Color objectiu"
+
+msgid "Min Mix Ratio"
+msgstr "Ràtio de mescla mínima"
+
+msgid "Ratio"
+msgstr "Ràtio"
+
+msgid "Cycle"
+msgstr "Cicle"
+
+msgid "Match"
+msgstr "Partit"
+
+msgid "Gradient"
+msgstr "Pendent"
+
+msgid "Del and Replaced With"
+msgstr "Del i substituït per"
+
+msgid "Delete And Replaced With"
+msgstr "Esborrar i substituir per"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"

@@ -18163,10 +18163,10 @@ msgstr ""
 "procent av nozzel diametern."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Tillbakadragning vid verktygsbyte"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Extra längd på verktygsbyte"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22229,6 +22229,48 @@ msgstr ""
 "Visste du att när du skriver ut material som är benägna att vrida, såsom "
 "ABS, kan en lämplig ökning av värmebäddens temperatur minska sannolikheten "
 "för vridning?"
+
+msgid "Filament Management"
+msgstr "Filamenthantering"
+
+msgid "Color Mixing"
+msgstr "Färgblandning"
+
+msgid "Filament Selection"
+msgstr "Filamentval"
+
+msgid "Mixing Ratio"
+msgstr "Blandningsförhållande"
+
+msgid "Mix Effect"
+msgstr "Mix Effect"
+
+msgid "Mixing Recommendations"
+msgstr "Rekommendationer för mixning"
+
+msgid "Target Color"
+msgstr "Målfärg"
+
+msgid "Min Mix Ratio"
+msgstr "Minusblandningsförhållande"
+
+msgid "Ratio"
+msgstr "Ratio"
+
+msgid "Cycle"
+msgstr "Cykel"
+
+msgid "Match"
+msgstr "Matchen"
+
+msgid "Gradient"
+msgstr "Lutning"
+
+msgid "Del and Replaced With"
+msgstr "Del och ersatt med"
+
+msgid "Delete And Replaced With"
+msgstr "Ta bort och ersätta med"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"

@@ -18721,10 +18721,10 @@ msgstr ""
 "rispetto al diametro dell'ugello."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Ritrattazione al cambio di attrezzo"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Lunghezza extra su cambio utensile"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22922,6 +22922,48 @@ msgstr ""
 "Sapevi che quando si stampano materiali soggetti a deformazioni come l'ABS, "
 "aumentare in modo appropriato la temperatura del piano riscaldato può "
 "ridurre la probabilità di deformazione?"
+
+msgid "Filament Management"
+msgstr "Gestione del filamento"
+
+msgid "Color Mixing"
+msgstr "Miscelazione dei colori"
+
+msgid "Filament Selection"
+msgstr "Selezione dei filamenti"
+
+msgid "Mixing Ratio"
+msgstr "Rapporto di miscelazione"
+
+msgid "Mix Effect"
+msgstr "Effetto Mix"
+
+msgid "Mixing Recommendations"
+msgstr "Consigli di mixaggio"
+
+msgid "Target Color"
+msgstr "Colore bersaglio"
+
+msgid "Min Mix Ratio"
+msgstr "Rapporto minimo di mix"
+
+msgid "Ratio"
+msgstr "Rapporto"
+
+msgid "Cycle"
+msgstr "Ciclo"
+
+msgid "Match"
+msgstr "Partita"
+
+msgid "Gradient"
+msgstr "Gradiente"
+
+msgid "Del and Replaced With"
+msgstr "Del e sostituito con"
+
+msgid "Delete And Replaced With"
+msgstr "Elimina e sostituisce con"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se vuoi provare Wonderprint-Orca Beta, puoi cliccare su"

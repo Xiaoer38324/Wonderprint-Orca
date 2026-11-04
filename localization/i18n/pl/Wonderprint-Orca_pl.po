@@ -17754,10 +17754,10 @@ msgstr ""
 "wyrażona w procentach i zostanie obliczona na podstawie średnicy dyszy."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Wycofanie przy zmianie narzędzia"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Dodatkowa długość przy zmianie narzędzia"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -21705,6 +21705,48 @@ msgstr ""
 "Czy wiesz, że podczas drukowania filamentami podatnymi na odkształcenia, "
 "takimi jak ABS, odpowiednie zwiększenie temperatury podgrzewanej płyty może "
 "zmniejszyć prawdopodobieństwo odkształceń?"
+
+msgid "Filament Management"
+msgstr "Zarządzanie filamentem"
+
+msgid "Color Mixing"
+msgstr "Mieszanie kolorów"
+
+msgid "Filament Selection"
+msgstr "Wybór filamentu"
+
+msgid "Mixing Ratio"
+msgstr "Stosunek mieszania"
+
+msgid "Mix Effect"
+msgstr "Efekt mieszanki"
+
+msgid "Mixing Recommendations"
+msgstr "Zalecenia dotyczące miksowania"
+
+msgid "Target Color"
+msgstr "Kolor celu"
+
+msgid "Min Mix Ratio"
+msgstr "Minimalny stosunek mieszanki"
+
+msgid "Ratio"
+msgstr "Ratio"
+
+msgid "Cycle"
+msgstr "Cykl"
+
+msgid "Match"
+msgstr "Mecz"
+
+msgid "Gradient"
+msgstr "Gradient"
+
+msgid "Del and Replaced With"
+msgstr "Del i zastąpiony przez"
+
+msgid "Delete And Replaced With"
+msgstr "Usuń i zastąp przez"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

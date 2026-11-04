@@ -18365,10 +18365,10 @@ msgstr ""
 "uitgedrukt als een percentage ten opzichte van de diameter van het mondstuk"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Terugtrekking bij gereedschapswissel"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Extra lengte bij gereedschapswissel"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22439,6 +22439,48 @@ msgstr ""
 "Wist je dat bij het printen van materialen die gevoelig zijn voor "
 "kromtrekken, zoals ABS, een juiste verhoging van de temperatuur van het "
 "warmtebed de kans op kromtrekken kan verkleinen?"
+
+msgid "Filament Management"
+msgstr "Filamentbeheer"
+
+msgid "Color Mixing"
+msgstr "Kleurmenging"
+
+msgid "Filament Selection"
+msgstr "Filamentselectie"
+
+msgid "Mixing Ratio"
+msgstr "Mengverhouding"
+
+msgid "Mix Effect"
+msgstr "Mix Effect"
+
+msgid "Mixing Recommendations"
+msgstr "Aanbevelingen voor het mengen"
+
+msgid "Target Color"
+msgstr "Doelkleur"
+
+msgid "Min Mix Ratio"
+msgstr "Min Mengverhouding"
+
+msgid "Ratio"
+msgstr "Ratio"
+
+msgid "Cycle"
+msgstr "Cyclus"
+
+msgid "Match"
+msgstr "Wedstrijd"
+
+msgid "Gradient"
+msgstr "Gradiënt"
+
+msgid "Del and Replaced With"
+msgstr "Del en vervangen door"
+
+msgid "Delete And Replaced With"
+msgstr "Verwijderen en vervangen door"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"

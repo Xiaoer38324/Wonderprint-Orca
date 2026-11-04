@@ -17712,10 +17712,10 @@ msgstr ""
 "виражається у відсотках від діаметра сопла"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Відтягування при заміні інструменту"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Додаткова довжина при заміні інструменту"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -21649,6 +21649,48 @@ msgstr ""
 "Чи знаєте ви, що при друку матеріалами, схильними до деформації, такими як "
 "ABS, відповідне підвищення температури гарячого ліжка може зменшити "
 "ймовірність деформації?"
+
+msgid "Filament Management"
+msgstr "Управління філаментами"
+
+msgid "Color Mixing"
+msgstr "Змішування кольорів"
+
+msgid "Filament Selection"
+msgstr "Вибір філаментів"
+
+msgid "Mixing Ratio"
+msgstr "Коефіцієнт змішування"
+
+msgid "Mix Effect"
+msgstr "Ефект міксу"
+
+msgid "Mixing Recommendations"
+msgstr "Рекомендації щодо мікшування"
+
+msgid "Target Color"
+msgstr "Колір цілі"
+
+msgid "Min Mix Ratio"
+msgstr "Мінімальне співвідношення міксу"
+
+msgid "Ratio"
+msgstr "Співвідношення"
+
+msgid "Cycle"
+msgstr "Цикл"
+
+msgid "Match"
+msgstr "Матч"
+
+msgid "Gradient"
+msgstr "Нахил"
+
+msgid "Del and Replaced With"
+msgstr "Дел і замінений на"
+
+msgid "Delete And Replaced With"
+msgstr "Видалити та замінити на"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

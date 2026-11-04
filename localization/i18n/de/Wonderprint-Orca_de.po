@@ -18704,10 +18704,10 @@ msgstr ""
 "Prozentsatz des Düsendurchmessers angegeben."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Rückzug beim Werkzeugwechsel"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Zusätzliche Länge beim Werkzeugwechsel"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22887,6 +22887,48 @@ msgstr ""
 "Wussten Sie, dass beim Drucken von Materialien, die zu Verwerfungen neigen, "
 "wie z.B. ABS, durch eine entsprechende Erhöhung der Heizbetttemperatur die "
 "Wahrscheinlichkeit von Verwerfungen verringert werden kann?"
+
+msgid "Filament Management"
+msgstr "Filamentmanagement"
+
+msgid "Color Mixing"
+msgstr "Farbmischung"
+
+msgid "Filament Selection"
+msgstr "Filamentauswahl"
+
+msgid "Mixing Ratio"
+msgstr "Mischverhältnis"
+
+msgid "Mix Effect"
+msgstr "Mix-Effekt"
+
+msgid "Mixing Recommendations"
+msgstr "Empfehlungen zum Mischen"
+
+msgid "Target Color"
+msgstr "Zielfarbe"
+
+msgid "Min Mix Ratio"
+msgstr "Min-Mixverhältnis"
+
+msgid "Ratio"
+msgstr "Verhältnis"
+
+msgid "Cycle"
+msgstr "Zyklus"
+
+msgid "Match"
+msgstr "Spiel"
+
+msgid "Gradient"
+msgstr "Steigung"
+
+msgid "Del and Replaced With"
+msgstr "Del und ersetzt durch"
+
+msgid "Delete And Replaced With"
+msgstr "Löschen und ersetzen durch"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

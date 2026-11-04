@@ -18849,10 +18849,10 @@ msgstr ""
 "de la buse"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Rétraction lors du changement d’outil"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Longueur supplémentaire lors du changement d'outil"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -23098,6 +23098,48 @@ msgstr ""
 "Saviez-vous que lors de l’impression de matériaux susceptibles de se "
 "déformer, tels que l’ABS, une augmentation appropriée de la température du "
 "plateau chauffant peut réduire la probabilité de déformation?"
+
+msgid "Filament Management"
+msgstr "Gestion du filament"
+
+msgid "Color Mixing"
+msgstr "Mélange des couleurs"
+
+msgid "Filament Selection"
+msgstr "Sélection de filament"
+
+msgid "Mixing Ratio"
+msgstr "Ratio de mixage"
+
+msgid "Mix Effect"
+msgstr "Effet Mix"
+
+msgid "Mixing Recommendations"
+msgstr "Recommandations de mixage"
+
+msgid "Target Color"
+msgstr "Couleur cible"
+
+msgid "Min Mix Ratio"
+msgstr "Ratio de mix minimum"
+
+msgid "Ratio"
+msgstr "Ratio"
+
+msgid "Cycle"
+msgstr "Cycle"
+
+msgid "Match"
+msgstr "Match"
+
+msgid "Gradient"
+msgstr "Gradient"
+
+msgid "Del and Replaced With"
+msgstr "Del et remplacé par"
+
+msgid "Delete And Replaced With"
+msgstr "Supprimer et remplacer par"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

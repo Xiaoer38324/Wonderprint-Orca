@@ -16985,10 +16985,10 @@ msgstr ""
 "度，牆體將與特徵的厚度一致。此值以噴嘴直徑的百分比表示"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "更換刀具時收回"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "更換刀具時的額外長度"
 
 msgid "Detect narrow internal solid infills"
 msgstr "識別狹窄內部實心填充"
@@ -20786,6 +20786,48 @@ msgstr ""
 "避免翹曲\n"
 "您知道嗎？當列印容易翹曲的材料（如 ABS）時，適當提高熱床溫度\n"
 "可以降低翹曲的機率。"
+
+msgid "Filament Management"
+msgstr "耗材管理"
+
+msgid "Color Mixing"
+msgstr "色彩混合"
+
+msgid "Filament Selection"
+msgstr "絲材選擇"
+
+msgid "Mixing Ratio"
+msgstr "混合比"
+
+msgid "Mix Effect"
+msgstr "混合效應"
+
+msgid "Mixing Recommendations"
+msgstr "混合建議"
+
+msgid "Target Color"
+msgstr "目標顏色"
+
+msgid "Min Mix Ratio"
+msgstr "最小混合比"
+
+msgid "Ratio"
+msgstr "比率"
+
+msgid "Cycle"
+msgstr "循環"
+
+msgid "Match"
+msgstr "比賽"
+
+msgid "Gradient"
+msgstr "梯度"
+
+msgid "Del and Replaced With"
+msgstr "Del 並被"
+
+msgid "Delete And Replaced With"
+msgstr "刪除並替換為"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想嘗試 Wonderprint-Orca 測試版，可以點擊以下載到"

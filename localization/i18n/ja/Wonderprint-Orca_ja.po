@@ -17685,6 +17685,48 @@ msgstr ""
 "反りを避ける\n"
 "ABSのような反りやすい素材を印刷する場合、ヒートベッドの温度を適切に上げることで、反りが発生する確率を下げることができることをご存知ですか？"
 
+msgid "Filament Management"
+msgstr "フィラメント管理"
+
+msgid "Color Mixing"
+msgstr "カラーミキシング"
+
+msgid "Filament Selection"
+msgstr "フィラメント選択"
+
+msgid "Mixing Ratio"
+msgstr "混合比"
+
+msgid "Mix Effect"
+msgstr "ミックス効果"
+
+msgid "Mixing Recommendations"
+msgstr "ミキシングの推奨事項"
+
+msgid "Target Color"
+msgstr "ターゲットカラー"
+
+msgid "Min Mix Ratio"
+msgstr "最小ミックス比"
+
+msgid "Ratio"
+msgstr "比率"
+
+msgid "Cycle"
+msgstr "サイクル"
+
+msgid "Match"
+msgstr "試合"
+
+msgid "Gradient"
+msgstr "勾配"
+
+msgid "Del and Replaced With"
+msgstr "デルと"
+
+msgid "Delete And Replaced With"
+msgstr "削除して"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

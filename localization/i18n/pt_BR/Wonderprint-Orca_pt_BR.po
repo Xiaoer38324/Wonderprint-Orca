@@ -18528,10 +18528,10 @@ msgstr ""
 "elemento. É expresso como uma porcentagem sobre o diâmetro do bico."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Retração na troca de ferramenta"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Comprimento extra na troca de ferramentas"
 
 msgid "Detect narrow internal solid infills"
 msgstr "Detectar preenchimentos sólidos internos estreitos"
@@ -22682,6 +22682,48 @@ msgstr ""
 "Você sabia que ao imprimir materiais propensos ao empenamento, como ABS, "
 "aumentar adequadamente a temperatura da mesa aquecida pode reduzir a "
 "probabilidade de empenamento?"
+
+msgid "Filament Management"
+msgstr "Gerenciamento de Filamento"
+
+msgid "Color Mixing"
+msgstr "Mistura de Cores"
+
+msgid "Filament Selection"
+msgstr "Seleção de Filamento"
+
+msgid "Mixing Ratio"
+msgstr "Razão de Mistura"
+
+msgid "Mix Effect"
+msgstr "Efeito de Mistura"
+
+msgid "Mixing Recommendations"
+msgstr "Recomendações de Mixagem"
+
+msgid "Target Color"
+msgstr "Cor Alvo"
+
+msgid "Min Mix Ratio"
+msgstr "Proporção mínima de mistura"
+
+msgid "Ratio"
+msgstr "Razão"
+
+msgid "Cycle"
+msgstr "Ciclo"
+
+msgid "Match"
+msgstr "Partida"
+
+msgid "Gradient"
+msgstr "Gradiente"
+
+msgid "Del and Replaced With"
+msgstr "Del e substituído por"
+
+msgid "Delete And Replaced With"
+msgstr "Delete e substituído por"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se você gostaria de testar o Wonderprint-Orca Beta, clique para"

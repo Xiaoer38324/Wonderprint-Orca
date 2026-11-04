@@ -16133,10 +16133,10 @@ msgid ""
 msgstr ""
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Retraction on tool change"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Extra length on tool change"
 
 msgid "Detect narrow internal solid infills"
 msgstr ""
@@ -19694,6 +19694,48 @@ msgstr ""
 "Did you know that when printing materials that are prone to warping such as "
 "ABS, appropriately increasing the heatbed temperature can reduce the "
 "probability of warping?"
+
+msgid "Filament Management"
+msgstr "Filament Management"
+
+msgid "Color Mixing"
+msgstr "Color Mixing"
+
+msgid "Filament Selection"
+msgstr "Filament Selection"
+
+msgid "Mixing Ratio"
+msgstr "Mixing Ratio"
+
+msgid "Mix Effect"
+msgstr "Mix Effect"
+
+msgid "Mixing Recommendations"
+msgstr "Mixing Recommendations"
+
+msgid "Target Color"
+msgstr "Target Color"
+
+msgid "Min Mix Ratio"
+msgstr "Min Mix Ratio"
+
+msgid "Ratio"
+msgstr "Ratio"
+
+msgid "Cycle"
+msgstr "Cycle"
+
+msgid "Match"
+msgstr "Match"
+
+msgid "Gradient"
+msgstr "Gradient"
+
+msgid "Del and Replaced With"
+msgstr "Del and Replaced With"
+
+msgid "Delete And Replaced With"
+msgstr "Delete And Replaced With"
 
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""

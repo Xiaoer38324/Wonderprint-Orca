@@ -17941,10 +17941,10 @@ msgstr ""
 "trên đường kính đầu phun."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Rút lại khi thay dụng cụ"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Độ dài bổ sung khi thay dụng cụ"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22001,6 +22001,48 @@ msgstr ""
 "Tránh cong vênh\n"
 "Bạn có biết rằng khi in vật liệu dễ cong vênh như ABS, tăng nhiệt độ bàn "
 "nóng một cách thích hợp có thể giảm xác suất cong vênh không?"
+
+msgid "Filament Management"
+msgstr "Quản lý sợi nhựa"
+
+msgid "Color Mixing"
+msgstr "Pha trộn màu"
+
+msgid "Filament Selection"
+msgstr "Lựa chọn sợi nhựa"
+
+msgid "Mixing Ratio"
+msgstr "Tỷ lệ trộn"
+
+msgid "Mix Effect"
+msgstr "Hiệu ứng Mix"
+
+msgid "Mixing Recommendations"
+msgstr "Khuyến nghị pha trộn"
+
+msgid "Target Color"
+msgstr "Màu mục tiêu"
+
+msgid "Min Mix Ratio"
+msgstr "Tỷ lệ trộn tối thiểu"
+
+msgid "Ratio"
+msgstr "Tỷ lệ"
+
+msgid "Cycle"
+msgstr "Chu kỳ"
+
+msgid "Match"
+msgstr "Trận đấu"
+
+msgid "Gradient"
+msgstr "Độ dốc"
+
+msgid "Del and Replaced With"
+msgstr "Del và được thay thế bằng"
+
+msgid "Delete And Replaced With"
+msgstr "Xóa và thay thế bằng"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"

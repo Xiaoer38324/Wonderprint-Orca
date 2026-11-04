@@ -18680,10 +18680,10 @@ msgstr ""
 "boquilla."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Retracción al cambiar la herramienta"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Longitud extra en el cambio de herramienta"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22884,6 +22884,48 @@ msgstr ""
 "¿Sabías que al imprimir materiales propensos a la deformación como el ABS, "
 "aumentar adecuadamente la temperatura de la cama térmica puede reducir la "
 "probabilidad de deformaciones?"
+
+msgid "Filament Management"
+msgstr "Gestión del filamento"
+
+msgid "Color Mixing"
+msgstr "Mezcla de colores"
+
+msgid "Filament Selection"
+msgstr "Selección de filamentos"
+
+msgid "Mixing Ratio"
+msgstr "Relación de mezcla"
+
+msgid "Mix Effect"
+msgstr "Efecto de mezcla"
+
+msgid "Mixing Recommendations"
+msgstr "Recomendaciones de mezcla"
+
+msgid "Target Color"
+msgstr "Color objetivo"
+
+msgid "Min Mix Ratio"
+msgstr "Proporción mínima de mezcla"
+
+msgid "Ratio"
+msgstr "Ratio"
+
+msgid "Cycle"
+msgstr "Ciclo"
+
+msgid "Match"
+msgstr "Partido"
+
+msgid "Gradient"
+msgstr "Pendiente"
+
+msgid "Del and Replaced With"
+msgstr "Del y reemplazado por"
+
+msgid "Delete And Replaced With"
+msgstr "Eliminar y reemplazar por"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si desea probar Wonderprint-Orca Beta, puede hacer clic para"

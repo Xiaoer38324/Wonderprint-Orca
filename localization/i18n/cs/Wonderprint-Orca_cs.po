@@ -18068,10 +18068,10 @@ msgstr ""
 "tak silná, jako je samotný prvek. Je vyjádřena jako procento průměru trysky."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Stahování při výměně nástrojů"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Extra délka při výměně nástroje"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22116,6 +22116,48 @@ msgstr ""
 "Zamezte kroucení\n"
 "Víte, že při tisku materiálů náchylných ke kroucení, jako je ABS, může "
 "vhodné zvýšení teploty vyhřívané desky snížit pravděpodobnost kroucení?"
+
+msgid "Filament Management"
+msgstr "Správa filamentu"
+
+msgid "Color Mixing"
+msgstr "Míchání barev"
+
+msgid "Filament Selection"
+msgstr "Výběr filamentu"
+
+msgid "Mixing Ratio"
+msgstr "Poměr míchání"
+
+msgid "Mix Effect"
+msgstr "Mix efekt"
+
+msgid "Mixing Recommendations"
+msgstr "Doporučení pro mixování"
+
+msgid "Target Color"
+msgstr "Barva cíle"
+
+msgid "Min Mix Ratio"
+msgstr "Poměr minimálních směsí"
+
+msgid "Ratio"
+msgstr "Poměr"
+
+msgid "Cycle"
+msgstr "Cyklus"
+
+msgid "Match"
+msgstr "Zápas"
+
+msgid "Gradient"
+msgstr "Gradient"
+
+msgid "Del and Replaced With"
+msgstr "Del a nahrazeno"
+
+msgid "Delete And Replaced With"
+msgstr "Smazat a nahradit"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"

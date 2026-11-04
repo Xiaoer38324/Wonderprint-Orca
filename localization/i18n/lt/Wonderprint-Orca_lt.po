@@ -18348,10 +18348,10 @@ msgstr ""
 "procentais nuo purkštuko skersmens."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Įrankio keitimo atšaukimas"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Papildomas ilgis keičiant įrankį"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22456,6 +22456,48 @@ msgstr ""
 "Ar žinojote, kad spausdinant medžiagas, kurios linkusios deformuotis, "
 "pavyzdžiui, ABS, tinkamai padidinus kaitinimo pagrindo temperatūrą galima "
 "sumažinti deformavimosi tikimybę."
+
+msgid "Filament Management"
+msgstr "Siūlų valdymas"
+
+msgid "Color Mixing"
+msgstr "Spalvų maišymas"
+
+msgid "Filament Selection"
+msgstr "Siūlų pasirinkimas"
+
+msgid "Mixing Ratio"
+msgstr "Maišymo santykis"
+
+msgid "Mix Effect"
+msgstr "Miksavimo efektas"
+
+msgid "Mixing Recommendations"
+msgstr "Miksavimo rekomendacijos"
+
+msgid "Target Color"
+msgstr "Tikslinė spalva"
+
+msgid "Min Mix Ratio"
+msgstr "Minimalus mišinio santykis"
+
+msgid "Ratio"
+msgstr "Santykis"
+
+msgid "Cycle"
+msgstr "Ciklas"
+
+msgid "Match"
+msgstr "Rungtynės"
+
+msgid "Gradient"
+msgstr "Nuolydis"
+
+msgid "Del and Replaced With"
+msgstr "Del ir pakeista"
+
+msgid "Delete And Replaced With"
+msgstr "Ištrinti ir pakeisti į"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"

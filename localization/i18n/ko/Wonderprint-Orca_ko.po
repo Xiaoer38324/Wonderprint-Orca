@@ -17291,10 +17291,10 @@ msgstr ""
 "대한 백분율로 표시됩니다"
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "공구 교체 시 철수함"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "공구 교체 시 추가 길이"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -21114,6 +21114,48 @@ msgstr ""
 "뒤틀림 방지\n"
 "ABS와 같이 뒤틀림이 발생하기 쉬운 소재를 출력할 때, 히트베드 온도를 적절하게 "
 "높이면 뒤틀림 가능성을 줄일 수 있다는 사실을 알고 계셨나요?"
+
+msgid "Filament Management"
+msgstr "필라멘트 관리"
+
+msgid "Color Mixing"
+msgstr "색상 혼합"
+
+msgid "Filament Selection"
+msgstr "필라멘트 선택"
+
+msgid "Mixing Ratio"
+msgstr "혼합비"
+
+msgid "Mix Effect"
+msgstr "믹스 효과"
+
+msgid "Mixing Recommendations"
+msgstr "믹싱 추천"
+
+msgid "Target Color"
+msgstr "타겟 컬러"
+
+msgid "Min Mix Ratio"
+msgstr "최소 혼합비"
+
+msgid "Ratio"
+msgstr "비율"
+
+msgid "Cycle"
+msgstr "사이클"
+
+msgid "Match"
+msgstr "경기"
+
+msgid "Gradient"
+msgstr "구배"
+
+msgid "Del and Replaced With"
+msgstr "델과 대체"
+
+msgid "Delete And Replaced With"
+msgstr "삭제 후 대체"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"

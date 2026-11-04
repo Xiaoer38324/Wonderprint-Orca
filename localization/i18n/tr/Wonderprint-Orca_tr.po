@@ -18293,10 +18293,10 @@ msgstr ""
 "olarak ifade edilir."
 
 msgid "Retraction on tool change"
-msgstr ""
+msgstr "Araç değişimiyle geri çekilme"
 
 msgid "Extra length on tool change"
-msgstr ""
+msgstr "Takım değişiminde ekstra uzunluk"
 
 #, fuzzy
 msgid "Detect narrow internal solid infills"
@@ -22434,6 +22434,48 @@ msgstr ""
 "ABS gibi bükülmeye yatkın malzemelere baskı yaparken, ısıtma yatağı "
 "sıcaklığının uygun şekilde arttırılmasının bükülme olasılığını "
 "azaltabileceğini biliyor muydunuz?"
+
+msgid "Filament Management"
+msgstr "Filament Yönetimi"
+
+msgid "Color Mixing"
+msgstr "Renk Karıştırma"
+
+msgid "Filament Selection"
+msgstr "Filament Seçimi"
+
+msgid "Mixing Ratio"
+msgstr "Karıştırma oranı"
+
+msgid "Mix Effect"
+msgstr "Mix Effect"
+
+msgid "Mixing Recommendations"
+msgstr "Miks Önerileri"
+
+msgid "Target Color"
+msgstr "Hedef Renk"
+
+msgid "Min Mix Ratio"
+msgstr "Minimum Karışım Oranı"
+
+msgid "Ratio"
+msgstr "Oran"
+
+msgid "Cycle"
+msgstr "Döngü"
+
+msgid "Match"
+msgstr "Maç"
+
+msgid "Gradient"
+msgstr "Eğim"
+
+msgid "Del and Replaced With"
+msgstr "Del ve Yerine"
+
+msgid "Delete And Replaced With"
+msgstr "Sil ve Yerine Getirildi"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
