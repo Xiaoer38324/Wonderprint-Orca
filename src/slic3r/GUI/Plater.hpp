@@ -191,6 +191,9 @@ public:
     void edit_filament();
     void add_custom_filament(wxColour new_col);
     void add_filament_mix(const MixedFilament& mixed);
+    // Orca: mark the project as modified when a virtual filament changes, so the existing
+    // G-code becomes stale and a re-slice is required.
+    void mark_filament_mix_changed();
     // Orca: repaint every occurrence of a virtual mixed filament with a real filament and
     // remove the virtual entry.
     void replace_filament_mix(size_t index, int target_filament);

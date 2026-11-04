@@ -3544,6 +3544,33 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 } // namespace
 
 // Wonder: add one entry under the "Color Mixing" bar (the dialog already computed the row).
+// Orca: a virtual filament change invalidates the current G-code; mark the project dirty so
+// the user is asked to re-slice / save.
+void Sidebar::mark_filament_mix_changed()
+{
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return;
+
+    // The existing per-plate slice result is no longer valid: invalidate every plate and
+    // refresh the Slice/Print button state (same sequence as other geometry/config changes).
+    PartPlateList& plates = plater->get_partplate_list();
+    for (int i = 0; i < plates.get_plate_count(); ++i)
+        if (PartPlate* plate = plates.get_plate(i))
+            plate->update_slice_result_valid_state(false);
+
+    plater->set_plater_dirty(true);
+    plater->update_title_dirty_status();
+    plater->set_need_update(true);
+    wxGetApp().mainframe->update_slice_print_status(MainFrame::SlicePrintEventType::eEventSliceUpdate, true, false);
+
+    // Orca: the existing G-code is stale. Leave the preview/slice state and return to the
+    // unsliced 3D editor instead of merely enabling the Slice button again.
+    plater->reset_gcode_toolpaths();
+    plater->select_view_3D("3D");
+    wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
+}
+
 void Sidebar::add_filament_mix(const MixedFilament& mixed)
 {
     if (p->m_sizer_filament_mix == nullptr || p->m_panel_filament_mix_content == nullptr)
@@ -3561,6 +3588,7 @@ void Sidebar::add_filament_mix(const MixedFilament& mixed)
     sync_color_mix_store();
     save_filament_mix_configs();
     rebuild_filament_mix_rows();
+    mark_filament_mix_changed();
 
     // Orca: after adding a virtual filament, reveal the Color Mixing section automatically so
     // the new row is immediately visible.
@@ -3589,6 +3617,7 @@ void Sidebar::edit_filament_mix(size_t index)
             entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
             sync_color_mix_store();
             save_filament_mix_configs();
+            mark_filament_mix_changed();
         }
     } catch (const std::exception& e) {
         wxLogError("Color Mixing: %s", e.what());
@@ -3634,6 +3663,7 @@ void Sidebar::replace_filament_mix(size_t index, int target_filament)
     sync_color_mix_store();
     save_filament_mix_configs();
     rebuild_filament_mix_rows();
+    mark_filament_mix_changed();
     wxGetApp().plater()->update();
 }
 
@@ -3835,6 +3865,7 @@ void Sidebar::rebuild_filament_mix_rows()
                     sync_color_mix_store();
                     save_filament_mix_configs();
                     rebuild_filament_mix_rows();
+                    mark_filament_mix_changed();
                 });
             } else if (evt.GetId() > wxID_HIGHEST + 3000 &&
                        evt.GetId() <= wxID_HIGHEST + 3000 + int(p->combos_filament.size())) {

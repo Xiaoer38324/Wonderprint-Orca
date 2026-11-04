@@ -1149,6 +1149,10 @@ private:
     PrintRegionConfig                       m_default_region_config;
     MixedFilamentManager                    m_mixed_filament_mgr;
     std::vector<unsigned int>               m_mixed_component_filaments;
+    // Orca: detect Color Mixing definition changes between applies so the painted regions are
+    // rebuilt (otherwise stale physical target regions keep producing the old mix).
+    bool                                    m_mixed_definitions_changed = false;
+    std::string                             m_last_mixed_definitions;
     PrintObjectPtrs                         m_objects;
     PrintRegionPtrs                         m_print_regions;
     

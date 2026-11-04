@@ -1133,6 +1133,8 @@ void Print::load_mixed_filaments()
     m_mixed_filament_mgr = MixedFilamentManager();
     const std::vector<std::string> &colours = m_config.filament_colour.values;
     const std::string              &definitions = m_config.mixed_filament_definitions.value;
+    m_mixed_definitions_changed = (definitions != m_last_mixed_definitions);
+    m_last_mixed_definitions    = definitions;
     if (colours.size() >= 2 && !definitions.empty()) {
         m_mixed_filament_mgr.load_custom_entries(definitions, colours);
         // Orca: the authoritative cycle cadence is derived here from mix_b_percent
@@ -1305,8 +1307,11 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         }
         num_filaments = m_config.filament_colour.size();
         // Orca: reload the Color Mixing definitions (persisted in mixed_filament_definitions)
-        // whenever the print configuration changed.
+        // whenever the print configuration changed. The option lives in the GCode config and
+        // is not necessarily part of print_diff, so copy it explicitly before reloading.
         this->clear_mixed_component_filaments();
+        if (const ConfigOptionString* definitions = new_full_config.option<ConfigOptionString>("mixed_filament_definitions"))
+            m_config.mixed_filament_definitions = *definitions;
         this->load_mixed_filaments();
     }
 
@@ -1420,6 +1425,10 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 
     // 3) Synchronize ModelObjects & PrintObjects.
     const std::initializer_list<ModelVolumeType> solid_or_modifier_types { ModelVolumeType::MODEL_PART, ModelVolumeType::NEGATIVE_VOLUME, ModelVolumeType::PARAMETER_MODIFIER };
+    // Orca: a changed Color Mixing definition invalidates the painted target regions even though
+    // the volume painting data itself is unchanged.
+    const bool mixed_definitions_differ = m_mixed_definitions_changed;
+    m_mixed_definitions_changed = false;
     for (size_t idx_model_object = 0; idx_model_object < model.objects.size(); ++ idx_model_object) {
         ModelObject       &model_object        = *m_model.objects[idx_model_object];
         ModelObjectStatus &model_object_status = const_cast<ModelObjectStatus&>(model_object_status_db.reuse(model_object));
@@ -1448,7 +1457,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             model_object_status.print_object_regions = print_objects_range.begin()->print_object->m_shared_regions;
             model_object_status.print_object_regions->ref_cnt_inc();
         }
-        if (solid_or_modifier_differ || model_origin_translation_differ || layer_height_ranges_differ ||
+        if (solid_or_modifier_differ || mixed_definitions_differ || model_origin_translation_differ || layer_height_ranges_differ ||
             ! model_object.layer_height_profile.timestamp_matches(model_object_new.layer_height_profile)) {
             // The very first step (the slicing step) is invalidated. One may freely remove all associated PrintObjects.
             model_object_status.print_object_regions_status =
