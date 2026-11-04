@@ -17149,6 +17149,12 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
             if (update_filament_colors_in_full_config()) {
                 p->sidebar->obj_list()->update_filament_colors();
                 p->sidebar->update_dynamic_filament_list();
+                // Orca: virtual filaments derive their display colour from the physical ones;
+                // refresh their swatches/manager after a real filament colour change.
+                CallAfter([this]() {
+                    p->sidebar->sync_color_mix_store();
+                    p->sidebar->rebuild_filament_mix_rows();
+                });
                 continue;
             }
         }
