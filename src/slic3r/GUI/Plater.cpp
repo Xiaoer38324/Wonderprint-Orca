@@ -2230,22 +2230,23 @@ Sidebar::Sidebar(Plater *parent)
     bSizer_mix->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
     bSizer_mix->Add(new Label(p->m_panel_filament_mix_title, _L("Color Mixing"), LB_PROPAGATE_MOUSE_EVENT), 0, wxALIGN_CENTER);
     bSizer_mix->AddStretchSpacer(1);
-    Button* batch_btn = new Button(p->m_panel_filament_mix_title, _L("Batch"));
-    batch_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
-    batch_btn->SetToolTip(_L("Match model colors to mixed filaments in batch"));
-    batch_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        try {
-            MixedFilamentBatchDialog dlg(wxGetApp().mainframe);
-            if (dlg.ShowModal() == wxID_OK) {
-                const BatchMatchResult& result = dlg.GetResult();
-                for (const Slic3r::MixedFilament& mixed : result.mixed_filaments)
-                    add_filament_mix(mixed);
-            }
-        } catch (const std::exception& e) {
-            wxLogError("Color Mixing: %s", e.what());
-        }
-    });
-    bSizer_mix->Add(batch_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(6));
+    //Wonder:i donot figure out what is meaning of this function .
+    // Button* batch_btn = new Button(p->m_panel_filament_mix_title, _L("Batch"));
+    // batch_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
+    // batch_btn->SetToolTip(_L("Match model colors to mixed filaments in batch"));
+    // batch_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+    //     try {
+    //         MixedFilamentBatchDialog dlg(wxGetApp().mainframe);
+    //         if (dlg.ShowModal() == wxID_OK) {
+    //             const BatchMatchResult& result = dlg.GetResult();
+    //             for (const Slic3r::MixedFilament& mixed : result.mixed_filaments)
+    //                 add_filament_mix(mixed);
+    //         }
+    //     } catch (const std::exception& e) {
+    //         wxLogError("Color Mixing: %s", e.what());
+    //     }
+    // });
+    // bSizer_mix->Add(batch_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(6));
     p->m_filament_mix_add_btn = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix_add");
     p->m_filament_mix_add_btn->SetToolTip(_L("Create a color mix"));
     p->m_filament_mix_add_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
