@@ -3569,6 +3569,11 @@ void Sidebar::mark_filament_mix_changed()
     plater->reset_gcode_toolpaths();
     plater->select_view_3D("3D");
     wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
+
+    // The wipe tower placeholder preview caches its colours when the scene volumes are built;
+    // rebuild them so a changed mixed filament is reflected immediately.
+    if (GLCanvas3D* canvas = plater->get_view3D_canvas3D())
+        canvas->reload_scene(true);
 }
 
 void Sidebar::add_filament_mix(const MixedFilament& mixed)
