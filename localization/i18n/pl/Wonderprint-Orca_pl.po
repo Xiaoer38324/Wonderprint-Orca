@@ -21759,6 +21759,9 @@ msgstr "Stwórz mieszankę kolorów"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Stosunek filamentu %d jest zbyt wysoki. Mieszanka może być dotknięta"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Stosunek filamentu %d jest zbyt wysoki. Mieszanka może być dotknięta."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Jeśli chciałbyś wypróbować Wonderprint-Orca Beta, możesz kliknąć tutaj."

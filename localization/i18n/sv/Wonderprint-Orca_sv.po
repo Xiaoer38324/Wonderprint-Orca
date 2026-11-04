@@ -22283,6 +22283,9 @@ msgstr "Skapa en färgblandning"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Filamentförhållandet %d är för högt. Blandningen kan påverkas"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Filamentförhållandet %d är för högt. Blandningen kan påverkas."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

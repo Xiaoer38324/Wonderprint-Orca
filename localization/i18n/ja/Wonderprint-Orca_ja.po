@@ -17737,6 +17737,9 @@ msgstr "色のミックスを作る"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "フィラメント%dの比率が高すぎます。混合気が影響を受ける可能性があります"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "フィラメント%dの比率が高すぎます。混合体が影響を受ける可能性があります。"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

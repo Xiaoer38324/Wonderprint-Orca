@@ -21703,6 +21703,9 @@ msgstr "Створіть кольоровий мікс"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Співвідношення філаменту %d занадто високе. Мікс може бути уражений"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Співвідношення філаменту %d занадто високе. Мікс може постраждати."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Якщо ви хочете спробувати бета-версію Wonderprint-Orca, ви можете "

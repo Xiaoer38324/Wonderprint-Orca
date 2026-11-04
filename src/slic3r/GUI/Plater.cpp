@@ -3925,7 +3925,7 @@ void Sidebar::rebuild_filament_mix_rows()
 
         // "..." action menu
         ScalableButton* menu_btn = new ScalableButton(row_panel, wxID_ANY, "menu_filament");
-        menu_btn->SetToolTip(_L("Click to edit or delete"));
+        menu_btn->SetToolTip(_L("Click to edit preset"));
 
         colour_btn->Bind(wxEVT_BUTTON, [this, i](wxCommandEvent&) { edit_filament_mix(i); });
 

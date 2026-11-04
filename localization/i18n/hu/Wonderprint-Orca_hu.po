@@ -22641,6 +22641,9 @@ msgstr "Készíts színkeveréket"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "A filament %d aránya túl magas. A keverék befolyásolható lehet"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "A filament %d aránya túl magas. A keverék befolyásolható."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

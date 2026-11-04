@@ -20692,13 +20692,16 @@ msgstr "删除并替换为"
 
 msgid "The following virtual filaments use physical filament "
 "F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
-msgstr "以下虚拟耗材使用物理耗材F%u：\n%s\n\n删除它也会删除这些虚拟耗材。继续？"
+msgstr "以下虚拟灯丝使用物理灯丝F%u：\n%s\n\n删除它也会删除这些虚拟耗材。继续？"
 
 msgid "Create a color mix"
-msgstr "添加混合颜色"
+msgstr "制作颜色混合"
 
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "耗材%d比例太高。混合比例可能受到影响"
+
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "耗材%d比例太高。混合可能会受到影响。"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想尝试Wonderprint-Orca Beta，您可以点击"

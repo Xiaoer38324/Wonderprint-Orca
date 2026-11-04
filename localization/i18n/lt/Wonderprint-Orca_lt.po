@@ -22510,6 +22510,9 @@ msgstr "Sukurkite spalvų mišinį"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Filamento %d santykis yra per didelis. Mišrus gali būti paveiktas"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Filamento %d santykis yra per didelis. Mišrus gali būti paveiktas."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

@@ -22055,6 +22055,9 @@ msgstr "Tạo hỗn hợp màu"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Tỷ lệ filament %d quá cao. Mix có thể bị ảnh hưởng"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Tỷ lệ filament %d quá cao. Mix có thể bị ảnh hưởng."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

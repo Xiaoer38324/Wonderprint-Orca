@@ -20839,6 +20839,9 @@ msgstr "創造色彩混合"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "耗材%d比例太高了。混合比例可能會受到影響"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "耗材%d比例太高了。混合可能受到影響。"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想嘗試 Wonderprint-Orca 測試版，可以點擊以下載到"
 

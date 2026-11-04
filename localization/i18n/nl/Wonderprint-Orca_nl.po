@@ -22494,6 +22494,9 @@ msgstr "Creëer een kleurmix"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "De filamentverhouding %d is te hoog. Mix kan beïnvloed zijn"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "De filamentverhouding %d is te hoog. Mix kan worden beïnvloed."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

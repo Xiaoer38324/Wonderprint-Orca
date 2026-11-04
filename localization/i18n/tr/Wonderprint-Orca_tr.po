@@ -22488,6 +22488,9 @@ msgstr "Bir renk karışımı oluşturun"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Filament %d oranı çok yüksek. Karışım etkilenebilir"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Filament %d oranı çok yüksek. Karışım etkilenebilir."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

@@ -22977,6 +22977,10 @@ msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Il rapporto filamento %d è troppo alto. Il mix potrebbe essere "
 "influenzato"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Il rapporto filamento %d è troppo alto. Il mix potrebbe essere "
+"influenzato."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se vuoi provare Wonderprint-Orca Beta, puoi cliccare su"
 

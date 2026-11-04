@@ -22170,6 +22170,9 @@ msgstr "Vytvořte barevnou směs"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Poměr filamentu %d je příliš vysoký. Směs může být ovlivněn"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Poměr filamentu %d je příliš vysoký. Mix může být ovlivněn."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 

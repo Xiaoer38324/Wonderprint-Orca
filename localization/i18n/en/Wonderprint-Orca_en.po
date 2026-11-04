@@ -19748,6 +19748,9 @@ msgstr "Create a color mix"
 msgid "Filament %d ratio is too high. Mix may be affected"
 msgstr "Filament %d ratio is too high. Mix may be affected"
 
+msgid "Filament %d ratio is too high. Mix may be affected."
+msgstr "Filament %d ratio is too high. Mix may be affected."
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
