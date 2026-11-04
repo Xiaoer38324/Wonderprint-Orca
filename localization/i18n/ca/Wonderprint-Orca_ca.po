@@ -22824,6 +22824,19 @@ msgstr "Del i substituït per"
 msgid "Delete And Replaced With"
 msgstr "Esborrar i substituir per"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "Els següents filaments virtuals utilitzen el filament físic "
+"F%u:\n%s\n\nEliminar-lo també eliminarà aquests filaments virtuals. "
+"Continuar?"
+
+msgid "Create a color mix"
+msgstr "Crea una barreja de colors"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "La relació de filament %d és massa alta. La barreja pot veure's "
+"afectada"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 

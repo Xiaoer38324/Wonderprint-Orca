@@ -22044,6 +22044,17 @@ msgstr "Del và được thay thế bằng"
 msgid "Delete And Replaced With"
 msgstr "Xóa và thay thế bằng"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "Các sợi ảo sau đây sử dụng sợi vật lý F%u:\n%s\n\nXóa nó cũng sẽ xóa "
+"các sợi ảo này. Tiếp tục à?"
+
+msgid "Create a color mix"
+msgstr "Tạo hỗn hợp màu"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "Tỷ lệ filament %d quá cao. Mix có thể bị ảnh hưởng"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

@@ -17727,6 +17727,16 @@ msgstr "デルと"
 msgid "Delete And Replaced With"
 msgstr "削除して"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "以下の仮想フィラメントは物理フィラメントF%uを使用しています:\n%s\n\n削除するとこれらの仮想フィラメントも削除されます。続けますか?"
+
+msgid "Create a color mix"
+msgstr "色のミックスを作る"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "フィラメント%dの比率が高すぎます。混合気が影響を受ける可能性があります"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

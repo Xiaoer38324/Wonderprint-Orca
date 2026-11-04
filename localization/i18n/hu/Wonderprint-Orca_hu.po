@@ -22629,6 +22629,18 @@ msgstr "Del és helyettesítve"
 msgid "Delete And Replaced With"
 msgstr "Törlés és helyettesítés"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "A következő virtuális filamentek fizikai filamentet használnak "
+"F%u:\n%s\n\nHa törleszed, ezeket a virtuális szálakat is eltüntetjük. "
+"Folytatjuk?"
+
+msgid "Create a color mix"
+msgstr "Készíts színkeveréket"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "A filament %d aránya túl magas. A keverék befolyásolható lehet"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

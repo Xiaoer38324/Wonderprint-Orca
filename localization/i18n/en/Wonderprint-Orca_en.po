@@ -19737,6 +19737,17 @@ msgstr "Del and Replaced With"
 msgid "Delete And Replaced With"
 msgstr "Delete And Replaced With"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+
+msgid "Create a color mix"
+msgstr "Create a color mix"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "Filament %d ratio is too high. Mix may be affected"
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

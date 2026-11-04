@@ -22477,6 +22477,17 @@ msgstr "Del ve Yerine"
 msgid "Delete And Replaced With"
 msgstr "Sil ve Yerine Getirildi"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "Aşağıdaki sanal filamentler fiziksel filament F%u "
+"kullanır:\n%s\n\nSilmek bu sanal filamentleri de silir. Devam mı edecek?"
+
+msgid "Create a color mix"
+msgstr "Bir renk karışımı oluşturun"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "Filament %d oranı çok yüksek. Karışım etkilenebilir"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

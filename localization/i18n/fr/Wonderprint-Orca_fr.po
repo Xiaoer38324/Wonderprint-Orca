@@ -23141,6 +23141,17 @@ msgstr "Del et remplacé par"
 msgid "Delete And Replaced With"
 msgstr "Supprimer et remplacer par"
 
+msgid "The following virtual filaments use physical filament "
+"F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
+msgstr "Les filaments virtuels suivants utilisent le filament physique F%u "
+":\n%s\n\nLa supprimer supprime aussi ces filaments virtuels. Continuer ?"
+
+msgid "Create a color mix"
+msgstr "Créez un mélange de couleurs"
+
+msgid "Filament %d ratio is too high. Mix may be affected"
+msgstr "Le rapport du filament %d est trop élevé. Le mélange peut être affecté"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Si vous souhaitez essayer Wonderprint-Orca Beta, vous pouvez cliquer sur"
