@@ -197,6 +197,8 @@ public:
     // Orca: drop virtual filaments that reference physical filaments the current printer
     // does not provide (e.g. after switching to a printer with fewer extruders).
     void prune_invalid_filament_mixes(size_t physical_count = 0);
+    // Orca: keep painted virtual-filament states aligned when the physical filament count changes.
+    void remap_mixed_painted_states(size_t old_physical_count, size_t new_physical_count);
     // Orca: repaint every occurrence of a virtual mixed filament with a real filament and
     // remove the virtual entry.
     void replace_filament_mix(size_t index, int target_filament);

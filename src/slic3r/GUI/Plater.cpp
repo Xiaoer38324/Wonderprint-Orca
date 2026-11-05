@@ -3171,6 +3171,7 @@ void Sidebar::jump_to_option(size_t selected)
 void Sidebar::on_filament_count_change(size_t num_filaments)
 {
     auto& choices = combos_filament();
+    const size_t old_filament_count = choices.size();
 
     if (num_filaments == choices.size())
         return;
@@ -3218,6 +3219,10 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     // the mix numbers continue after the filaments, so refresh them when the filament count changes
     if (!p->m_filament_mix_entries.empty())
         rebuild_filament_mix_rows();
+
+    // Orca: the virtual painted state ids are derived from the physical filament count
+    // (physical + mix_index + 1). Remap them before any normalization clamps them away.
+    remap_mixed_painted_states(old_filament_count, num_filaments);
 
     // Orca: the new filament count is authoritative here; drop virtual filaments that no
     // longer fit the printer (this is the path taken when switching printers).
@@ -3576,6 +3581,32 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 // explain why in its tooltip otherwise.
 // Orca: after switching printers the physical filament count may shrink; drop virtual
 // filaments that reference filaments the new printer does not have.
+// Orca: virtual painted states are encoded as physical_count + mix_index + 1. When the
+// physical count changes (printer switch, add/delete), shift them so the painting survives.
+void Sidebar::remap_mixed_painted_states(size_t old_physical_count, size_t new_physical_count)
+{
+    if (old_physical_count == new_physical_count || p->m_filament_mix_entries.empty())
+        return;
+
+    EnforcerBlockerStateMap state_map;
+    for (size_t state = 0; state < state_map.size(); ++state)
+        state_map[state] = EnforcerBlockerType(state);
+
+    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index) {
+        const size_t old_state = old_physical_count + index + 1;
+        const size_t new_state = new_physical_count + index + 1;
+        if (old_state > 0 && old_state < state_map.size() && new_state > 0 && new_state < state_map.size())
+            state_map[old_state] = EnforcerBlockerType(new_state);
+    }
+
+    for (ModelObject* object : wxGetApp().model().objects) {
+        for (ModelVolume* volume : object->volumes) {
+            if (!volume->mmu_segmentation_facets.empty())
+                volume->mmu_segmentation_facets.remap_enforcer_block_types(*volume, EnforcerBlockerType::ExtruderMax, state_map);
+        }
+    }
+}
+
 void Sidebar::prune_invalid_filament_mixes(size_t physical_count)
 {
     // Prefer the explicitly supplied count (on_filament_count_change knows the new value).

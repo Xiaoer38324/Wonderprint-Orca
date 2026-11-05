@@ -2534,9 +2534,14 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
                 continue;
 
             unsigned int filaments_count = (unsigned int)dynamic_cast<const ConfigOptionStrings*>(m_config->option("filament_colour"))->values.size();
-            // Orca: the painted states also cover the virtual filaments of the Color Mixing entries.
-            if (const PresetBundle* preset_bundle = wxGetApp().preset_bundle)
+            // Orca: filament_presets is updated immediately by set_num_filaments() during a
+            // printer switch; m_config may still hold the previous printer's count, which
+            // would clamp away the virtual painted states.
+            if (const PresetBundle* preset_bundle = wxGetApp().preset_bundle) {
+                if (!preset_bundle->filament_presets.empty())
+                    filaments_count = (unsigned int)preset_bundle->filament_presets.size();
                 filaments_count += (unsigned int)preset_bundle->mixed_filaments.enabled_count();
+            }
             model_volume.update_extruder_count(filaments_count);
         }
     }
