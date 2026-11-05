@@ -23376,6 +23376,50 @@ msgstr "Соотношение филаментов %d слишком высок
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Соотношение филаментов %d слишком высоко. Смесь может быть затронута."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Разрешенный ввод: только цифры, квадратные скобки ([ и ]) и запятые "
+"(,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Нити одного и того же цвета не могут давать новые цвета. Пожалуйста, "
+"выберите разные цвета для смешивания."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Различные типы нитей нельзя смешивать. Пожалуйста, исправьте "
+"настройки."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Нить %d и нить %d нельзя смешивать. Пожалуйста, выберите нити одного "
+"типа."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Избыток нитей в смеси может повлиять на результат. Пожалуйста, "
+"используйте с осторожностью."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Нераспознанный формат шаблона. Пожалуйста, проверьте синтаксис "
+"шаблона."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Нить %d не распознана. Пожалуйста, войдите еще раз."
+
+msgid "Append filament %d to pattern"
+msgstr "Добавить нить %d к узору"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Запятые в начале или в конце не допускаются."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Введите допустимое шестизначное шестнадцатеричное значение."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Обнаружены недопустимые символы. Допускаются только цифры, квадратные "
+"скобки ([ и ]) и запятые (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Нажмите, если хотите попробовать бета-версию Wonderprint-Orca:"
 

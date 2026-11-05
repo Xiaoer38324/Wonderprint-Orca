@@ -21706,6 +21706,46 @@ msgstr "Співвідношення філаменту %d занадто вис
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Співвідношення філаменту %d занадто високе. Мікс може постраждати."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Дозволене введення: лише цифри, квадратні дужки ([ і ]) і коми (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Однакові кольори нитки не можуть створювати нові кольори. Виберіть "
+"різні кольори для змішування."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Не можна змішувати різні типи ниток. Виправте налаштування."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Нитки %d і %d не можна змішувати. Виберіть нитки одного типу."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Надмірна кількість ниток у суміші може вплинути на результат. Будь "
+"ласка, використовуйте з обережністю."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Нерозпізнаний формат шаблону. Перевірте синтаксис шаблону."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Нитка %d не розпізнана. Будь ласка, введіть ще раз."
+
+msgid "Append filament %d to pattern"
+msgstr "Додайте нитку %d до візерунка"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Коми на початку або в кінці не допускаються."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Введіть дійсне 6-значне шістнадцяткове значення."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Знайдено недійсні символи. Допускаються лише цифри, квадратні дужки ([ "
+"і ]) і коми (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Якщо ви хочете спробувати бета-версію Wonderprint-Orca, ви можете "

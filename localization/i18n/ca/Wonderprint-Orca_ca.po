@@ -22841,6 +22841,49 @@ msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "La relació de filament %d és massa alta. La barreja pot veure's "
 "afectada."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Entrada permesa: només dígits, claudàtors ([ i ]) i comes (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Els mateixos colors del filament no poden produir nous colors. Si us "
+"plau, seleccioneu diferents colors per barrejar."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "No es poden barrejar diferents tipus de filaments. Si us plau, "
+"corregiu la configuració."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "El filament %d i el filament %d no es poden barrejar. Seleccioneu "
+"filaments del mateix tipus."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Els filaments excessius a la barreja poden afectar el resultat. Feu "
+"servir amb precaució."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Format de patró no reconegut. Si us plau, comproveu la sintaxi del "
+"patró."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "El filament %d no es reconeix. Si us plau, torneu a entrar."
+
+msgid "Append filament %d to pattern"
+msgstr "Afegiu el filament %d al patró"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "No es permeten comes a l'inici o al final."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Introduïu un valor hexadecimal de 6 dígits vàlid."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "S'han trobat caràcters no vàlids. Només es permeten els dígits, "
+"claudàtors ([ i ]) i comes (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 

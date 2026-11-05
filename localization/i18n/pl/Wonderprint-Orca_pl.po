@@ -21762,6 +21762,48 @@ msgstr "Stosunek filamentu %d jest zbyt wysoki. Mieszanka może być dotknięta"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Stosunek filamentu %d jest zbyt wysoki. Mieszanka może być dotknięta."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Dozwolone wprowadzanie: tylko cyfry, nawiasy kwadratowe ([ i ]) i "
+"przecinki (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Te same kolory żarnika nie mogą generować nowych kolorów. Proszę "
+"wybrać różne kolory do mieszania."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Nie można mieszać różnych typów włókien. Proszę poprawić ustawienia."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Filamentu %d i Filamentu %d nie można mieszać. Proszę wybrać żarniki "
+"tego samego typu."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Nadmiar włókien w mieszance może mieć wpływ na wynik. Proszę używać "
+"ostrożnie."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Nierozpoznany format wzoru. Sprawdź składnię wzorca."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Nie rozpoznano włókna %d. Proszę wejść ponownie."
+
+msgid "Append filament %d to pattern"
+msgstr "Dołącz włókno %d do wzoru"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Przecinki początkowe i końcowe są niedozwolone."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Wprowadź prawidłową 6-cyfrową wartość szesnastkową."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Znaleziono nieprawidłowe znaki. Dozwolone są tylko cyfry, nawiasy "
+"kwadratowe ([ i ]) i przecinki (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Jeśli chciałbyś wypróbować Wonderprint-Orca Beta, możesz kliknąć tutaj."

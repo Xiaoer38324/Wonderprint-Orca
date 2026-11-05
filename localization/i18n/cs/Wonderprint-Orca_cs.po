@@ -22173,6 +22173,46 @@ msgstr "Poměr filamentu %d je příliš vysoký. Směs může být ovlivněn"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Poměr filamentu %d je příliš vysoký. Mix může být ovlivněn."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Povolený vstup: Pouze číslice, hranaté závorky ([ a ]) a čárky (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Stejné barvy vlákna nemohou vytvářet nové barvy. Vyberte prosím různé "
+"barvy pro míchání."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Různé typy vláken nelze míchat. Opravte prosím nastavení."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Vlákno %d a vlákno %d nelze smíchat. Vyberte vlákna stejného typu."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Nadměrné množství vláken ve směsi může ovlivnit výsledek. Používejte "
+"prosím opatrně."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Nerozpoznaný formát vzoru. Zkontrolujte syntaxi vzoru."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Vlákno %d nebylo rozpoznáno. Zadejte prosím znovu."
+
+msgid "Append filament %d to pattern"
+msgstr "Připojte ke vzoru vlákno %d"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Čárky na začátku nebo na konci nejsou povoleny."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Zadejte platnou šestimístnou hexadecimální hodnotu."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Byly nalezeny neplatné znaky. Jsou povoleny pouze číslice, hranaté "
+"závorky ([ a ]) a čárky (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 

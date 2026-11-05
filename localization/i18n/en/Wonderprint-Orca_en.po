@@ -19751,6 +19751,47 @@ msgstr "Filament %d ratio is too high. Mix may be affected"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Filament %d ratio is too high. Mix may be affected."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Same filament colors cannot produce new colors. Please select "
+"different colors for mixing."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Different filament types cannot be mixed. Please correct the settings."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Filament %d and Filament %d cannot be mixed. Please select filaments "
+"of the same type."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Unrecognized pattern format. Please check the pattern syntax."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Filament %d not recognized. Please re-enter."
+
+msgid "Append filament %d to pattern"
+msgstr "Append filament %d to pattern"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Leading or trailing commas are not allowed."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Please enter a valid 6-digit Hex value."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

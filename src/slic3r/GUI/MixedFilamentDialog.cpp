@@ -2224,8 +2224,9 @@ void MixedFilamentDialog::update_compatibility_warning()
         display_warning(warning_msg);
         if (m_btn_confirm) m_btn_confirm->Enable();
     } else if (m_current_mode == MODE_CYCLE && fids.size() == 1) {
-        display_warning(_L("Same filament colors cannot produce new colors. Please select different colors for mixing."));
-        if (m_btn_confirm) m_btn_confirm->Enable();
+        // A single filament cannot produce a new color: treat it as an invalid input and
+        // disable Confirm, like the other error cases.
+        set_error(_L("Same filament colors cannot produce new colors. Please select different colors for mixing."));
     } else if (m_current_mode == MODE_CYCLE && fids.size() > 4) {
         display_warning(_L("Excessive filaments in the mix may affect the result. Please use with caution."));
         if (m_btn_confirm) m_btn_confirm->Enable();

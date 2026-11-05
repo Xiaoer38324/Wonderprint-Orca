@@ -22981,6 +22981,49 @@ msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Il rapporto filamento %d è troppo alto. Il mix potrebbe essere "
 "influenzato."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Input consentiti: solo cifre, parentesi quadre ([ e ]) e virgole (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Gli stessi colori dei filamenti non possono produrre nuovi colori. Si "
+"prega di selezionare colori diversi per la miscelazione."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Non è possibile mescolare diversi tipi di filamenti. Si prega di "
+"correggere le impostazioni."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Il filamento %d e il filamento %d non possono essere mischiati. "
+"Seleziona filamenti dello stesso tipo."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Un numero eccessivo di filamenti nella miscela potrebbe influenzare il "
+"risultato. Si prega di utilizzare con cautela."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Formato del modello non riconosciuto. Controlla la sintassi del "
+"modello."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Filamento %d non riconosciuto. Per favore, inserisci di nuovo."
+
+msgid "Append filament %d to pattern"
+msgstr "Aggiungi il filamento %d al modello"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Non sono ammesse virgole iniziali o finali."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Inserisci un valore esadecimale valido di 6 cifre."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Trovati caratteri non validi. Sono consentite solo cifre, parentesi "
+"quadre ([ e ]) e virgole (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se vuoi provare Wonderprint-Orca Beta, puoi cliccare su"
 

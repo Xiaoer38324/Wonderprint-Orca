@@ -22058,6 +22058,49 @@ msgstr "Tỷ lệ filament %d quá cao. Mix có thể bị ảnh hưởng"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Tỷ lệ filament %d quá cao. Mix có thể bị ảnh hưởng."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Đầu vào được phép: Chỉ các chữ số, dấu ngoặc vuông ([ và ]) và dấu "
+"phẩy (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Cùng một màu dây tóc không thể tạo ra màu mới. Vui lòng chọn các màu "
+"khác nhau để trộn."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Các loại dây tóc khác nhau không thể trộn lẫn được. Vui lòng sửa các "
+"cài đặt."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Không thể trộn lẫn Dây tóc %d và Dây tóc %d. Vui lòng chọn các sợi "
+"cùng loại."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Quá nhiều sợi trong hỗn hợp có thể ảnh hưởng đến kết quả. Vui lòng sử "
+"dụng một cách thận trọng."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Định dạng mẫu không được công nhận. Vui lòng kiểm tra cú pháp mẫu."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Dây tóc %d không được nhận dạng. Vui lòng nhập lại."
+
+msgid "Append filament %d to pattern"
+msgstr "Nối dây tóc %d vào mẫu"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Dấu phẩy đầu hoặc cuối không được phép."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Vui lòng nhập giá trị Hex hợp lệ gồm 6 chữ số."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Đã tìm thấy ký tự không hợp lệ. Chỉ cho phép các chữ số, dấu ngoặc "
+"vuông ([ và ]) và dấu phẩy (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

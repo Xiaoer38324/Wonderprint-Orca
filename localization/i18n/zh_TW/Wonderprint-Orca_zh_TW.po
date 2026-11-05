@@ -20842,6 +20842,43 @@ msgstr "耗材%d比例太高了。混合比例可能會受到影響"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "耗材%d比例太高了。混合可能受到影響。"
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "允許的輸入：僅限數字、方括號（[ 和 ]）和逗號（,）。"
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "相同的燈絲顏色不能產生新的顏色。請選擇不同的顏色進行混合。"
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "不同類型的燈絲不能混合使用。請更正設定。"
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "燈絲 %d 和燈絲 %d 不能混合。請選擇相同類型的燈絲。"
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "混合物中過多的細絲可能會影響結果。請謹慎使用。"
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "無法辨識的模式格式。請檢查模式語法。"
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "燈絲 %d 無法辨識。請重新輸入。"
+
+msgid "Append filament %d to pattern"
+msgstr "將細絲 %d 附加到圖案"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "不允許使用前導或尾隨逗號。"
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "請輸入有效的 6 位元十六進位值。"
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "發現無效字元。僅允許使用數字、方括號（[ 和 ]）和逗號（,）。"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想嘗試 Wonderprint-Orca 測試版，可以點擊以下載到"
 

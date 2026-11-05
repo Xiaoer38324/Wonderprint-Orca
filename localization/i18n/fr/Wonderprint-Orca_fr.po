@@ -23156,6 +23156,49 @@ msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Le rapport du filament %d est trop élevé. Le mélange peut être "
 "affecté."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Entrée autorisée : uniquement les chiffres, les crochets ([ et ]) et "
+"les virgules (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Les mêmes couleurs de filament ne peuvent pas produire de nouvelles "
+"couleurs. Veuillez sélectionner différentes couleurs à mélanger."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Différents types de filaments ne peuvent pas être mélangés. Veuillez "
+"corriger les paramètres."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Le filament %d et le filament %d ne peuvent pas être mélangés. "
+"Veuillez sélectionner des filaments du même type."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Un excès de filaments dans le mélange peut affecter le résultat. "
+"Veuillez utiliser avec prudence."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Format de motif non reconnu. Veuillez vérifier la syntaxe du modèle."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Filament %d non reconnu. Veuillez entrer à nouveau."
+
+msgid "Append filament %d to pattern"
+msgstr "Ajouter le filament %d au motif"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Les virgules de début ou de fin ne sont pas autorisées."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Veuillez saisir une valeur hexadécimale valide à 6 chiffres."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Caractères invalides trouvés. Seuls les chiffres, les crochets ([ et "
+"]) et les virgules (,) sont autorisés."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Si vous souhaitez essayer Wonderprint-Orca Beta, vous pouvez cliquer sur"

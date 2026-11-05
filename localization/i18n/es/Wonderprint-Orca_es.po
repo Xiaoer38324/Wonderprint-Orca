@@ -22944,6 +22944,48 @@ msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "La relación de filamento %d es demasiado alta. La mezcla puede verse "
 "afectada."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Entrada permitida: solo dígitos, corchetes ([ y ]) y comas (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Los mismos colores de filamento no pueden producir colores nuevos. "
+"Seleccione diferentes colores para mezclar."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "No se pueden mezclar diferentes tipos de filamentos. Corrija la "
+"configuración."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "El filamento %d y el filamento %d no se pueden mezclar. Seleccione "
+"filamentos del mismo tipo."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "El exceso de filamentos en la mezcla puede afectar el resultado. Úselo "
+"con precaución."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Formato de patrón no reconocido. Verifique la sintaxis del patrón."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Filamento %d no reconocido. Por favor vuelva a ingresar."
+
+msgid "Append filament %d to pattern"
+msgstr "Añade el filamento %d al patrón"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "No se permiten comas iniciales o finales."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Introduzca un valor hexadecimal válido de 6 dígitos."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Se encontraron caracteres no válidos. Sólo se permiten dígitos, "
+"corchetes ([ y ]) y comas (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si desea probar Wonderprint-Orca Beta, puede hacer clic para"
 

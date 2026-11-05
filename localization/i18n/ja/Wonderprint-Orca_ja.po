@@ -17740,6 +17740,43 @@ msgstr "フィラメント%dの比率が高すぎます。混合気が影響を�
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "フィラメント%dの比率が高すぎます。混合体が影響を受ける可能性があります。"
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "許可される入力: 数字、角括弧 ([ および ])、およびカンマ (,) のみ。"
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "同じフィラメントの色から新しい色を生み出すことはできません。混合するには異なる色を選択してください。"
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "異なる種類のフィラメントを混合することはできません。設定を修正してください。"
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "フィラメント %d とフィラメント %d を混合することはできません。同じタイプのフィラメントを選択してください。"
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "混合中のフィラメントが多すぎると結果に影響を与える可能性があります。慎重にご使用ください。"
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "認識できないパターン形式です。パターンの構文を確認してください。"
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "フィラメント %d が認識されません。再入力してください。"
+
+msgid "Append filament %d to pattern"
+msgstr "フィラメント %d をパターンに追加します"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "先頭または末尾のカンマは使用できません。"
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "有効な 6 桁の 16 進数値を入力してください。"
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "無効な文字が見つかりました。数字、角括弧 ([ と ])、およびカンマ (,) のみが使用できます。"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

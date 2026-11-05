@@ -22491,6 +22491,48 @@ msgstr "Filament %d oranı çok yüksek. Karışım etkilenebilir"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Filament %d oranı çok yüksek. Karışım etkilenebilir."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "İzin Verilen Giriş: Yalnızca rakamlar, köşeli parantezler ([ ve ]) ve "
+"virgüller (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Aynı filament renkleri yeni renkler üretemez. Lütfen karıştırmak için "
+"farklı renkler seçin."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Farklı filament türleri karıştırılamaz. Lütfen ayarları düzeltin."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Filament %d ve Filament %d karıştırılamaz. Lütfen aynı tipteki "
+"filamentleri seçin."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Karışımdaki aşırı filamentler sonucu etkileyebilir. Lütfen dikkatli "
+"kullanın."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Tanınmayan desen formatı. Lütfen kalıp sözdizimini kontrol edin."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "%d filamanı tanınmadı. Lütfen tekrar girin."
+
+msgid "Append filament %d to pattern"
+msgstr "Filament %d'i desene ekleyin"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Başta veya sonda virgüllere izin verilmez."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Lütfen 6 haneli geçerli bir Hex değeri girin."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Geçersiz karakterler bulundu. Yalnızca rakamlara, köşeli parantezlere "
+"([ ve ]) ve virgüllere (,) izin verilir."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

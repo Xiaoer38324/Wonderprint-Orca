@@ -22513,6 +22513,48 @@ msgstr "Filamento %d santykis yra per didelis. Mišrus gali būti paveiktas"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Filamento %d santykis yra per didelis. Mišrus gali būti paveiktas."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Leidžiama įvestis: tik skaitmenys, laužtiniai skliaustai ([ ir ]) ir "
+"kableliai (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Tos pačios gijų spalvos negali sukurti naujų spalvų. Maišymui "
+"pasirinkite skirtingas spalvas."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Negalima maišyti skirtingų tipų siūlų. Pataisykite nustatymus."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Kaitinamųjų siūlų %d ir gijų %d negalima maišyti. Pasirinkite to "
+"paties tipo siūlus."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "Per didelis siūlų kiekis mišinyje gali turėti įtakos rezultatui. "
+"Prašome naudoti atsargiai."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Neatpažintas rašto formatas. Patikrinkite šablono sintaksę."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Kaitinamasis siūlas %d neatpažintas. Įveskite dar kartą."
+
+msgid "Append filament %d to pattern"
+msgstr "Pridėkite siūlą %d prie rašto"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Kableliai priekyje arba pabaigoje neleidžiami."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Įveskite galiojančią 6 skaitmenų šešioliktainę vertę."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Rasti netinkami simboliai. Leidžiami tik skaitmenys, laužtiniai "
+"skliaustai ([ ir ]) ir kableliai (,)."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

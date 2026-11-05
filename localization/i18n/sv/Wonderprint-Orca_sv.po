@@ -22286,6 +22286,49 @@ msgstr "Filamentförhållandet %d är för högt. Blandningen kan påverkas"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "Filamentförhållandet %d är för högt. Blandningen kan påverkas."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Tillåten inmatning: Endast siffror, hakparenteser ([ och ]) och "
+"kommatecken (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Samma filamentfärger kan inte producera nya färger. Välj olika färger "
+"för blandning."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "Olika filamenttyper kan inte blandas. Vänligen korrigera "
+"inställningarna."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "Filament %d och filament %d kan inte blandas. Välj filament av samma "
+"typ."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "För mycket filament i blandningen kan påverka resultatet. Använd med "
+"försiktighet."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Oigenkänt mönsterformat. Kontrollera mönstersyntaxen."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "Filament %d känns inte igen. Vänligen ange igen."
+
+msgid "Append filament %d to pattern"
+msgstr "Lägg till filament %d i mönstret"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "Inledande eller efterföljande kommatecken är inte tillåtna."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Ange ett giltigt sexsiffrigt hexadecimalt värde."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Ogiltiga tecken hittades. Endast siffror, hakparenteser ([ och ]) och "
+"kommatecken (,) är tillåtna."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

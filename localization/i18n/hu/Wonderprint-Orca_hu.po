@@ -22644,6 +22644,49 @@ msgstr "A filament %d aránya túl magas. A keverék befolyásolható lehet"
 msgid "Filament %d ratio is too high. Mix may be affected."
 msgstr "A filament %d aránya túl magas. A keverék befolyásolható."
 
+msgid "Allowed Input: Only digits, square brackets ([ and ]), and commas (,)."
+msgstr "Engedélyezett bevitel: Csak számjegyek, szögletes zárójelek ([ és ]) "
+"és vesszők (,)."
+
+msgid "Same filament colors cannot produce new colors. Please select different "
+"colors for mixing."
+msgstr "Ugyanazok az izzószálak színei nem hozhatnak létre új színeket. "
+"Kérjük, válasszon különböző színeket a keveréshez."
+
+msgid "Different filament types cannot be mixed. Please correct the settings."
+msgstr "A különböző típusú izzószálakat nem lehet keverni. Kérjük, javítsa a "
+"beállításokat."
+
+msgid "Filament %d and Filament %d cannot be mixed. Please select filaments of "
+"the same type."
+msgstr "A %d izzószál és a %d izzószál nem keverhető össze. Kérjük, válasszon "
+"azonos típusú filamenteket."
+
+msgid "Excessive filaments in the mix may affect the result. Please use with "
+"caution."
+msgstr "A túl sok szál a keverékben befolyásolhatja az eredményt. Kérjük, "
+"óvatosan használja."
+
+msgid "Unrecognized pattern format. Please check the pattern syntax."
+msgstr "Felismeretlen mintaformátum. Kérjük, ellenőrizze a minta szintaxisát."
+
+msgid "Filament %d not recognized. Please re-enter."
+msgstr "A(z) %d izzószál nem ismerhető fel. Kérjük, lépjen be újra."
+
+msgid "Append filament %d to pattern"
+msgstr "A(z) %d izzószál hozzáfűzése a mintához"
+
+msgid "Leading or trailing commas are not allowed."
+msgstr "A bevezető vagy a záró vessző nem megengedett."
+
+msgid "Please enter a valid 6-digit Hex value."
+msgstr "Adjon meg egy érvényes 6 számjegyű hexadecimális értéket."
+
+msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
+"commas (,) are allowed."
+msgstr "Érvénytelen karakterek találhatók. Csak számjegyek, szögletes "
+"zárójelek ([ és ]) és vesszők (,) megengedettek."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 
