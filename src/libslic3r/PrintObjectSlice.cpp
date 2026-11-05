@@ -5,7 +5,6 @@
 #include <atomic>
 
 #include "ClipperUtils.hpp"
-#include "ColorMix.hpp"
 #include "ElephantFootCompensation.hpp"
 #include "I18N.hpp"
 #include "Layer.hpp"

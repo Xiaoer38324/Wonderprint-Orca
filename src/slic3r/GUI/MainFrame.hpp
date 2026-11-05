@@ -411,6 +411,8 @@ public:
     FilamentGroupPopup* m_filament_group_popup{ nullptr };
     mutable bool          m_slice_enable{ true };
     mutable bool          m_print_enable{ true };
+    // Orca: one-shot notification for painted incompatible mixed filaments.
+    bool                  m_incompatible_mix_notified{ false };
     bool get_enable_slice_status();
     bool get_enable_print_status();
     //BBS

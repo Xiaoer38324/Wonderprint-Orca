@@ -2411,6 +2411,20 @@ void MainFrame::update_slice_print_status(SlicePrintEventType event, bool can_sl
         enable_slice = get_enable_slice_status();
     }
 
+    // Orca: a painted virtual filament mixing incompatible material types must block slicing.
+    if (enable_slice && m_plater != nullptr && m_plater->sidebar().has_incompatible_painted_filament_mix()) {
+        enable_slice = false;
+        if (!m_incompatible_mix_notified) {
+            m_incompatible_mix_notified = true;
+            if (NotificationManager* notification_manager = m_plater->get_notification_manager())
+                notification_manager->push_notification(NotificationType::CustomNotification,
+                                                        NotificationManager::NotificationLevel::ErrorNotificationLevel,
+                                                        into_u8(_L("Mixed filaments contain incompatible material types. Please correct the mixed filaments settings before slicing.")));
+        }
+    } else if (enable_slice) {
+        m_incompatible_mix_notified = false;
+    }
+
     bool old_slice_status = m_slice_btn->IsEnabled();
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(" m_slice_select %1%: can_slice= %2%, can_print %3%, enable_slice %4%, enable_print %5% ")%m_slice_select % can_slice %can_print %enable_slice %enable_print;

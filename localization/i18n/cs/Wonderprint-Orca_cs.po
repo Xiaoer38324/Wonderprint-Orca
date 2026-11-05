@@ -22213,6 +22213,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Byly nalezeny neplatné znaky. Jsou povoleny pouze číslice, hranaté "
 "závorky ([ a ]) a čárky (,)."
 
+msgid "Add Mix"
+msgstr "Přidejte směs"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Smíšená vlákna obsahují nekompatibilní typy materiálů. Před krájením "
+"prosím opravte nastavení smíšených vláken."
+
+msgid "Edit Mix"
+msgstr "Edit Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 

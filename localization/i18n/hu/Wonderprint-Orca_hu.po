@@ -22687,6 +22687,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Érvénytelen karakterek találhatók. Csak számjegyek, szögletes "
 "zárójelek ([ és ]) és vesszők (,) megengedettek."
 
+msgid "Add Mix"
+msgstr "Add Mix"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "A kevert szálak összeférhetetlen anyagtípusokat tartalmaznak. "
+"Szeletelés előtt javítsa ki a kevert szálak beállításait."
+
+msgid "Edit Mix"
+msgstr "Szerkesztés Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

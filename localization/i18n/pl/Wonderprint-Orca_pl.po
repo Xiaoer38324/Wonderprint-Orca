@@ -21804,6 +21804,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Znaleziono nieprawidłowe znaki. Dozwolone są tylko cyfry, nawiasy "
 "kwadratowe ([ i ]) i przecinki (,)."
 
+msgid "Add Mix"
+msgstr "Dodaj mieszankę"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Mieszane włókna zawierają niezgodne typy materiałów. Przed pocięciem "
+"należy skorygować ustawienia mieszanych włókien."
+
+msgid "Edit Mix"
+msgstr "Edycja Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Jeśli chciałbyś wypróbować Wonderprint-Orca Beta, możesz kliknąć tutaj."

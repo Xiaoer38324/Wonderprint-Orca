@@ -22533,6 +22533,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Geçersiz karakterler bulundu. Yalnızca rakamlara, köşeli parantezlere "
 "([ ve ]) ve virgüllere (,) izin verilir."
 
+msgid "Add Mix"
+msgstr "Karışım Ekle"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Karışık filamentler uyumsuz malzeme türleri içerir. Lütfen "
+"dilimlemeden önce karışık filament ayarlarını düzeltin."
+
+msgid "Edit Mix"
+msgstr "Düzenleme Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

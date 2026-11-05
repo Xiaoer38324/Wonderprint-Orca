@@ -1148,14 +1148,27 @@ static std::vector<ResolvedFilamentCategory> resolve_filament_categories(
     const auto& filament_presets = preset_bundle->filament_presets;
     result.reserve(filament_ids.size());
 
-    for (unsigned int id : filament_ids) {
-        if (id >= filament_presets.size()) continue;
-        const Preset* preset = preset_bundle->filaments.find_preset(filament_presets[id]);
-        if (!preset) continue;
-        auto* type_opt = dynamic_cast<const ConfigOptionStrings*>(preset->config.option("filament_type"));
-        if (!type_opt || type_opt->values.empty()) continue;
+    // Prefer the assembled full config: after a printer switch the individual filament
+    // presets may still be the previous printer's ones, while full_config() already carries
+    // the new printer's filament types.
+    const DynamicPrintConfig full = preset_bundle->full_config();
+    const auto* full_types = full.option<ConfigOptionStrings>("filament_type");
 
-        FilamentCategory cat = get_filament_category(type_opt->values[0]);
+    for (unsigned int id : filament_ids) {
+        std::string type;
+        if (full_types != nullptr && id < full_types->values.size()) {
+            type = full_types->values[id];
+        } else {
+            if (id >= filament_presets.size()) continue;
+            const Preset* preset = preset_bundle->filaments.find_preset(filament_presets[id]);
+            if (!preset) continue;
+            auto* type_opt = dynamic_cast<const ConfigOptionStrings*>(preset->config.option("filament_type"));
+            if (!type_opt || type_opt->values.empty()) continue;
+            type = type_opt->values[0];
+        }
+        if (type.empty()) continue;
+
+        FilamentCategory cat = get_filament_category(type);
         result.push_back({id, cat});
     }
     return result;

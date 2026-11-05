@@ -7,7 +7,7 @@
 #include "slic3r/GUI/Plater.hpp"
 #include "slic3r/GUI/BitmapCache.hpp"
 #include "slic3r/GUI/format.hpp"
-#include "libslic3r/ColorMix.hpp"
+// #include "libslic3r/ColorMix.hpp"
 #include "slic3r/GUI/GUI_ObjectList.hpp"
 #include "slic3r/GUI/NotificationManager.hpp"
 #include "slic3r/GUI/GUI.hpp"

@@ -1195,8 +1195,6 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionFloatOrPercent,       scarf_joint_speed))
     ((ConfigOptionFloat,                scarf_joint_flow_ratio))
     ((ConfigOptionPercent,              scarf_overhang_threshold))
-    // Orca: index of the Color Mixing entry used by this region (-1 = not a mixed region)
-    ((ConfigOptionInt,                  mixed_filament_index))
 )
 
 PRINT_CONFIG_CLASS_DEFINE(

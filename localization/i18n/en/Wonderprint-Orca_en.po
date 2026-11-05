@@ -19792,6 +19792,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Invalid characters found. Only digits, square brackets ([ and ]), and "
 "commas (,) are allowed."
 
+msgid "Add Mix"
+msgstr "Add Mix"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Mixed filaments contain incompatible material types. Please correct "
+"the mixed filaments settings before slicing."
+
+msgid "Edit Mix"
+msgstr "Edit Mix"
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

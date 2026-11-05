@@ -7,7 +7,7 @@
 #include "Plater.hpp"
 #include "BitmapCache.hpp"
 #include "Camera.hpp"
-#include "libslic3r/ColorMix.hpp"
+// #include "libslic3r/ColorMix.hpp"
 #include "libslic3r/PresetBundle.hpp"
 
 #include "libslic3r/BuildVolume.hpp"

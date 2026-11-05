@@ -1,6 +1,5 @@
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
-#include "ColorMix.hpp"
 #include "EdgeGrid.hpp"
 #include "Layer.hpp"
 #include "Print.hpp"

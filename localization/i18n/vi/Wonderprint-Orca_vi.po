@@ -22101,6 +22101,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Đã tìm thấy ký tự không hợp lệ. Chỉ cho phép các chữ số, dấu ngoặc "
 "vuông ([ và ]) và dấu phẩy (,)."
 
+msgid "Add Mix"
+msgstr "Thêm hỗn hợp"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Các sợi hỗn hợp chứa các loại vật liệu không tương thích. Vui lòng sửa "
+"cài đặt sợi hỗn hợp trước khi cắt."
+
+msgid "Edit Mix"
+msgstr "Chỉnh sửa Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

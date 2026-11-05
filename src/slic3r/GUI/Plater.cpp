@@ -7,6 +7,7 @@
 #include <cmath>
 #include <numeric>
 #include <functional>
+#include <cctype>
 #include <limits>
 #include <vector>
 #include <string>
@@ -82,6 +83,7 @@
 #include "GUI.hpp"
 #include "GUI_App.hpp"
 #include "MixedFilamentDialog.hpp"
+#include "MixedColorMatchHelpers.hpp"
 #include "MixedFilamentBatchDialog.hpp"
 #include "GuiColor.hpp"
 #include "GUI_ObjectList.hpp"
@@ -485,6 +487,7 @@ struct Sidebar::priv
         wxColour        colour;
         wxString        text;
         MixedFilament   mixed;
+        bool            incompatible = false;
     };
     std::vector<FilamentMixEntry> m_filament_mix_entries;
     std::vector<wxPanel*>         m_filament_mix_row_panels;
@@ -3227,6 +3230,8 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     // Orca: the new filament count is authoritative here; drop virtual filaments that no
     // longer fit the printer (this is the path taken when switching printers).
     prune_invalid_filament_mixes(num_filaments);
+    update_filament_mix_compatibility();
+    rebuild_filament_mix_rows();
     update_filament_mix_add_button();
 }
 
@@ -3480,6 +3485,56 @@ std::vector<std::string> current_filament_colours()
     return {};
 }
 
+std::vector<std::string> current_filament_types()
+{
+    std::vector<std::string> types;
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr)
+        return types;
+
+    types.reserve(preset_bundle->filament_presets.size());
+    for (const std::string& name : preset_bundle->filament_presets) {
+        std::string type;
+        if (const Preset* preset = preset_bundle->filaments.find_preset(name))
+            if (const auto* opt = preset->config.option<ConfigOptionStrings>("filament_type");
+                opt != nullptr && !opt->values.empty())
+                type = opt->values.front();
+        types.push_back(std::move(type));
+    }
+    return types;
+}
+
+std::string filament_type_family(std::string type)
+{
+    std::transform(type.begin(), type.end(), type.begin(), [](unsigned char c) { return char(std::toupper(c)); });
+    if (const size_t pos = type.find('-'); pos != std::string::npos)
+        type.resize(pos);
+    if (type == "PCTG")
+        type = "PETG";
+    return type;
+}
+
+std::vector<unsigned int> mixed_referenced_filaments(const MixedFilament& mixed, size_t physical_count)
+{
+    std::vector<unsigned int> ids;
+    const auto push = [&ids, physical_count](unsigned int id) {
+        if (id >= 1 && id <= physical_count && std::find(ids.begin(), ids.end(), id) == ids.end())
+            ids.push_back(id);
+    };
+    push(mixed.component_a);
+    push(mixed.component_b);
+    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
+        push(id);
+
+    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
+    if (!pattern.empty()) {
+        for (const std::string& group : MixedFilamentManager::split_pattern_groups(pattern))
+            for (const std::string& token : MixedFilamentManager::split_pattern_group_to_tokens(group, physical_count))
+                push(MixedFilamentManager::physical_filament_from_token(token, mixed, physical_count));
+    }
+    return ids;
+}
+
 std::string mixed_display_pattern(const MixedFilament& mixed)
 {
     // Orca: show the composition instead of the layer sequence, e.g. "F1*23%+F2*77%".
@@ -3605,6 +3660,64 @@ void Sidebar::remap_mixed_painted_states(size_t old_physical_count, size_t new_p
                 volume->mmu_segmentation_facets.remap_enforcer_block_types(*volume, EnforcerBlockerType::ExtruderMax, state_map);
         }
     }
+}
+
+void Sidebar::update_filament_mix_compatibility()
+{
+    const std::vector<std::string> types = current_filament_types();
+    for (priv::FilamentMixEntry& entry : p->m_filament_mix_entries) {
+        bool incompatible = !is_filament_compatible(entry.mixed);
+
+        // Extra check based on the printer's current filament types. The preset-based helper
+        // above may still see the previous printer's presets right after a switch.
+        if (!incompatible && types.size() >= 2) {
+            std::string family;
+            for (unsigned int id : mixed_referenced_filaments(entry.mixed, types.size())) {
+                const std::string& type = types[id - 1];
+                if (type.empty())
+                    continue;
+                const std::string candidate = filament_type_family(type);
+                if (family.empty())
+                    family = candidate;
+                else if (candidate != family) {
+                    incompatible = true;
+                    break;
+                }
+            }
+        }
+        entry.incompatible = incompatible;
+    }
+
+    // Refresh the Slice button state immediately (it is blocked while a painted incompatible
+    // mixed filament exists).
+    if (wxGetApp().mainframe != nullptr)
+        wxGetApp().mainframe->update_slice_print_status(MainFrame::SlicePrintEventType::eEventSliceUpdate, true, false);
+}
+
+bool Sidebar::has_incompatible_painted_filament_mix() const
+{
+    size_t physical_count = p->combos_filament.size();
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle)
+        if (!preset_bundle->filament_presets.empty())
+            physical_count = preset_bundle->filament_presets.size();
+    if (physical_count == 0 || p->m_filament_mix_entries.empty())
+        return false;
+
+    std::vector<unsigned int> invalid_states;
+    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index)
+        if (p->m_filament_mix_entries[index].incompatible)
+            invalid_states.push_back(unsigned(physical_count + index + 1));
+    if (invalid_states.empty())
+        return false;
+
+    for (const ModelObject* object : wxGetApp().model().objects) {
+        for (const ModelVolume* volume : object->volumes) {
+            for (int filament : volume->get_extruders())
+                if (filament > 0 && std::find(invalid_states.begin(), invalid_states.end(), unsigned(filament)) != invalid_states.end())
+                    return true;
+        }
+    }
+    return false;
 }
 
 void Sidebar::prune_invalid_filament_mixes(size_t physical_count)
@@ -3837,6 +3950,7 @@ void Sidebar::sync_color_mix_store()
     }
 
     preset_bundle->mixed_filaments = manager;
+    update_filament_mix_compatibility();
     if (ConfigOptionString* definitions = preset_bundle->project_config.option<ConfigOptionString>("mixed_filament_definitions", true))
         definitions->value = preset_bundle->mixed_filaments.serialize_custom_entries();
 }
@@ -4008,6 +4122,13 @@ void Sidebar::rebuild_filament_mix_rows()
 
         row_sizer->AddSpacer(FromDIP((i % 2) == 0 ? 12 : 3));
         row_sizer->Add(colour_btn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2));
+        if (entry.incompatible) {
+            // Orca: warn about mixed filaments whose components are different material types.
+            wxBitmap warning_bmp = create_scaled_bitmap("warning", row_panel, 16, false);
+            auto*    warning_icon = new wxStaticBitmap(row_panel, wxID_ANY, warning_bmp);
+            warning_icon->SetToolTip(_L("Mixed filaments contain incompatible material types."));
+            row_sizer->Add(warning_icon, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
+        }
         row_sizer->Add(text_field, 1, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(2));
         row_sizer->Add(menu_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(SidebarProps::ElementSpacing()) - FromDIP(2));
         row_sizer->AddSpacer(FromDIP(SidebarProps::ContentMargin()));

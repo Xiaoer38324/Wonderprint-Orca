@@ -23199,6 +23199,18 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Caractères invalides trouvés. Seuls les chiffres, les crochets ([ et "
 "]) et les virgules (,) sont autorisés."
 
+msgid "Add Mix"
+msgstr "Ajouter un mélange"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Les filaments mélangés contiennent des types de matériaux "
+"incompatibles. Veuillez corriger les paramètres des filaments mélangés avant "
+"de trancher."
+
+msgid "Edit Mix"
+msgstr "Modifier le mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Si vous souhaitez essayer Wonderprint-Orca Beta, vous pouvez cliquer sur"

@@ -16,7 +16,6 @@
 #include "Print.hpp"
 #include "Utils.hpp"
 #include "ClipperUtils.hpp"
-#include "ColorMix.hpp"
 #include "libslic3r.h"
 #include "LocalesUtils.hpp"
 #include "libslic3r/format.hpp"

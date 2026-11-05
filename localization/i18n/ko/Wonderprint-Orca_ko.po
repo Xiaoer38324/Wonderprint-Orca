@@ -21208,6 +21208,16 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 "commas (,) are allowed."
 msgstr "잘못된 문자가 발견되었습니다. 숫자, 대괄호([ 및 ]), 쉼표(,)만 허용됩니다."
 
+msgid "Add Mix"
+msgstr "믹스 추가"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "혼합 필라멘트에는 호환되지 않는 재료 유형이 포함되어 있습니다. 슬라이싱 전 혼합 필라멘트 설정을 수정해주세요."
+
+msgid "Edit Mix"
+msgstr "편집 믹스"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"
 

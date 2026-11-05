@@ -346,7 +346,7 @@ void MixedFilamentDialog::build_ui()
         m_warning_panel->SetBackgroundColour(StateColor::darkModeColorFor(wxColour("#FFF3EB")));
         m_warning_panel->Hide();
         auto* warn_sizer = new wxBoxSizer(wxHORIZONTAL);
-        ScalableBitmap warn_bmp(m_warning_panel, "icon_warning_triangle", 14);
+        ScalableBitmap warn_bmp(m_warning_panel, "warning", 14);
         auto* warn_icon = new wxStaticBitmap(m_warning_panel, wxID_ANY, warn_bmp.bmp());
         warn_sizer->Add(warn_icon, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(12));
         warn_sizer->AddSpacer(FromDIP(4));

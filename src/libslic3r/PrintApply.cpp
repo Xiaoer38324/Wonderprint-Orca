@@ -1,5 +1,4 @@
 #include "ClipperUtils.hpp"
-#include "ColorMix.hpp"
 #include "Model.hpp"
 #include "Print.hpp"
 
@@ -824,7 +823,6 @@ bool verify_update_print_object_regions(
             cfg.wall_filament.value          = region.extruder_id;
             cfg.solid_infill_filament.value  = region.extruder_id;
             cfg.sparse_infill_filament.value = region.extruder_id;
-            cfg.mixed_filament_index.value   = -1;
             if (cfg != region.region->config()) {
                 // Region configuration changed.
                 if (print_region_ref_cnt(*region.region) == 0) {
@@ -1075,7 +1073,6 @@ static PrintObjectRegions* generate_print_object_regions(
                     cfg.wall_filament.value          = painted_extruder_id;
                     cfg.solid_infill_filament.value  = painted_extruder_id;
                     cfg.sparse_infill_filament.value = painted_extruder_id;
-                    cfg.mixed_filament_index.value   = -1;
                     layer_range.painted_regions.push_back({ painted_extruder_id, parent_region_id, get_create_region(std::move(cfg))});
                 }
         // Sort the regions by parent region::print_object_region_id() and extruder_id to help the slicing algorithm when applying MM segmentation.
@@ -1808,7 +1805,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             // Orca: generate_print_object_regions() rebuilds PrintObjectRegions::all_regions from
             // scratch, so Print::m_print_regions (raw pointers into all_regions) must be rebuilt as
             // well. Otherwise G-code would resolve the region by a stale print_region_id and would
-            // not see the painted region config (e.g. mixed_filament_index).
+            // not see the painted region config.
             print_regions_reshuffled = true;
         }
         for (auto it = it_print_object; it != it_print_object_end; ++it)

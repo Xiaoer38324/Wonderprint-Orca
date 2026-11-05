@@ -22555,6 +22555,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Rasti netinkami simboliai. Leidžiami tik skaitmenys, laužtiniai "
 "skliaustai ([ ir ]) ir kableliai (,)."
 
+msgid "Add Mix"
+msgstr "Pridėti Mišinį"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Mišriose gijose yra nesuderinamų medžiagų tipų. Prieš pjaustydami "
+"pataisykite mišrių gijų nustatymus."
+
+msgid "Edit Mix"
+msgstr "Redaguoti miksą"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

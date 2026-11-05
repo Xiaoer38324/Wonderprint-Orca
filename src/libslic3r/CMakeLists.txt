@@ -97,8 +97,6 @@ set(lisbslic3r_sources
     ClipperZUtils.hpp
     Color.cpp
     Color.hpp
-    ColorMix.cpp
-    ColorMix.hpp
     FilamentColorLibrary.cpp
     FilamentColorLibrary.hpp
     CommonDefs.hpp

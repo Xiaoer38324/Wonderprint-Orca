@@ -22884,6 +22884,18 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "S'han trobat caràcters no vàlids. Només es permeten els dígits, "
 "claudàtors ([ i ]) i comes (,)."
 
+msgid "Add Mix"
+msgstr "Afegiu la barreja"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Els filaments barrejats contenen tipus de materials incompatibles. Si "
+"us plau, corregiu la configuració dels filaments barrejats abans de "
+"tallar-les."
+
+msgid "Edit Mix"
+msgstr "Edit Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 

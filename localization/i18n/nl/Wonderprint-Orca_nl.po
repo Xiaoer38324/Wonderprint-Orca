@@ -22540,6 +22540,17 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 msgstr "Ongeldige tekens gevonden. Alleen cijfers, vierkante haken ([ en ]) en "
 "komma's (,) zijn toegestaan."
 
+msgid "Add Mix"
+msgstr "Mengsel toevoegen"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "Gemengde filamenten bevatten incompatibele materiaalsoorten. Corrigeer "
+"de instellingen voor gemengde filamenten voordat u gaat snijden."
+
+msgid "Edit Mix"
+msgstr "Edit Mix"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

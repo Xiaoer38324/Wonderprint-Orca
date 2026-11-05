@@ -20740,6 +20740,16 @@ msgid "Invalid characters found. Only digits, square brackets ([ and ]), and "
 "commas (,) are allowed."
 msgstr "发现无效字符。仅允许使用数字、方括号（[ 和 ]）和逗号（,）。"
 
+msgid "Add Mix"
+msgstr "添加混合"
+
+msgid "Mixed filaments contain incompatible material types. Please correct the "
+"mixed filaments settings before slicing."
+msgstr "虚拟耗材包含不相容的材料类型。请在切片前更正虚拟耗材设置。"
+
+msgid "Edit Mix"
+msgstr "编辑混色"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想尝试Wonderprint-Orca Beta，您可以点击"
 
