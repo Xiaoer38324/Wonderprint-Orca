@@ -194,6 +194,8 @@ public:
     // Orca: mark the project as modified when a virtual filament changes, so the existing
     // G-code becomes stale and a re-slice is required.
     void mark_filament_mix_changed();
+    // Orca: mixing requires at least two physical filaments.
+    void update_filament_mix_add_button();
     // Orca: repaint every occurrence of a virtual mixed filament with a real filament and
     // remove the virtual entry.
     void replace_filament_mix(size_t index, int target_filament);

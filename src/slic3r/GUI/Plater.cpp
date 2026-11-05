@@ -2259,6 +2259,7 @@ Sidebar::Sidebar(Plater *parent)
         }
     });
     bSizer_mix->Add(p->m_filament_mix_add_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::TitlebarMargin()));
+    update_filament_mix_add_button();
 
     bSizer_mix->SetMinSize(-1, FromDIP(30));
     p->m_panel_filament_mix_title->SetSizer(bSizer_mix);
@@ -2632,6 +2633,7 @@ void Sidebar::update_all_preset_comboboxes()
 
     // the filament list is known now: restore the persisted Color Mixing entries (once)
     load_filament_mix_configs();
+    update_filament_mix_add_button();
 }
 
 void Sidebar::update_presets(Preset::Type preset_type)
@@ -3370,6 +3372,7 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     // Refresh the Color Mixing manager/rows after the physical filament count changed.
     sync_color_mix_store();
     rebuild_filament_mix_rows();
+    update_filament_mix_add_button();
 
     wxGetApp().plater()->update();
 }
@@ -3399,6 +3402,7 @@ void Sidebar::add_custom_filament(wxColour new_col) {
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
     wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
     auto_calc_flushing_volumes(filament_count - 1);
+    update_filament_mix_add_button();
 }
 
 // Orca: bridge between the reference MixedFilamentDialog rows and the sidebar ColorMixConfig.
@@ -3617,8 +3621,25 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 // Wonder: add one entry under the "Color Mixing" bar (the dialog already computed the row).
 // Orca: a virtual filament change invalidates the current G-code; mark the project dirty so
 // the user is asked to re-slice / save.
-void Sidebar::mark_filament_mix_changed()
+// Orca: Color Mixing needs at least two physical filaments. Keep the "+" button disabled and
+// explain why in its tooltip otherwise.
+void Sidebar::update_filament_mix_add_button()
 {
+    if (p->m_filament_mix_add_btn == nullptr)
+        return;
+    // filament_presets is updated immediately by set_num_filaments(), while combos_filament
+    // may still hold the previous count during add/delete callbacks.
+    size_t filament_count = p->combos_filament.size();
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle)
+        filament_count = std::max(filament_count, preset_bundle->filament_presets.size());
+    const bool can_mix = filament_count >= 2;
+    p->m_filament_mix_add_btn->Enable(can_mix);
+    p->m_filament_mix_add_btn->SetToolTip(can_mix
+        ? _L("Create a color mix")
+        : _L("At least 2 physical filaments are required to create a color mix"));
+}
+
+void Sidebar::mark_filament_mix_changed(){
     Plater* plater = wxGetApp().plater();
     if (plater == nullptr)
         return;
