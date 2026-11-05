@@ -953,16 +953,6 @@ public:
     // Orca: Color Mixing (mixed virtual filaments) definitions for this print.
     const MixedFilamentManager& mixed_filament_manager() const { return m_mixed_filament_mgr; }
     MixedFilamentManager&       mixed_filament_manager() { return m_mixed_filament_mgr; }
-    // Orca: physical filaments that mixed virtual filaments resolve to. ToolOrdering uses this
-    // to keep the wipe tower aware of the real materials behind a painted mixed filament.
-    const std::vector<unsigned int>& mixed_component_filaments() const { return m_mixed_component_filaments; }
-    void add_mixed_component_filaments(const std::vector<unsigned int> &filaments) {
-        m_mixed_component_filaments.insert(m_mixed_component_filaments.end(), filaments.begin(), filaments.end());
-        std::sort(m_mixed_component_filaments.begin(), m_mixed_component_filaments.end());
-        m_mixed_component_filaments.erase(std::unique(m_mixed_component_filaments.begin(), m_mixed_component_filaments.end()),
-                                          m_mixed_component_filaments.end());
-    }
-    void clear_mixed_component_filaments() { m_mixed_component_filaments.clear(); }
     ConstPrintObjectPtrsAdaptor objects() const { return ConstPrintObjectPtrsAdaptor(&m_objects); }
     PrintObject*                get_object(size_t idx) { return const_cast<PrintObject*>(m_objects[idx]); }
     const PrintObject*          get_object(size_t idx) const { return m_objects[idx]; }
@@ -1148,7 +1138,6 @@ private:
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
     MixedFilamentManager                    m_mixed_filament_mgr;
-    std::vector<unsigned int>               m_mixed_component_filaments;
     // Orca: detect Color Mixing definition changes between applies so the painted regions are
     // rebuilt (otherwise stale physical target regions keep producing the old mix).
     bool                                    m_mixed_definitions_changed = false;

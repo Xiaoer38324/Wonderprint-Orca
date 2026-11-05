@@ -849,8 +849,6 @@ template<typename ThrowOnCancel>
 static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel)
 {
     // Returns MM segmentation based on painting in MM segmentation gizmo
-    BOOST_LOG_TRIVIAL(warning) << "[CMIX] mm seg: filaments=" << print_object.print()->config().filament_colour.size()
-                               << " mixed=" << print_object.print()->mixed_filament_manager().enabled_count();
     std::vector<std::vector<ExPolygons>> segmentation = multi_material_segmentation_by_painting(print_object, throw_on_cancel);
     assert(segmentation.size() == print_object.layer_count());
     tbb::parallel_for(
@@ -911,23 +909,6 @@ static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCance
                     append(target.expolygons, std::move(segmentation[layer_id][ch]));
                     target.bbox = get_extents(target.expolygons);
                     layer_split = true;
-                    static std::atomic<int> dbg_mix_layers{0};
-                    if (dbg_mix_layers.fetch_add(1) < 10)
-                        BOOST_LOG_TRIVIAL(warning) << "[CMIX] seg layer=" << layer_id
-                                                   << " mixed_state=" << state_id << " -> filament=" << resolved;
-                }
-
-                if (layer_id == 0) {
-                    std::string info;
-                    for (size_t s = 0; s < by_extruder.size(); ++s)
-                        info += std::to_string(int(s) + 1) + ":" + std::to_string(by_extruder[s].expolygons.size()) + " ";
-                    std::string painted;
-                    for (const PrintObjectRegions::PaintedRegion &pr : layer_range.painted_regions)
-                        painted += std::to_string(pr.extruder_id) + " ";
-                    BOOST_LOG_TRIVIAL(warning) << "[CMIX] seg layer0 states=" << segmentation[layer_id].size()
-                                               << " physical=" << num_physical
-                                               << " split=" << layer_split
-                                               << " by_state[" << info << "] painted_regions=[" << painted << "]";
                 }
 
                 if (!layer_split)

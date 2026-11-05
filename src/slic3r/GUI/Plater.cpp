@@ -55,7 +55,6 @@
 
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/AppConfig.hpp"
-#include "libslic3r/ColorMix.hpp"
 #include "libslic3r/MixedFilament.hpp"
 #include "libslic3r/Format/STL.hpp"
 #include "libslic3r/Format/DRC.hpp"
@@ -82,7 +81,6 @@
 
 #include "GUI.hpp"
 #include "GUI_App.hpp"
-#include "ColorMixDialog.hpp"
 #include "MixedFilamentDialog.hpp"
 #include "MixedFilamentBatchDialog.hpp"
 #include "GuiColor.hpp"
@@ -192,7 +190,6 @@ namespace GUI {
 
 namespace {
 std::vector<std::string> current_filament_colours();
-ColorMixConfig           color_mix_config_from_mixed(const Slic3r::MixedFilament &mixed);
 }
 
 wxDEFINE_EVENT(EVT_SCHEDULE_BACKGROUND_PROCESS,     SimpleEvent);
@@ -2635,6 +2632,12 @@ void Sidebar::update_all_preset_comboboxes()
     // the filament list is known now: restore the persisted Color Mixing entries (once)
     load_filament_mix_configs();
     prune_invalid_filament_mixes();
+    // Physical colours may differ per printer even when the index/count is the same, so
+    // recompute every virtual filament's display colour after a printer change.
+    if (!p->m_filament_mix_entries.empty()) {
+        sync_color_mix_store();
+        rebuild_filament_mix_rows();
+    }
     update_filament_mix_add_button();
 }
 
@@ -2696,6 +2699,17 @@ void Sidebar::update_presets(Preset::Type preset_type)
     {
         update_all_preset_comboboxes();
         p->show_preset_comboboxes();
+        // Orca: when the printer changes, the physical filament list is finalized only after
+        // the preset switch completes. Re-check the virtual filaments afterwards so mixes
+        // referencing filaments the new printer lacks are removed.
+        CallAfter([this]() {
+            prune_invalid_filament_mixes();
+            if (!p->m_filament_mix_entries.empty()) {
+                sync_color_mix_store();
+                rebuild_filament_mix_rows();
+            }
+            update_filament_mix_add_button();
+        });
 
         /* update bed shape */
         Tab* printer_tab = wxGetApp().get_tab(Preset::TYPE_PRINTER);
@@ -3204,6 +3218,11 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     // the mix numbers continue after the filaments, so refresh them when the filament count changes
     if (!p->m_filament_mix_entries.empty())
         rebuild_filament_mix_rows();
+
+    // Orca: the new filament count is authoritative here; drop virtual filaments that no
+    // longer fit the printer (this is the path taken when switching printers).
+    prune_invalid_filament_mixes(num_filaments);
+    update_filament_mix_add_button();
 }
 
 void Sidebar::on_filaments_delete(size_t filament_id)
@@ -3429,7 +3448,7 @@ void Sidebar::add_custom_filament(wxColour new_col) {
     update_filament_mix_add_button();
 }
 
-// Orca: bridge between the reference MixedFilamentDialog rows and the sidebar ColorMixConfig.
+// Orca: helpers shared by the sidebar Color Mixing rows (reference MixedFilament data).
 namespace {
 
 std::vector<std::string> current_filament_colours()
@@ -3454,98 +3473,6 @@ std::vector<std::string> current_filament_colours()
             return std::vector<std::string>(preset_bundle->filament_presets.size(), "#26A69A");
     }
     return {};
-}
-
-Slic3r::MixedFilament mixed_from_color_mix_config(const ColorMixConfig& config)
-{
-    Slic3r::MixedFilament mixed;
-    if (!config.valid())
-        return mixed;
-    const std::vector<int>& components = config.filament_indices;
-
-    int component_a = components[0] + 1;
-    int component_b = components[1] + 1;
-    const auto has_component = [&components](int one_based) {
-        return std::find(components.begin(), components.end(), one_based - 1) != components.end();
-    };
-    if (has_component(1)) component_a = 1;
-    if (has_component(2) && component_b != 2) component_b = 2;
-    if (component_a == component_b)
-        for (int component : components)
-            if (component + 1 != component_a) { component_b = component + 1; break; }
-    if (component_a == component_b)
-        return mixed;
-
-    mixed.component_a = unsigned(component_a);
-    mixed.component_b = unsigned(component_b);
-    const std::vector<int> counts = color_mix_integer_counts(config.ratios);
-    std::string pattern;
-    for (size_t i = 0; i < components.size() && i < counts.size(); ++i) {
-        const int  id    = components[i] + 1;
-        const char token = (id == component_a) ? '1' : (id == component_b) ? '2' : char('0' + std::min(id, 9));
-        pattern.append(size_t(std::max(0, counts[i])), token);
-    }
-    mixed.manual_pattern = pattern;
-    std::vector<unsigned int> ids;
-    ids.reserve(components.size());
-    for (int component : components)
-        ids.push_back(unsigned(component) + 1);
-    mixed.gradient_component_ids = MixedFilamentManager::encode_gradient_component_ids(ids);
-    for (size_t i = 0; i < components.size() && i < counts.size(); ++i) {
-        if (components[i] + 1 == component_a) mixed.ratio_a = std::max(1, counts[i]);
-        if (components[i] + 1 == component_b) mixed.ratio_b = std::max(1, counts[i]);
-    }
-    mixed.mix_b_percent = int(std::lround(100.0 * mixed.ratio_b / double(std::max(1, mixed.ratio_a + mixed.ratio_b))));
-    mixed.custom        = true;
-    mixed.enabled       = true;
-    return mixed;
-}
-
-ColorMixConfig color_mix_config_from_mixed(const Slic3r::MixedFilament& mixed)
-{
-    ColorMixConfig config;
-    std::vector<int> ids;
-    const auto push = [&ids](int one_based) {
-        if (one_based >= 1 && std::find(ids.begin(), ids.end(), one_based) == ids.end())
-            ids.push_back(one_based);
-    };
-    push(int(mixed.component_a));
-    push(int(mixed.component_b));
-    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 0))
-        push(int(id));
-    if (ids.size() > 4)
-        ids.resize(4);
-    if (ids.size() < 2)
-        return config;
-
-    std::vector<int> counts(ids.size(), 0);
-    if (!mixed.manual_pattern.empty()) {
-        for (char c : mixed.manual_pattern) {
-            int id = 0;
-            if (c == '1') id = int(mixed.component_a);
-            else if (c == '2') id = int(mixed.component_b);
-            else if (c >= '3' && c <= '9') id = c - '0';
-            if (id <= 0) continue;
-            if (auto it = std::find(ids.begin(), ids.end(), id); it != ids.end())
-                ++counts[size_t(it - ids.begin())];
-        }
-    }
-    double total = 0.0;
-    for (size_t i = 0; i < ids.size(); ++i) {
-        if (counts[i] == 0) {
-            if (ids[i] == int(mixed.component_a)) counts[i] = std::max(1, mixed.ratio_a);
-            else if (ids[i] == int(mixed.component_b)) counts[i] = std::max(1, mixed.ratio_b);
-            else counts[i] = 1;
-        }
-        total += counts[i];
-    }
-    config.filament_indices = ids;
-    for (int& index : config.filament_indices)
-        --index;
-    config.ratios.resize(ids.size());
-    for (size_t i = 0; i < ids.size(); ++i)
-        config.ratios[i] = total > 0.0 ? double(counts[i]) / total : 1.0 / double(ids.size());
-    return config;
 }
 
 std::string mixed_display_pattern(const MixedFilament& mixed)
@@ -3649,11 +3576,22 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 // explain why in its tooltip otherwise.
 // Orca: after switching printers the physical filament count may shrink; drop virtual
 // filaments that reference filaments the new printer does not have.
-void Sidebar::prune_invalid_filament_mixes()
+void Sidebar::prune_invalid_filament_mixes(size_t physical_count)
 {
-    size_t physical_count = p->combos_filament.size();
-    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle)
-        physical_count = std::max(physical_count, preset_bundle->filament_presets.size());
+    // Prefer the explicitly supplied count (on_filament_count_change knows the new value).
+    if (physical_count == 0) {
+        // project_config.filament_colour is resized immediately by set_num_filaments() during a
+        // printer switch, so it is the most reliable source here.
+        if (PresetBundle* preset_bundle = wxGetApp().preset_bundle) {
+            if (const auto* colours = preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+                colours != nullptr && !colours->values.empty())
+                physical_count = colours->values.size();
+            else if (!preset_bundle->filament_presets.empty())
+                physical_count = preset_bundle->filament_presets.size();
+        }
+        if (physical_count == 0)
+            physical_count = p->combos_filament.size();
+    }
     if (physical_count == 0 || p->m_filament_mix_entries.empty())
         return;
 
@@ -3670,8 +3608,9 @@ void Sidebar::prune_invalid_filament_mixes()
 
     sync_color_mix_store();
     save_filament_mix_configs();
+    // Rebuild immediately: leaving the old row panels while the entry vector shrank makes the
+    // stale row un-clickable and a later add appears to "replace" it.
     rebuild_filament_mix_rows();
-    mark_filament_mix_changed();
 }
 
 void Sidebar::update_filament_mix_add_button(){
@@ -3936,8 +3875,12 @@ void Sidebar::rebuild_filament_mix_rows()
 
     // drop the old grid: first the sizer items, then the row windows
     p->m_sizer_filament_mix->Clear(false); // keep the windows alive, they are destroyed explicitly below
-    for (wxPanel* row : p->m_filament_mix_row_panels)
+    for (wxPanel* row : p->m_filament_mix_row_panels) {
+        // Hide immediately: Destroy() is deferred and a stale row would still receive clicks
+        // (mapped to an index that no longer exists) until the idle event.
+        row->Hide();
         row->Destroy();
+    }
     p->m_filament_mix_row_panels.clear();
 
     auto* left_column  = new wxBoxSizer(wxVERTICAL);
@@ -17293,7 +17236,12 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
                 p->sidebar->update_dynamic_filament_list();
                 // Orca: virtual filaments derive their display colour from the physical ones;
                 // refresh their swatches/manager after a real filament colour change.
-                CallAfter([this]() {
+                const size_t new_filament_count =
+                    config.option<ConfigOptionStrings>("filament_colour")->values.size();
+                CallAfter([this, new_filament_count]() {
+                    // The incoming config is authoritative for the new filament count; drop
+                    // virtual filaments that reference filaments the printer no longer has.
+                    p->sidebar->prune_invalid_filament_mixes(new_filament_count);
                     p->sidebar->sync_color_mix_store();
                     p->sidebar->rebuild_filament_mix_rows();
                 });

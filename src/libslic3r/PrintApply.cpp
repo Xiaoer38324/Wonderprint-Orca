@@ -1309,7 +1309,6 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         // Orca: reload the Color Mixing definitions (persisted in mixed_filament_definitions)
         // whenever the print configuration changed. The option lives in the GCode config and
         // is not necessarily part of print_diff, so copy it explicitly before reloading.
-        this->clear_mixed_component_filaments();
         if (const ConfigOptionString* definitions = new_full_config.option<ConfigOptionString>("mixed_filament_definitions"))
             m_config.mixed_filament_definitions = *definitions;
         this->load_mixed_filaments();
@@ -1757,9 +1756,6 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 std::sort(expanded.begin(), expanded.end());
                 expanded.erase(std::unique(expanded.begin(), expanded.end()), expanded.end());
                 painting_extruders = std::move(expanded);
-                // Remember the real materials behind the painted mixed states, so the wipe
-                // tower / tool ordering plans them instead of only the base filament.
-                this->add_mixed_component_filaments(painting_extruders);
             }
         }
         if (model_object_status.print_object_regions_status == ModelObjectStatus::PrintObjectRegionsStatus::Valid) {

@@ -127,8 +127,6 @@ public:
     static int ElementSpacing(){ return 5 ;} // Use if elements has relation between them like edit button for combo box etc.
 };
 
-struct ColorMixConfig;
-
 class Sidebar : public wxPanel
 {
     ConfigOptionMode    m_mode;
@@ -198,7 +196,7 @@ public:
     void update_filament_mix_add_button();
     // Orca: drop virtual filaments that reference physical filaments the current printer
     // does not provide (e.g. after switching to a printer with fewer extruders).
-    void prune_invalid_filament_mixes();
+    void prune_invalid_filament_mixes(size_t physical_count = 0);
     // Orca: repaint every occurrence of a virtual mixed filament with a real filament and
     // remove the virtual entry.
     void replace_filament_mix(size_t index, int target_filament);

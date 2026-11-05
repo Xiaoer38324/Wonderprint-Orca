@@ -365,8 +365,6 @@ set(SLIC3R_GUI_SOURCES
     GUI/PartPlate.hpp
     GUI/FilamentGroupPopup.hpp
     GUI/FilamentGroupPopup.cpp
-    GUI/ColorMixDialog.cpp
-    GUI/ColorMixDialog.hpp
     GUI/MixedGradientSelector.cpp
     GUI/MixedGradientSelector.hpp
     GUI/MixedColorMatchHelpers.cpp
