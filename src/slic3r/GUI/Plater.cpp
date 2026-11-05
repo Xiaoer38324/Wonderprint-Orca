@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
+#include <functional>
 #include <limits>
 #include <vector>
 #include <string>
@@ -2633,6 +2634,7 @@ void Sidebar::update_all_preset_comboboxes()
 
     // the filament list is known now: restore the persisted Color Mixing entries (once)
     load_filament_mix_configs();
+    prune_invalid_filament_mixes();
     update_filament_mix_add_button();
 }
 
@@ -3294,8 +3296,7 @@ static bool mixed_uses_physical_filament(const MixedFilament &mixed, unsigned in
     return false;
 }
 
-static void shift_mixed_physical_ids(MixedFilament &mixed, unsigned int deleted_id)
-{
+static void shift_mixed_physical_ids(MixedFilament &mixed, unsigned int deleted_id){
     if (mixed.component_a > deleted_id)
         --mixed.component_a;
     if (mixed.component_b > deleted_id)
@@ -3307,6 +3308,29 @@ static void shift_mixed_physical_ids(MixedFilament &mixed, unsigned int deleted_
         if (id > deleted_id)
             --id;
     mixed.gradient_component_ids = MixedFilamentManager::encode_gradient_component_ids(ids);
+}
+
+static bool mixed_fits_physical_filaments(const MixedFilament &mixed, size_t physical_count)
+{
+    if (physical_count < 2)
+        return false;
+    if (mixed.component_a < 1 || mixed.component_a > physical_count ||
+        mixed.component_b < 1 || mixed.component_b > physical_count)
+        return false;
+    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
+        if (id < 1 || id > physical_count)
+            return false;
+    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
+    if (!pattern.empty()) {
+        for (const std::string &group : MixedFilamentManager::split_pattern_groups(pattern)) {
+            for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, physical_count)) {
+                const unsigned int id = MixedFilamentManager::physical_filament_from_token(token, mixed, physical_count);
+                if (id < 1 || id > physical_count)
+                    return false;
+            }
+        }
+    }
+    return true;
 }
 
 void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
@@ -3623,8 +3647,34 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 // the user is asked to re-slice / save.
 // Orca: Color Mixing needs at least two physical filaments. Keep the "+" button disabled and
 // explain why in its tooltip otherwise.
-void Sidebar::update_filament_mix_add_button()
+// Orca: after switching printers the physical filament count may shrink; drop virtual
+// filaments that reference filaments the new printer does not have.
+void Sidebar::prune_invalid_filament_mixes()
 {
+    size_t physical_count = p->combos_filament.size();
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle)
+        physical_count = std::max(physical_count, preset_bundle->filament_presets.size());
+    if (physical_count == 0 || p->m_filament_mix_entries.empty())
+        return;
+
+    std::vector<size_t> invalid;
+    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index)
+        if (!mixed_fits_physical_filaments(p->m_filament_mix_entries[index].mixed, physical_count))
+            invalid.push_back(index);
+    if (invalid.empty())
+        return;
+
+    std::sort(invalid.begin(), invalid.end(), std::greater<size_t>());
+    for (size_t index : invalid)
+        p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
+
+    sync_color_mix_store();
+    save_filament_mix_configs();
+    rebuild_filament_mix_rows();
+    mark_filament_mix_changed();
+}
+
+void Sidebar::update_filament_mix_add_button(){
     if (p->m_filament_mix_add_btn == nullptr)
         return;
     // filament_presets is updated immediately by set_num_filaments(), while combos_filament

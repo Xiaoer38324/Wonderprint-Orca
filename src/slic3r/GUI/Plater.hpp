@@ -196,6 +196,9 @@ public:
     void mark_filament_mix_changed();
     // Orca: mixing requires at least two physical filaments.
     void update_filament_mix_add_button();
+    // Orca: drop virtual filaments that reference physical filaments the current printer
+    // does not provide (e.g. after switching to a printer with fewer extruders).
+    void prune_invalid_filament_mixes();
     // Orca: repaint every occurrence of a virtual mixed filament with a real filament and
     // remove the virtual entry.
     void replace_filament_mix(size_t index, int target_filament);
