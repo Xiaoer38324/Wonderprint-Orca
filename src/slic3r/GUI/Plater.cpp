@@ -3492,13 +3492,29 @@ std::vector<std::string> current_filament_types()
     if (preset_bundle == nullptr)
         return types;
 
+    const Preset* edited_preset = &preset_bundle->filaments.get_edited_preset();
+    std::string   edited_type;
+    if (const auto* edited_opt = edited_preset->config.option<ConfigOptionStrings>("filament_type");
+        edited_opt != nullptr && !edited_opt->values.empty())
+        edited_type = edited_opt->values.front();
+
+    const DynamicPrintConfig full = preset_bundle->full_config();
+    const auto* full_types = full.option<ConfigOptionStrings>("filament_type");
+
     types.reserve(preset_bundle->filament_presets.size());
-    for (const std::string& name : preset_bundle->filament_presets) {
+    for (size_t index = 0; index < preset_bundle->filament_presets.size(); ++index) {
+        const std::string& name = preset_bundle->filament_presets[index];
         std::string type;
-        if (const Preset* preset = preset_bundle->filaments.find_preset(name))
+        if (name == edited_preset->name) {
+            // Use the edited preset so an unsaved type change is picked up immediately.
+            type = edited_type;
+        } else if (const Preset* preset = preset_bundle->filaments.find_preset(name)) {
             if (const auto* opt = preset->config.option<ConfigOptionStrings>("filament_type");
                 opt != nullptr && !opt->values.empty())
                 type = opt->values.front();
+        }
+        if (type.empty() && full_types != nullptr && index < full_types->values.size())
+            type = full_types->values[index];
         types.push_back(std::move(type));
     }
     return types;
@@ -3671,16 +3687,18 @@ void Sidebar::update_filament_mix_compatibility()
 {
     const std::vector<std::string> types = current_filament_types();
     for (priv::FilamentMixEntry& entry : p->m_filament_mix_entries) {
-        bool incompatible = !is_filament_compatible(entry.mixed);
+        bool incompatible = false;
+        bool type_checked  = false;
 
-        // Extra check based on the printer's current filament types. The preset-based helper
-        // above may still see the previous printer's presets right after a switch.
-        if (!incompatible && types.size() >= 2) {
+        // Prefer the printer's current per-slot types: this also sees unsaved filament type
+        // edits, unlike the preset-based helper.
+        if (types.size() >= 2) {
             std::string family;
             for (unsigned int id : mixed_referenced_filaments(entry.mixed, types.size())) {
                 const std::string& type = types[id - 1];
                 if (type.empty())
                     continue;
+                type_checked = true;
                 const std::string candidate = filament_type_family(type);
                 if (family.empty())
                     family = candidate;
@@ -3690,6 +3708,10 @@ void Sidebar::update_filament_mix_compatibility()
                 }
             }
         }
+
+        if (!type_checked)
+            incompatible = !is_filament_compatible(entry.mixed);
+
         entry.incompatible = incompatible;
     }
 
@@ -17539,6 +17561,11 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
         }
         if (opt_key == "filament_type") {
             update_filament_colors_in_full_config();
+            // Orca: a manual filament-type change can invalidate existing virtual filaments.
+            CallAfter([this]() {
+                p->sidebar->update_filament_mix_compatibility();
+                p->sidebar->rebuild_filament_mix_rows();
+            });
             continue;
         }
         if (opt_key == "material_colour") {
