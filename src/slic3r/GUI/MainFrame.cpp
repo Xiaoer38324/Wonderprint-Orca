@@ -2411,8 +2411,26 @@ void MainFrame::update_slice_print_status(SlicePrintEventType event, bool can_sl
         enable_slice = get_enable_slice_status();
     }
 
-    // Orca: a painted virtual filament mixing incompatible material types must block slicing.
-    if (enable_slice && m_plater != nullptr && m_plater->sidebar().has_incompatible_painted_filament_mix()) {
+    // Orca: a painted virtual filament mixing incompatible material types blocks the
+    // affected plate(s). For "Slice all" only block when every plate is invalid.
+    bool block_slice = false;
+    if (enable_slice && m_plater != nullptr) {
+        Sidebar&       sidebar = m_plater->sidebar();
+        PartPlateList& plates  = m_plater->get_partplate_list();
+        if (m_slice_select == eSlicePlate) {
+            block_slice = sidebar.has_incompatible_painted_filament_mix_on_plate(plates.get_curr_plate_index());
+        } else if (plates.get_plate_count() > 0) {
+            block_slice = true;
+            for (int i = 0; i < plates.get_plate_count(); ++i) {
+                if (!sidebar.has_incompatible_painted_filament_mix_on_plate(i)) {
+                    block_slice = false;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (block_slice) {
         enable_slice = false;
         if (!m_incompatible_mix_notified) {
             m_incompatible_mix_notified = true;

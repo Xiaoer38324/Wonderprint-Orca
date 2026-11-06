@@ -3697,24 +3697,118 @@ void Sidebar::update_filament_mix_compatibility()
 bool Sidebar::has_incompatible_painted_filament_mix() const
 {
     size_t physical_count = p->combos_filament.size();
-    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle)
-        if (!preset_bundle->filament_presets.empty())
-            physical_count = preset_bundle->filament_presets.size();
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle != nullptr && !preset_bundle->filament_presets.empty())
+        physical_count = preset_bundle->filament_presets.size();
     if (physical_count == 0 || p->m_filament_mix_entries.empty())
         return false;
 
-    std::vector<unsigned int> invalid_states;
-    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index)
-        if (p->m_filament_mix_entries[index].incompatible)
-            invalid_states.push_back(unsigned(physical_count + index + 1));
-    if (invalid_states.empty())
-        return false;
-
+    // Collect the virtual painted states actually used by the model.
+    std::vector<unsigned int> painted_states;
     for (const ModelObject* object : wxGetApp().model().objects) {
         for (const ModelVolume* volume : object->volumes) {
-            for (int filament : volume->get_extruders())
-                if (filament > 0 && std::find(invalid_states.begin(), invalid_states.end(), unsigned(filament)) != invalid_states.end())
+            for (int filament : volume->get_extruders()) {
+                const unsigned int state = unsigned(std::max(0, filament));
+                if (state > physical_count &&
+                    std::find(painted_states.begin(), painted_states.end(), state) == painted_states.end())
+                    painted_states.push_back(state);
+            }
+        }
+    }
+    if (painted_states.empty())
+        return false;
+
+    // Filament types of the current printer; full_config() is a fallback for slots whose
+    // preset lookup returned nothing.
+    std::vector<std::string> types = current_filament_types();
+    if (preset_bundle != nullptr) {
+        const DynamicPrintConfig full = preset_bundle->full_config();
+        const auto* full_types = full.option<ConfigOptionStrings>("filament_type");
+        if (full_types != nullptr) {
+            if (types.size() < full_types->values.size())
+                types.resize(full_types->values.size());
+            for (size_t i = 0; i < types.size() && i < full_types->values.size(); ++i)
+                if (types[i].empty())
+                    types[i] = full_types->values[i];
+        }
+    }
+
+    for (unsigned int state : painted_states) {
+        const size_t index = size_t(state) - physical_count - 1;
+        if (index >= p->m_filament_mix_entries.size())
+            continue;
+        const priv::FilamentMixEntry& entry = p->m_filament_mix_entries[index];
+        if (entry.incompatible)
+            return true;
+
+        std::string family;
+        for (unsigned int id : mixed_referenced_filaments(entry.mixed, physical_count)) {
+            if (id == 0 || id > types.size() || types[id - 1].empty())
+                continue;
+            const std::string candidate = filament_type_family(types[id - 1]);
+            if (family.empty())
+                family = candidate;
+            else if (candidate != family)
+                return true;
+        }
+    }
+    return false;
+}
+
+bool Sidebar::has_incompatible_painted_filament_mix_on_plate(int plate_index)
+{
+    PartPlate* plate = wxGetApp().plater()->get_partplate_list().get_plate(plate_index);
+    if (plate == nullptr)
+        return false;
+
+    const ModelObjectPtrs objects = plate->get_objects_on_this_plate();
+    if (objects.empty())
+        return false;
+
+    size_t physical_count = p->combos_filament.size();
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle != nullptr && !preset_bundle->filament_presets.empty())
+        physical_count = preset_bundle->filament_presets.size();
+    if (physical_count == 0 || p->m_filament_mix_entries.empty())
+        return false;
+
+    std::vector<std::string> types = current_filament_types();
+    if (preset_bundle != nullptr) {
+        const DynamicPrintConfig full = preset_bundle->full_config();
+        const auto* full_types = full.option<ConfigOptionStrings>("filament_type");
+        if (full_types != nullptr) {
+            if (types.size() < full_types->values.size())
+                types.resize(full_types->values.size());
+            for (size_t i = 0; i < types.size() && i < full_types->values.size(); ++i)
+                if (types[i].empty())
+                    types[i] = full_types->values[i];
+        }
+    }
+
+    for (const ModelObject* object : objects) {
+        for (const ModelVolume* volume : object->volumes) {
+            for (int filament : volume->get_extruders()) {
+                const unsigned int state = unsigned(std::max(0, filament));
+                if (state <= physical_count)
+                    continue;
+                const size_t index = size_t(state) - physical_count - 1;
+                if (index >= p->m_filament_mix_entries.size())
+                    continue;
+                const priv::FilamentMixEntry& entry = p->m_filament_mix_entries[index];
+                if (entry.incompatible)
                     return true;
+
+                std::string family;
+                for (unsigned int id : mixed_referenced_filaments(entry.mixed, physical_count)) {
+                    if (id == 0 || id > types.size() || types[id - 1].empty())
+                        continue;
+                    const std::string candidate = filament_type_family(types[id - 1]);
+                    if (family.empty())
+                        family = candidate;
+                    else if (candidate != family)
+                        return true;
+                }
+            }
         }
     }
     return false;
@@ -10962,6 +11056,21 @@ void Plater::priv::on_action_slice_plate(SimpleEvent&)
 void Plater::priv::on_action_slice_all(SimpleEvent&)
 {
     if (q != nullptr) {
+        // Orca: skip plates that contain an incompatible painted mixed filament; the other
+        // plates must still be sliced.
+        const int plate_count = q->get_partplate_list().get_plate_count();
+        int first_valid_plate = 0;
+        while (first_valid_plate < plate_count &&
+               q->sidebar().has_incompatible_painted_filament_mix_on_plate(first_valid_plate))
+            ++first_valid_plate;
+        if (first_valid_plate >= plate_count) {
+            if (NotificationManager* notification_manager = q->get_notification_manager())
+                notification_manager->push_notification(NotificationType::CustomNotification,
+                                                        NotificationManager::NotificationLevel::ErrorNotificationLevel,
+                                                        into_u8(_L("Mixed filaments contain incompatible material types. Please correct the mixed filaments settings before slicing.")));
+            q->reset_gcode_toolpaths();
+            return;
+        }
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << ":received slice project event\n" ;
         //BBS update extruder params and speed table before slicing
         const Slic3r::DynamicPrintConfig& config = wxGetApp().preset_bundle->full_config();
@@ -10973,7 +11082,7 @@ void Plater::priv::on_action_slice_all(SimpleEvent&)
         Model::setPrintSpeedTable(config, print_config);
         m_slice_all = true;
         m_slice_all_only_has_gcode = true;
-        m_cur_slice_plate = 0;
+        m_cur_slice_plate = first_valid_plate;
         //select plate
         q->select_plate(m_cur_slice_plate);
         q->reslice();
@@ -16659,6 +16768,16 @@ void Plater::reslice()
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", Line %1%: enter, process_completed_with_error=%2%")%__LINE__ %p->process_completed_with_error;
     // Orca: make sure the slicer sees the current Color Mixing entries (they are virtual filaments).
     this->sidebar().sync_color_mix_store();
+    // Orca: fallback guard. The Slice button is normally disabled for this case, but internal
+    // callers (or a race with a printer switch) must not start a slice either.
+    if (this->sidebar().has_incompatible_painted_filament_mix_on_plate(p->partplate_list.get_curr_plate_index())) {
+        if (NotificationManager* notification_manager = this->get_notification_manager())
+            notification_manager->push_notification(NotificationType::CustomNotification,
+                                                    NotificationManager::NotificationLevel::ErrorNotificationLevel,
+                                                    into_u8(_L("Mixed filaments contain incompatible material types. Please correct the mixed filaments settings before slicing.")));
+        reset_gcode_toolpaths();
+        return;
+    }
     // There is "invalid data" button instead "slice now"
     if (p->process_completed_with_error == p->partplate_list.get_curr_plate_index())
     {
@@ -16841,6 +16960,19 @@ void Plater::record_slice_preset(std::string action)
 //BBS: add project slicing related logic
 int Plater::start_next_slice()
 {
+    // Orca: skip a plate whose painted mixed filament is incompatible with the current
+    // printer's material types, but keep slicing the remaining plates.
+    if (this->sidebar().has_incompatible_painted_filament_mix_on_plate(p->partplate_list.get_curr_plate_index())) {
+        BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": plate %1% has incompatible mixed filament, skip")
+                                                     % p->partplate_list.get_curr_plate_index();
+        if (PartPlate* plate = p->partplate_list.get_curr_plate())
+            plate->update_slice_result_valid_state(false);
+        SlicingProcessCompletedEvent evt(EVT_PROCESS_COMPLETED, 0,
+                                         SlicingProcessCompletedEvent::Finished, nullptr);
+        wxQueueEvent(this, evt.Clone());
+        p->m_is_slicing = true;
+        return 0;
+    }
     // Stop arrange and (or) optimize rotation tasks.
     //this->stop_jobs();
 
