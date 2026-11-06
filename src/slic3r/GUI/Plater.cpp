@@ -3521,17 +3521,22 @@ std::vector<unsigned int> mixed_referenced_filaments(const MixedFilament& mixed,
         if (id >= 1 && id <= physical_count && std::find(ids.begin(), ids.end(), id) == ids.end())
             ids.push_back(id);
     };
-    push(mixed.component_a);
-    push(mixed.component_b);
-    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
-        push(id);
 
+    // Cycle/pattern rows encode the participating filaments entirely in the pattern.
+    // component_a/component_b are defaults ("1"/"2" tokens) and must not be added
+    // separately, otherwise a pattern like "23456" would pull in filament 1.
     const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
     if (!pattern.empty()) {
         for (const std::string& group : MixedFilamentManager::split_pattern_groups(pattern))
             for (const std::string& token : MixedFilamentManager::split_pattern_group_to_tokens(group, physical_count))
                 push(MixedFilamentManager::physical_filament_from_token(token, mixed, physical_count));
+        return ids;
     }
+
+    push(mixed.component_a);
+    push(mixed.component_b);
+    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
+        push(id);
     return ids;
 }
 
