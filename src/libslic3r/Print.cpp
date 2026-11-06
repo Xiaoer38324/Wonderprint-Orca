@@ -3412,9 +3412,11 @@ void Print::_make_wipe_tower()
                 // There is yet enough space at this layer of the wipe tower for the final purge.
             }
         } else {
-            // The wipe tower does not reach the last print layer, perform the pruge at the last print layer.
-            assert(m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions == 0);
-            wipe_tower.set_layer(float(m_wipe_tower_data.tool_ordering.back().print_z), float(layer_height), 0, false, true);
+           // The wipe tower ends before the last print layer: above the last tool change there are only layers of a
+    // single filament, so no wipe tower is printed there. Perform the final purge on top of the tower instead
+    // of at the last print layer - the tower does not exist there, so the purge would be printed in mid air.
+    assert(m_wipe_tower_data.tool_ordering.back().wipe_tower_partitions == 0);
+    wipe_tower.set_layer(float(wipe_tower.get_wipe_tower_height() + layer_height), float(layer_height), 0, false, true);
         }
         m_wipe_tower_data.final_purge = Slic3r::make_unique<WipeTower::ToolChangeResult>(wipe_tower.tool_change((unsigned int) (-1)));
 
