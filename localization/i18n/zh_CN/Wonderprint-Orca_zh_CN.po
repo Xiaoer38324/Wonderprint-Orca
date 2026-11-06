@@ -20692,7 +20692,7 @@ msgstr "删除并替换为"
 
 msgid "The following virtual filaments use physical filament "
 "F%u:\n%s\n\nDeleting it will also delete these virtual filaments. Continue?"
-msgstr "以下虚拟耗材使用物理耗材F%u：\n%s\n\n删除它也会删除这些虚拟耗材。继续？"
+msgstr "以下混合耗材使用物理耗材F%u：\n%s\n\n删除它也会删除这些混合耗材。继续？"
 
 msgid "Create a color mix"
 msgstr "制作颜色混合"
@@ -20745,10 +20745,13 @@ msgstr "添加混合"
 
 msgid "Mixed filaments contain incompatible material types. Please correct the "
 "mixed filaments settings before slicing."
-msgstr "虚拟耗材包含不相容的材料类型。请在切片前更正虚拟耗材设置。"
+msgstr "混合耗材包含不相容的材料类型。请在切片前更正混合耗材设置。"
 
 msgid "Edit Mix"
 msgstr "编辑混色"
+
+msgid "Mixed filaments contain incompatible material types."
+msgstr "混合耗材包含不相容的材料类型。"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想尝试Wonderprint-Orca Beta，您可以点击"

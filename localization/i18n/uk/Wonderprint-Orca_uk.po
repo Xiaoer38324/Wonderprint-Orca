@@ -21757,6 +21757,9 @@ msgstr "Змішані нитки містять несумісні типи м�
 msgid "Edit Mix"
 msgstr "Редагувати Мікс"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Змішані нитки містять несумісні типи матеріалів."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Якщо ви хочете спробувати бета-версію Wonderprint-Orca, ви можете "

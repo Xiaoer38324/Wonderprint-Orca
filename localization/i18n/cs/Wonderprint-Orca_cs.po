@@ -22224,6 +22224,9 @@ msgstr "Smíšená vlákna obsahují nekompatibilní typy materiálů. Před kr�
 msgid "Edit Mix"
 msgstr "Edit Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Smíšená vlákna obsahují nekompatibilní typy materiálů."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 

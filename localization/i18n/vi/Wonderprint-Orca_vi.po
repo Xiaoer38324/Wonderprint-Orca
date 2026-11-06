@@ -22112,6 +22112,9 @@ msgstr "Các sợi hỗn hợp chứa các loại vật liệu không tương th
 msgid "Edit Mix"
 msgstr "Chỉnh sửa Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Các sợi hỗn hợp chứa các loại vật liệu không tương thích."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

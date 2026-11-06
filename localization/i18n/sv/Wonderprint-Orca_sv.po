@@ -22340,6 +22340,9 @@ msgstr "Blandade filament innehåller inkompatibla materialtyper. Korrigera "
 msgid "Edit Mix"
 msgstr "Edit Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Blandade filament innehåller inkompatibla materialtyper."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

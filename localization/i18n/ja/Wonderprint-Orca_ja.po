@@ -17787,6 +17787,9 @@ msgstr "混合フィラメントには、互換性のない種類の材料が含
 msgid "Edit Mix"
 msgstr "編集ミックス"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "混合フィラメントには、互換性のない種類の材料が含まれています。"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

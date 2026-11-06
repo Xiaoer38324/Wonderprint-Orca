@@ -22544,6 +22544,9 @@ msgstr "Karışık filamentler uyumsuz malzeme türleri içerir. Lütfen "
 msgid "Edit Mix"
 msgstr "Düzenleme Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Karışık filamentler uyumsuz malzeme türleri içerir."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

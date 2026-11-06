@@ -22698,6 +22698,9 @@ msgstr "A kevert szálak összeférhetetlen anyagtípusokat tartalmaznak. "
 msgid "Edit Mix"
 msgstr "Szerkesztés Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "A kevert szálak összeférhetetlen anyagtípusokat tartalmaznak."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

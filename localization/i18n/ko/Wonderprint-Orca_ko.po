@@ -21218,6 +21218,9 @@ msgstr "혼합 필라멘트에는 호환되지 않는 재료 유형이 포함되
 msgid "Edit Mix"
 msgstr "편집 믹스"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "혼합 필라멘트에는 호환되지 않는 재료 유형이 포함되어 있습니다."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"
 

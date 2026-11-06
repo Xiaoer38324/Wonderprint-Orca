@@ -22566,6 +22566,9 @@ msgstr "Mišriose gijose yra nesuderinamų medžiagų tipų. Prieš pjaustydami 
 msgid "Edit Mix"
 msgstr "Redaguoti miksą"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Mišriose gijose yra nesuderinamų medžiagų tipų."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

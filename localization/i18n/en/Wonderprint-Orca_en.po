@@ -19803,6 +19803,9 @@ msgstr "Mixed filaments contain incompatible material types. Please correct "
 msgid "Edit Mix"
 msgstr "Edit Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Mixed filaments contain incompatible material types."
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

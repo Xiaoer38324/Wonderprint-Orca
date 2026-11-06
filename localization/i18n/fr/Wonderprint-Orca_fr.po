@@ -23211,6 +23211,10 @@ msgstr "Les filaments mélangés contiennent des types de matériaux "
 msgid "Edit Mix"
 msgstr "Modifier le mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Les filaments mélangés contiennent des types de matériaux "
+"incompatibles."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Si vous souhaitez essayer Wonderprint-Orca Beta, vous pouvez cliquer sur"

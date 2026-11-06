@@ -21815,6 +21815,9 @@ msgstr "Mieszane włókna zawierają niezgodne typy materiałów. Przed pocięci
 msgid "Edit Mix"
 msgstr "Edycja Mix"
 
+msgid "Mixed filaments contain incompatible material types."
+msgstr "Mieszane włókna zawierają niezgodne typy materiałów."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Jeśli chciałbyś wypróbować Wonderprint-Orca Beta, możesz kliknąć tutaj."
