@@ -3483,13 +3483,13 @@ void Print::_make_wipe_tower()
                         if (local_z_extruder >= number_of_extruders || local_z_extruder == current_extruder_id)
                             continue;
 
-                        // In-layer Local-Z passes only need a minimal purge: the
-                        // same mixed region is being split between two colors,
-                        // not a full color change for the next object layer.
-                        // Using prime_volume here makes the tower much heavier
-                        // than Snapmaker's Local-Z tower.
-                        float volume_to_wipe =
-                            std::max(1.f, (float) m_config.filament_minimal_purge_on_wipe_tower.get_at(local_z_extruder));
+                        float volume_to_wipe = m_config.prime_volume;
+                        if (m_config.purge_in_prime_tower && m_config.single_extruder_multi_material) {
+                            volume_to_wipe = wipe_volumes[current_extruder_id][local_z_extruder];
+                            volume_to_wipe *= m_config.flush_multiplier.get_at(0);
+                            volume_to_wipe = std::max(0.f, volume_to_wipe -
+                                (float) m_config.filament_minimal_purge_on_wipe_tower.get_at(local_z_extruder));
+                        }
 
                         wipe_tower.plan_local_z_toolchange((float) layer_tools.print_z, (float) layer_tools.wipe_tower_layer_height,
                                                            current_extruder_id, local_z_extruder, volume_to_wipe);
