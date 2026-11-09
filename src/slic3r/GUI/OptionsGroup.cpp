@@ -741,16 +741,28 @@ void ConfigOptionsGroup::on_kill_focus(const std::string& opt_key)
 
 void ConfigOptionsGroup::reload_config()
 {
-	for (auto &kvp : m_opt_map) {
-		// Name of the option field (name of the configuration key, possibly suffixed with '#' and the index of a scalar inside a vector.
-		const std::string &opt_id    = kvp.first;
-		// option key (may be scalar or vector)
-		const std::string &opt_key   = kvp.second.first;
-		// index in the vector option, zero for scalars
-        int 			   opt_index = kvp.second.second;
-		const ConfigOptionDef &option = m_options.at(opt_id).opt;
-		this->set_value(opt_id, config_value(opt_key, opt_index, option.gui_flags == "serialized"));
-	}
+    if (m_config == nullptr)
+        return;
+    // set_value() may rebuild the option controls, so do not iterate over
+    // m_opt_map while mutating it. Take a snapshot first.
+    struct OptEntry { std::string id; std::string key; int index; bool serialized; };
+    std::vector<OptEntry> entries;
+    entries.reserve(m_opt_map.size());
+    for (const auto &kvp : m_opt_map) {
+        auto opt_it = m_options.find(kvp.first);
+        if (opt_it == m_options.end())
+            continue;
+        entries.push_back(OptEntry{kvp.first, kvp.second.first, kvp.second.second,
+                                   opt_it->second.opt.gui_flags == "serialized"});
+    }
+    for (const OptEntry &entry : entries) {
+        const ConfigOptionDef *def = m_config->def()->get(entry.key);
+        // A def without a stored value (stale preset) or an unknown virtual key
+        // must not reach get_config_value()/opt_bool().
+        if (def != nullptr && !m_config->has(entry.key))
+            continue;
+        this->set_value(entry.id, config_value(entry.key, entry.index, entry.serialized));
+    }
 }
 
 void ConfigOptionsGroup::Hide()
@@ -945,6 +957,8 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 	boost::any ret;
 	wxString text_value = wxString("");
 	const ConfigOptionDef* opt = config.def()->get(opt_key);
+	if (opt == nullptr)
+		return ret;
 
     if (opt->nullable)
     {
@@ -1055,10 +1069,18 @@ boost::any ConfigOptionsGroup::get_config_value(const DynamicPrintConfig& config
 			ret = from_u8(config.opt_string(opt_key, static_cast<unsigned int>(idx)));
 		break;
 	case coBool:
-		ret = config.opt_bool(opt_key);
+		if (const ConfigOption *o = config.option(opt_key); o != nullptr) {
+			if (o->type() == coBool)
+				ret = o->getBool();
+			else if (o->type() == coInt || o->type() == coEnum)
+				ret = (o->getInt() != 0);
+			else
+				ret = false;
+		}
 		break;
 	case coBools:
-		ret = config.opt_bool(opt_key, idx);
+		if (const auto *o = dynamic_cast<const ConfigOptionBools*>(config.option(opt_key)); o != nullptr)
+			ret = o->get_at(idx);
 		break;
 	case coInt:
 		ret = config.opt_int(opt_key);

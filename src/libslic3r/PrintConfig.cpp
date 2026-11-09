@@ -2348,7 +2348,7 @@ void PrintConfigDef::init_fff_params()
     def->tooltip = L("Enable Local-Z sublayer splitting for mixed-filament painted areas. "
                      "A mixed layer is printed as several Z passes with alternating physical components, "
                      "so a gradient can vary the component thickness inside each layer.");
-    def->mode = comAdvanced;
+    def->mode = comSimple;
     def->set_default_value(new ConfigOptionBool(false));
 
     def = this->add("dithering_local_z_whole_objects", coBool);
@@ -2364,7 +2364,7 @@ void PrintConfigDef::init_fff_params()
     def->category = L("Material");
     def->tooltip = L("When Local-Z splitting is active, also split infill inside mixed-color areas. "
                      "Disable to keep infill at the normal layer height.");
-    def->mode = comAdvanced;
+    def->mode = comSimple;
     def->set_default_value(new ConfigOptionBool(true));
 
     def = this->add("dithering_local_z_direct_multicolor", coBool);
