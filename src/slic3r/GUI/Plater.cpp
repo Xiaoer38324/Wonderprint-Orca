@@ -3633,6 +3633,53 @@ std::string mixed_display_pattern(const MixedFilament& mixed)
     }
     return out;
 }
+// Vertical two-colour ramp for a gradient mixed filament, with the 1-based
+// filament number drawn on top (same style as get_extruder_color_icon).
+static wxBitmap* get_vertical_gradient_filament_icon(const std::string& top_hex,
+                                                     const std::string& bottom_hex,
+                                                     const std::string& label,
+                                                     int                icon_width,
+                                                     int                icon_height)
+{
+    wxBitmap bitmap(icon_width, icon_height, 32);
+    if (!bitmap.IsOk())
+        return nullptr;
+
+    wxMemoryDC dc(bitmap);
+    const wxColour top(top_hex);
+    const wxColour bottom(bottom_hex);
+    for (int y = 0; y < icon_height; ++y) {
+        const double t = icon_height > 1 ? double(y) / double(icon_height - 1) : 0.0;
+        const wxColour color(
+            static_cast<unsigned char>(std::lround(top.Red()   + (bottom.Red()   - top.Red())   * t)),
+            static_cast<unsigned char>(std::lround(top.Green() + (bottom.Green() - top.Green()) * t)),
+            static_cast<unsigned char>(std::lround(top.Blue()  + (bottom.Blue()  - top.Blue())  * t)));
+        dc.SetPen(wxPen(color));
+        dc.DrawLine(0, y, icon_width, y);
+    }
+
+    if (!label.empty()) {
+        dc.SetBrush(*wxTRANSPARENT_BRUSH);
+        dc.SetPen(*wxTRANSPARENT_PEN);
+        dc.SetFont(::Label::Body_12);
+        const wxSize text_size = dc.GetTextExtent(wxString(label));
+        dc.SetBackgroundMode(wxTRANSPARENT);
+        const int text_x = (icon_width - text_size.x) / 2;
+        const int text_y = (icon_height - text_size.y) / 2;
+
+        dc.SetTextForeground(wxColour("262E30"));
+        dc.DrawText(label, text_x - 1, text_y);
+        dc.DrawText(label, text_x + 1, text_y);
+        dc.DrawText(label, text_x, text_y - 1);
+        dc.DrawText(label, text_x, text_y + 1);
+        dc.SetTextForeground(*wxWHITE);
+        dc.DrawText(label, text_x, text_y);
+    }
+
+    dc.SelectObject(wxNullBitmap);
+    return new wxBitmap(bitmap);
+}
+
 wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::string>& colours)
 {
     if (!mixed.display_color.empty()) {
@@ -4165,10 +4212,26 @@ void Sidebar::rebuild_filament_mix_rows()
         wxBoxSizer* row_sizer = new wxBoxSizer(wxHORIZONTAL);
         row_panel->SetSizer(row_sizer);
 
-        // numbered colour square
+        // numbered colour square; gradient mixes use a vertical two-colour ramp
         const wxString number = wxString::Format("%d", first_number + int(i));
-        wxBitmap*      colour_bmp = get_extruder_color_icon(entry.colour.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(),
-                                                            number.ToStdString(), FromDIP(20), FromDIP(20));
+        wxBitmap*      colour_bmp = nullptr;
+        if (is_simple_gradient(entry.mixed)) {
+            const std::vector<std::string> colours = current_filament_colours();
+            const auto &mixed = entry.mixed;
+            if (mixed.component_a >= 1 && mixed.component_b >= 1 &&
+                mixed.component_a <= colours.size() && mixed.component_b <= colours.size()) {
+                const std::string &ca = colours[mixed.component_a - 1];
+                const std::string &cb = colours[mixed.component_b - 1];
+                const bool a_to_b = mixed.gradient_start >= mixed.gradient_end;
+                colour_bmp = get_vertical_gradient_filament_icon(a_to_b ? cb : ca,
+                                                                 a_to_b ? ca : cb,
+                                                                 number.ToStdString(),
+                                                                 FromDIP(20), FromDIP(20));
+            }
+        }
+        if (colour_bmp == nullptr)
+            colour_bmp = get_extruder_color_icon(entry.colour.GetAsString(wxC2S_HTML_SYNTAX).ToStdString(),
+                                                 number.ToStdString(), FromDIP(20), FromDIP(20));
         wxBitmapButton* colour_btn = new wxBitmapButton(row_panel, wxID_ANY, *colour_bmp, wxDefaultPosition,
                                                         wxSize(FromDIP(20), FromDIP(20)),
                                                         wxBU_EXACTFIT | wxBU_AUTODRAW | wxBORDER_NONE);

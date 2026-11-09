@@ -2461,6 +2461,32 @@ void MixedFilamentDialog::draw_strip(wxDC& dc, wxPanel* panel)
     }
     int n = (int)m_filament_rows.size();
     static constexpr int STRIP_SEGMENTS = 20;
+
+    // Gradient mode is a continuous ramp between the two selected filaments.
+    // Drawing it as 20 flat ratio segments made the preview look like a solid
+    // blend instead of the vertical gradient shown by the swatches.
+    if (m_current_mode == MODE_GRADIENT && n >= 2) {
+        const int idx0 = std::clamp(get_filament_index(0), 0, int(m_filament_colours.size()) - 1);
+        const int idx1 = std::clamp(get_filament_index(1), 0, int(m_filament_colours.size()) - 1);
+        wxColour top    = parse_mixed_color(m_filament_colours[idx0]);
+        wxColour bottom = parse_mixed_color(m_filament_colours[idx1]);
+        if (m_gradient_direction != 0)
+            std::swap(top, bottom);
+        for (int y = 0; y < sz.y; ++y) {
+            const double t = sz.y > 1 ? double(y) / double(sz.y - 1) : 0.0;
+            const wxColour c(
+                static_cast<unsigned char>(std::lround(top.Red()   + (bottom.Red()   - top.Red())   * t)),
+                static_cast<unsigned char>(std::lround(top.Green() + (bottom.Green() - top.Green()) * t)),
+                static_cast<unsigned char>(std::lround(top.Blue()  + (bottom.Blue()  - top.Blue())  * t)));
+            dc.SetPen(wxPen(c));
+            dc.DrawLine(0, y, sz.x, y);
+        }
+        dc.SetBrush(*wxTRANSPARENT_BRUSH);
+        dc.SetPen(wxPen(StateColor::darkModeColorFor(wxColour(180, 180, 180)), 1));
+        dc.DrawRectangle(0, 0, sz.x, sz.y);
+        return;
+    }
+
     bool vertical = (m_current_mode == MODE_RATIO && (n == 2 || n == 3))
                  || (m_current_mode == MODE_CYCLE)
                  || (m_current_mode == MODE_MATCH);
