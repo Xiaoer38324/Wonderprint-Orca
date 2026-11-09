@@ -81,6 +81,7 @@ public:
         const Vec3d                                                  plate_origin,
         const std::vector<WipeTower::ToolChangeResult>              &priming,
         const std::vector<std::vector<WipeTower::ToolChangeResult>> &tool_changes,
+        const std::vector<std::vector<WipeTower::ToolChangeResult>> &local_z_tool_changes,
         const WipeTower::ToolChangeResult                           &final_purge,
         const std::vector<unsigned int>                             &slice_used_filaments) :
         m_left(/*float(print_config.wipe_tower_x.value)*/ 0.f),
@@ -89,9 +90,11 @@ public:
         m_wipe_tower_rotation(float(print_config.wipe_tower_rotation_angle)),
         m_priming(priming),
         m_tool_changes(tool_changes),
+        m_local_z_tool_changes(local_z_tool_changes),
         m_final_purge(final_purge),
         m_layer_idx(-1),
         m_tool_change_idx(0),
+        m_local_z_tool_change_idx(0),
         m_plate_origin(plate_origin),
         m_single_extruder_multi_material(print_config.single_extruder_multi_material),
         m_enable_timelapse_print(print_config.timelapse_type.value == TimelapseType::tlSmooth),
@@ -108,8 +111,11 @@ public:
     }
 
     std::string prime(GCode &gcodegen);
-    void next_layer() { ++ m_layer_idx; m_tool_change_idx = 0; }
+    void next_layer() { ++ m_layer_idx; m_tool_change_idx = 0; m_local_z_tool_change_idx = 0; }
     std::string tool_change(GCode &gcodegen, int extruder_id, bool finish_layer);
+    // Orca: consume one planned Local-Z pass toolchange on the wipe tower.
+    bool has_pending_local_z_tool_change() const;
+    std::string local_z_tool_change(GCode &gcodegen, int extruder_id, double tower_z);
     bool is_empty_wipe_tower_gcode(GCode &gcodegen, int extruder_id, bool finish_layer);
     std::string finalize(GCode &gcodegen);
     std::vector<float> used_filament_length() const;
@@ -140,10 +146,12 @@ private:
     // Reference to cached values at the Printer class.
     const std::vector<WipeTower::ToolChangeResult>              &m_priming;
     const std::vector<std::vector<WipeTower::ToolChangeResult>> &m_tool_changes;
+    const std::vector<std::vector<WipeTower::ToolChangeResult>> &m_local_z_tool_changes;
     const WipeTower::ToolChangeResult                           &m_final_purge;
     // Current layer index.
     int                                                          m_layer_idx;
     int                                                          m_tool_change_idx;
+    int                                                          m_local_z_tool_change_idx;
     double                                                       m_last_wipe_tower_print_z;
 
     // BBS

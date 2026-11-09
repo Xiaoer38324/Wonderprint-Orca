@@ -419,6 +419,11 @@ public:
 
     size_t enabled_count() const;
 
+    // True when the Local-Z gradient pipeline should run. The user-facing
+    // Local-Z mode enables it globally; gradient rows created by the gradient
+    // dialog also opt in by requesting at least two sublayers.
+    bool local_z_gradient_enabled(bool local_z_mode) const;
+
     // Total filament count = num_physical + number of *enabled* mixed filaments.
     size_t total_filaments(size_t num_physical) const { return num_physical + enabled_count(); }
 

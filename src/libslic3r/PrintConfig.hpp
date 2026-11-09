@@ -1270,6 +1270,15 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionStrings,             filament_colour))
     // Orca: serialized Color Mixing (mixed filament) definitions
     ((ConfigOptionString,              mixed_filament_definitions))
+    // Orca: Local-Z mixed filament sublayer splitting.
+    ((ConfigOptionFloat,               mixed_color_layer_height_a))
+    ((ConfigOptionFloat,               mixed_color_layer_height_b))
+    ((ConfigOptionFloat,               mixed_filament_height_lower_bound))
+    ((ConfigOptionFloat,               mixed_filament_height_upper_bound))
+    ((ConfigOptionBool,                dithering_local_z_mode))
+    ((ConfigOptionBool,                dithering_local_z_whole_objects))
+    ((ConfigOptionBool,                dithering_local_z_infill))
+    ((ConfigOptionBool,                dithering_local_z_direct_multicolor))
     ((ConfigOptionStrings,             filament_vendor))
     ((ConfigOptionBools,               filament_is_support))
     ((ConfigOptionInts,                filament_printable))

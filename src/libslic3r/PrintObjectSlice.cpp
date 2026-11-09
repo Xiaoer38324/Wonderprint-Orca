@@ -3,6 +3,7 @@
 #include <tbb/parallel_for.h>
 
 #include <atomic>
+#include <sstream>
 
 #include "ClipperUtils.hpp"
 #include "ElephantFootCompensation.hpp"
@@ -795,10 +796,54 @@ void PrintObject::slice()
     //BBS: add flag to reload scene for shell rendering
     m_print->set_status(5, L("Slicing mesh"), PrintBase::SlicingStatus::RELOAD_SCENE);
     std::vector<coordf_t> layer_height_profile;
-    this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_height_profile);
+    if (m_print != nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Slice layer heights: object=" << config().layer_height.value
+                                   << " default_object=" << m_print->default_object_config().layer_height.value
+                                   << " slicing=" << m_slicing_params.layer_height
+                                   << " first_layer=" << m_slicing_params.first_object_layer_height;
+    }
+    if (m_print != nullptr && m_print->mixed_filament_manager().enabled_count() > 0) {
+        const MixedFilamentManager &mixed_mgr = m_print->mixed_filament_manager();
+        if (mixed_mgr.local_z_gradient_enabled(m_print->config().dithering_local_z_mode.value)) {
+            const double configured_layer_height = this->config().layer_height.value;
+            if (configured_layer_height > EPSILON &&
+                std::abs(m_slicing_params.layer_height - configured_layer_height) > EPSILON) {
+                BOOST_LOG_TRIVIAL(warning) << "Local-Z uses the print layer height " << configured_layer_height
+                                           << " instead of the stale object layer height " << m_slicing_params.layer_height;
+                m_slicing_params.layer_height = configured_layer_height;
+                m_config.layer_height.value   = configured_layer_height;
+            }
+        }
+    }
+    this->update_layer_height_profile(*this->model_object(), m_slicing_params, layer_height_profile, this);
+    if (!layer_height_profile.empty()) {
+        std::ostringstream profile_preview;
+        for (size_t i = 1; i < layer_height_profile.size() && i < 9; i += 2)
+            profile_preview << (i > 1 ? "," : "") << layer_height_profile[i];
+        BOOST_LOG_TRIVIAL(warning) << "Layer height profile entries=" << layer_height_profile.size() / 2
+                                   << " first_heights=" << profile_preview.str();
+        // A uniform profile is just an old layer-height override. If the user
+        // changed the nominal layer height, stale uniform profiles (for example
+        // 0.08 left over from an earlier profile/process) must not override it.
+        // The first layer may legitimately differ, so compare the object layers
+        // after the first one.
+        bool   uniform_after_first = true;
+        double object_height       = layer_height_profile.size() >= 4 ? layer_height_profile[3] : layer_height_profile[1];
+        for (size_t i = 5; i < layer_height_profile.size(); i += 2)
+            if (std::abs(layer_height_profile[i] - object_height) > 1e-4) {
+                uniform_after_first = false;
+                break;
+            }
+        if (uniform_after_first && std::abs(object_height - m_slicing_params.layer_height) > 1e-4) {
+            BOOST_LOG_TRIVIAL(warning) << "Ignoring stale uniform layer height profile " << object_height
+                                       << "; using nominal layer height " << m_slicing_params.layer_height;
+            layer_height_profile.clear();
+        }
+    }
     m_print->throw_if_canceled();
     m_typed_slices = false;
     this->clear_layers();
+    this->clear_local_z_plan();
     m_layers = new_layers(this, generate_object_layers(m_slicing_params, layer_height_profile, m_config.precise_z_height.value));
     this->slice_volumes();
     m_print->throw_if_canceled();
@@ -844,11 +889,350 @@ void PrintObject::slice()
     this->set_done(posSlice);
 }
 
+namespace {
+
+// Orca: Local-Z gradient planner.
+//
+// A nominal layer painted with a gradient mixed filament is split into two
+// sub-Z passes. The pass order is always B then A, and the two pass heights
+// are derived from the gradient ratio at this layer: the dominant component
+// gets the thicker pass. Because the ratio changes with Z, one component's
+// pass becomes progressively thicker while the other becomes thinner.
+static bool local_z_gradient_row_eligible(const MixedFilament &mf, size_t num_physical)
+{
+    return mf.enabled && !mf.deleted && is_simple_gradient(mf) &&
+           mf.component_a >= 1 && mf.component_a <= num_physical &&
+           mf.component_b >= 1 && mf.component_b <= num_physical;
+}
+
+static bool local_z_clamp_gradient_pass_heights(double base_height,
+                                                double lower_bound,
+                                                double upper_bound,
+                                                double requested_a,
+                                                double requested_b,
+                                                double &h_a_out,
+                                                double &h_b_out)
+{
+    const double lo = std::max<double>(0.01, lower_bound);
+    const double hi_base = std::max<double>(lo, upper_bound);
+    // For thin nominal layers (for example 0.08 mm with the default 0.04 mm
+    // lower bound) a strict [lo, hi] window leaves only one possible split,
+    // so A and B end up with the same pass height. Relax the lower bound
+    // proportionally for those layers only; the configured bound still applies
+    // to normal layer heights.
+    const bool   thin_layer = base_height <= 2.0 * lo + EPSILON;
+    const double lo_effective = thin_layer ? std::max<double>(0.01, base_height * 0.25) : lo;
+    const double hi = std::max<double>(lo_effective, hi_base);
+    if (base_height <= EPSILON || base_height < 2.0 * lo_effective - EPSILON)
+        return false;
+
+    const double sum = requested_a + requested_b;
+    if (sum <= EPSILON)
+        return false;
+
+    // Keep the requested A/B proportion, but clamp both passes to the
+    // printable Local-Z height window.
+    const double a_min = std::max(lo_effective, base_height - hi);
+    const double a_max = std::min(hi, base_height - lo_effective);
+    if (a_min > a_max + EPSILON)
+        return false;
+
+    double h_a = std::clamp(base_height * (requested_a / sum), a_min, a_max);
+    double h_b = base_height - h_a;
+    if (h_a < lo_effective - EPSILON || h_a > hi + EPSILON || h_b < lo_effective - EPSILON || h_b > hi + EPSILON)
+        return false;
+
+    h_a_out = h_a;
+    h_b_out = h_b;
+    return true;
+}
+
+} // namespace
+
 template<typename ThrowOnCancel>
-static inline void apply_mm_segmentation(PrintObject &print_object, ThrowOnCancel throw_on_cancel)
+static void build_local_z_plan(PrintObject &print_object,
+                               const std::vector<std::vector<ExPolygons>> &segmentation,
+                               ThrowOnCancel throw_on_cancel)
+{
+    print_object.clear_local_z_plan();
+
+    const Print *print = print_object.print();
+    if (print == nullptr || print_object.layer_count() == 0 || segmentation.size() != print_object.layer_count())
+        return;
+
+    const PrintConfig &print_cfg = print->config();
+    const MixedFilamentManager &mixed_mgr = print->mixed_filament_manager();
+    const size_t num_physical = print_cfg.filament_colour.size();
+    if (num_physical == 0 || print_cfg.spiral_mode.value)
+        return;
+    if (!mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value))
+        return;
+    // The Local-Z wipe-tower path is implemented for WipeTower2 in ByLayer
+    // mode. Keep the conventional layer-height gradient for other tower
+    // configurations so their toolchange sequence is not disturbed.
+    if (print_cfg.enable_prime_tower.value &&
+        (print->wipe_tower_type() != WipeTowerType::Type2 || print_cfg.print_sequence != PrintSequence::ByLayer))
+        return;
+
+    const std::vector<MixedFilament> &mixed_rows = mixed_mgr.mixed_filaments();
+    if (mixed_rows.empty())
+        return;
+
+    const double lower_bound = std::max<double>(0.01, print_cfg.mixed_filament_height_lower_bound.value);
+    const double upper_bound = std::max<double>(lower_bound, print_cfg.mixed_filament_height_upper_bound.value);
+    const double preferred_a = std::max<double>(0.0, print_cfg.mixed_color_layer_height_a.value);
+    const double preferred_b = std::max<double>(0.0, print_cfg.mixed_color_layer_height_b.value);
+
+    // Collect the continuous layer run painted by each gradient row. Filling
+    // the gaps makes the gradient interpolation independent of small unpainted
+    // holes inside the painted Z range.
+    std::vector<std::vector<int>> row_painted_layers(mixed_rows.size());
+    for (size_t layer_idx = 0; layer_idx < segmentation.size(); ++layer_idx) {
+        for (size_t ch = 0; ch < segmentation[layer_idx].size(); ++ch) {
+            if (segmentation[layer_idx][ch].empty())
+                continue;
+            const unsigned int state_id = unsigned(ch) + 1;
+            if (state_id <= num_physical || !mixed_mgr.is_mixed(state_id, num_physical))
+                continue;
+            const int mixed_idx = mixed_mgr.mixed_index_from_filament_id(state_id, num_physical);
+            if (mixed_idx < 0 || size_t(mixed_idx) >= mixed_rows.size())
+                continue;
+            const MixedFilament &mf = mixed_rows[size_t(mixed_idx)];
+            if (!local_z_gradient_row_eligible(mf, num_physical))
+                continue;
+            row_painted_layers[size_t(mixed_idx)].push_back(int(layer_idx));
+        }
+    }
+    for (std::vector<int> &layers : row_painted_layers) {
+        std::sort(layers.begin(), layers.end());
+        layers.erase(std::unique(layers.begin(), layers.end()), layers.end());
+        layers = fill_continuous_layer_range(layers);
+    }
+
+    std::vector<LocalZInterval> intervals;
+    std::vector<SubLayerPlan>   plans;
+    intervals.reserve(print_object.layer_count());
+    size_t multi_row_layers = 0;
+    size_t unsplit_mixed_layers = 0;
+    size_t split_layer_count        = 0;
+    size_t skipped_height_layers    = 0;
+    size_t thin_bound_layers        = 0;
+    double h_a_min = 1e9, h_a_max = -1e9;
+    double h_b_min = 1e9, h_b_max = -1e9;
+    double r_a_min = 1e9, r_a_max = -1e9;
+
+    for (size_t layer_idx = 0; layer_idx < print_object.layer_count(); ++layer_idx) {
+        throw_on_cancel();
+        // Keep the first layer monolithic for adhesion and first-layer calibration.
+        if (layer_idx == 0)
+            continue;
+
+        const Layer &layer = *print_object.get_layer(int(layer_idx));
+        int          active_row = -1;
+        ExPolygons   mixed_mask;
+        size_t       active_rows = 0;
+        double       dominant_area = -1.0;
+        std::vector<ExPolygons> row_masks(mixed_rows.size());
+        std::vector<double>     row_areas(mixed_rows.size(), 0.0);
+
+        for (size_t ch = 0; ch < segmentation[layer_idx].size(); ++ch) {
+            const ExPolygons &state_masks = segmentation[layer_idx][ch];
+            if (state_masks.empty())
+                continue;
+            const unsigned int state_id = unsigned(ch) + 1;
+            if (state_id <= num_physical || !mixed_mgr.is_mixed(state_id, num_physical))
+                continue;
+            const int mixed_idx = mixed_mgr.mixed_index_from_filament_id(state_id, num_physical);
+            if (mixed_idx < 0 || size_t(mixed_idx) >= mixed_rows.size())
+                continue;
+            if (!local_z_gradient_row_eligible(mixed_rows[size_t(mixed_idx)], num_physical))
+                continue;
+            ExPolygons &row_mask = row_masks[size_t(mixed_idx)];
+            const bool   first_channel = row_mask.empty();
+            append(row_mask, state_masks);
+            if (first_channel)
+                ++active_rows;
+            row_areas[size_t(mixed_idx)] += std::abs(area(state_masks));
+        }
+
+        // Multiple gradient rows may meet on one layer. Splitting their union
+        // into one A/B pair would print the wrong component in the overlap;
+        // skipping the layer leaves a full-height stripe (visible as a much
+        // thicker band). Use the dominant gradient row for the Local-Z split
+        // and let the other rows print through the normal per-layer resolver.
+        for (size_t row_idx = 0; row_idx < row_masks.size(); ++row_idx) {
+            if (row_masks[row_idx].empty())
+                continue;
+            if (row_areas[row_idx] > dominant_area) {
+                dominant_area = row_areas[row_idx];
+                active_row    = int(row_idx);
+                mixed_mask    = std::move(row_masks[row_idx]);
+            }
+        }
+
+        if (active_rows > 1)
+            ++multi_row_layers;
+        if (active_row < 0 || mixed_mask.empty())
+            continue;
+        if (mixed_mask.size() > 1)
+            mixed_mask = union_ex(mixed_mask);
+
+        auto note_unsplit_layer = [&](const char *reason) {
+            if (unsplit_mixed_layers < 12)
+                BOOST_LOG_TRIVIAL(warning) << "Local-Z layer not split: layer=" << layer_idx
+                                           << " z=" << layer.print_z
+                                           << " base_height=" << layer.height
+                                           << " reason=" << reason;
+            ++unsplit_mixed_layers;
+        };
+
+        const MixedFilament         &mf            = mixed_rows[size_t(active_row)];
+        const std::vector<int>      &painted_layers = row_painted_layers[size_t(active_row)];
+        if (std::find(painted_layers.begin(), painted_layers.end(), int(layer_idx)) == painted_layers.end()) {
+            note_unsplit_layer("layer outside dominant gradient painted range");
+            continue;
+        }
+        const int first_layer = painted_layers.front();
+        const int last_layer  = painted_layers.back();
+        const int layer_count = last_layer - first_layer + 1;
+        if (layer_count <= 0) {
+            note_unsplit_layer("empty gradient layer range");
+            continue;
+        }
+
+        const double t = (2.0 * double(layer_idx - first_layer) + 1.0) / (2.0 * double(layer_count));
+        double       r_a = double(mf.gradient_start) + (double(mf.gradient_end) - double(mf.gradient_start)) * t;
+        r_a = std::clamp(r_a, 0.01, 0.99);
+
+        double requested_a = r_a * layer.height;
+        double requested_b = (1.0 - r_a) * layer.height;
+        if (preferred_a > EPSILON || preferred_b > EPSILON) {
+            // Explicit cadence heights override the gradient ratio but are
+            // normalized to the nominal layer height.
+            const double preferred_sum = preferred_a + preferred_b;
+            if (preferred_sum > EPSILON) {
+                requested_a = layer.height * (preferred_a / preferred_sum);
+                requested_b = layer.height * (preferred_b / preferred_sum);
+            }
+        }
+
+        double h_a = 0.0;
+        double h_b = 0.0;
+        if (layer.height <= 2.0 * lower_bound + EPSILON)
+            ++thin_bound_layers;
+        if (!local_z_clamp_gradient_pass_heights(layer.height, lower_bound, upper_bound, requested_a, requested_b, h_a, h_b)) {
+            ++skipped_height_layers;
+            note_unsplit_layer("pass heights outside Local-Z bounds");
+            continue;
+        }
+
+        h_a_min = std::min(h_a_min, h_a);
+        h_a_max = std::max(h_a_max, h_a);
+        h_b_min = std::min(h_b_min, h_b);
+        h_b_max = std::max(h_b_max, h_b);
+        r_a_min = std::min(r_a_min, r_a);
+        r_a_max = std::max(r_a_max, r_a);
+
+        const double z_lo = layer.print_z - layer.height;
+        const double z_hi = layer.print_z;
+
+        LocalZInterval interval;
+        interval.layer_id           = layer.id();
+        interval.z_lo               = z_lo;
+        interval.z_hi               = z_hi;
+        interval.base_height        = layer.height;
+        interval.sublayer_height    = std::min(h_a, h_b);
+        interval.has_mixed_paint    = true;
+        interval.first_sublayer_idx = plans.size();
+        interval.sublayer_count     = 0;
+
+        const double       pass_heights[2] = { h_b, h_a };
+        const unsigned int components[2]   = { mf.component_b, mf.component_a };
+        const size_t       plans_before    = plans.size();
+        double             z_cursor        = z_lo;
+        for (size_t pass_idx = 0; pass_idx < 2; ++pass_idx) {
+            const double pass_z_lo = z_cursor;
+            const double pass_z_hi = (pass_idx == 1) ? z_hi : std::min(z_hi, pass_z_lo + pass_heights[pass_idx]);
+            const double pass_height = pass_z_hi - pass_z_lo;
+            if (pass_height <= EPSILON)
+                break;
+
+            SubLayerPlan plan;
+            plan.layer_id          = layer.id();
+            plan.pass_index        = pass_idx;
+            plan.split_interval    = true;
+            plan.z_lo              = pass_z_lo;
+            plan.z_hi              = pass_z_hi;
+            plan.print_z           = pass_z_hi;
+            plan.flow_height       = pass_height;
+            plan.dependency_group  = 0;
+            plan.dependency_order  = pass_idx;
+            plan.painted_masks_by_extruder.assign(num_physical, ExPolygons());
+            plan.painted_masks_by_extruder[size_t(components[pass_idx] - 1)] = mixed_mask;
+
+            plans.emplace_back(std::move(plan));
+            ++interval.sublayer_count;
+            z_cursor = pass_z_hi;
+        }
+
+        if (interval.sublayer_count > 1) {
+            intervals.emplace_back(std::move(interval));
+            ++split_layer_count;
+        } else {
+            plans.resize(plans_before);
+            note_unsplit_layer("fewer than two valid sublayer passes");
+        }
+    }
+
+    BOOST_LOG_TRIVIAL(info) << "Local-Z plan object=" << (print_object.model_object() ? print_object.model_object()->name : std::string("<unknown>"))
+                            << " intervals=" << intervals.size()
+                            << " plans=" << plans.size()
+                            << " split_layers=" << split_layer_count
+                            << " multi_row_layers=" << multi_row_layers
+                            << " unsplit_mixed_layers=" << unsplit_mixed_layers
+                            << " height_skips=" << skipped_height_layers
+                            << " thin_bound_layers=" << thin_bound_layers
+                            << " h_a=[" << h_a_min << "," << h_a_max << "]"
+                            << " h_b=[" << h_b_min << "," << h_b_max << "]"
+                            << " r_a=[" << r_a_min << "," << r_a_max << "]"
+                            << " preferred=[" << preferred_a << "," << preferred_b << "]"
+                            << " bounds=[" << lower_bound << "," << upper_bound << "]";
+    if (split_layer_count > 0 && h_a_max - h_a_min < 1e-4)
+        BOOST_LOG_TRIVIAL(warning) << "Local-Z gradient pass heights are constant; check gradient_start/end, layer height and Local-Z height bounds";
+    if (skipped_height_layers > 0)
+        BOOST_LOG_TRIVIAL(warning) << "Local-Z skipped " << skipped_height_layers
+                                   << " gradient layers because the layer height is too small for the Local-Z bounds";
+    if (thin_bound_layers > 0)
+        BOOST_LOG_TRIVIAL(info) << "Local-Z relaxed the lower height bound on " << thin_bound_layers
+                                << " thin layers so the A/B pass thickness can still vary";
+    if (multi_row_layers > 0)
+        BOOST_LOG_TRIVIAL(warning) << "Local-Z used the dominant gradient row on " << multi_row_layers
+                                   << " layers where multiple gradient rows overlapped";
+    for (size_t row_idx = 0; row_idx < row_painted_layers.size(); ++row_idx) {
+        const std::vector<int> &layers = row_painted_layers[row_idx];
+        if (layers.empty())
+            continue;
+        const MixedFilament &mf = mixed_rows[row_idx];
+        BOOST_LOG_TRIVIAL(info) << "Local-Z gradient row " << row_idx
+                                << " painted_layers=" << layers.size()
+                                << " range=[" << layers.front() << "," << layers.back() << "]"
+                                << " gradient_start=" << mf.gradient_start
+                                << " gradient_end=" << mf.gradient_end
+                                << " mix_b=" << mf.mix_b_percent;
+        if (layers.size() < 2)
+            BOOST_LOG_TRIVIAL(warning) << "Local-Z gradient row " << row_idx
+                                       << " is painted on fewer than two layers; no vertical gradient can be formed";
+        if (std::abs(double(mf.gradient_start) - double(mf.gradient_end)) < 1e-4)
+            BOOST_LOG_TRIVIAL(warning) << "Local-Z gradient row " << row_idx
+                                       << " has equal gradient_start/gradient_end; pass thickness will not vary";
+    }
+    print_object.set_local_z_plan(std::move(intervals), std::move(plans));
+}
+
+template<typename ThrowOnCancel>
+static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<std::vector<ExPolygons>> segmentation, ThrowOnCancel throw_on_cancel)
 {
     // Returns MM segmentation based on painting in MM segmentation gizmo
-    std::vector<std::vector<ExPolygons>> segmentation = multi_material_segmentation_by_painting(print_object, throw_on_cancel);
     assert(segmentation.size() == print_object.layer_count());
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, segmentation.size(), std::max(segmentation.size() / 128, size_t(1))),
@@ -1216,7 +1600,13 @@ void PrintObject::slice_volumes()
         }
 
         BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
-        apply_mm_segmentation(*this, [print]() { print->throw_if_canceled(); });
+        std::vector<std::vector<ExPolygons>> mm_segmentation =
+            multi_material_segmentation_by_painting(*this, [print]() { print->throw_if_canceled(); });
+        // Build the Local-Z plan from the raw painted masks before
+        // apply_mm_segmentation collapses virtual channels into a single
+        // physical component for this layer.
+        build_local_z_plan(*this, mm_segmentation, [print]() { print->throw_if_canceled(); });
+        apply_mm_segmentation(*this, std::move(mm_segmentation), [print]() { print->throw_if_canceled(); });
     }
 
     // Is any ModelVolume fuzzy skin painted?

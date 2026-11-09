@@ -1239,6 +1239,14 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
     }
 
     if (m_config.enable_prime_tower) {
+        if (m_mixed_filament_mgr.local_z_gradient_enabled(m_config.dithering_local_z_mode.value) &&
+            (this->wipe_tower_type() != WipeTowerType::Type2 || m_config.print_sequence != PrintSequence::ByLayer)) {
+            BOOST_LOG_TRIVIAL(warning) << "Local-Z gradient requires Wipe Tower Type 2 and by-layer print sequence";
+            StringObjectException err;
+            err.string  = L("Local-Z gradient requires Wipe Tower Type 2 and a by-layer print sequence. Type 1 does not support in-layer toolchanges; select Type 2 or disable Local-Z gradient.");
+            err.opt_key = "wipe_tower_type";
+            return err;
+        }
         for (const PrintObject* object : m_objects) {
             if (object->config().precise_z_height.value && warning != nullptr) {
                 StringObjectException warningtemp;
@@ -1289,7 +1297,7 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
             layer_height_profiles.assign(m_objects.size(), std::vector<coordf_t>());
         std::vector<coordf_t>   &profile      = layer_height_profiles[print_object_idx];
         if (profile.empty())
-            PrintObject::update_layer_height_profile(*print_object.model_object(), print_object.slicing_parameters(), profile);
+            PrintObject::update_layer_height_profile(*print_object.model_object(), print_object.slicing_parameters(), profile, &print_object);
         return profile;
     };
 
@@ -3349,16 +3357,146 @@ void Print::_make_wipe_tower()
         m_wipe_tower_data.priming = Slic3r::make_unique<std::vector<WipeTower::ToolChangeResult>>(
             wipe_tower.prime((float)this->skirt_first_layer_height(), m_wipe_tower_data.tool_ordering.all_extruders(), false));
 
+        // Orca: collect the Local-Z pass toolchange sequence per print_z. It
+        // must match the pass-major order used by GCode::process_layer().
+        // Wiping overrides are not Local-Z aware (the G-code generator disables
+        // Local-Z passes in that case). Drop the plans so the normal tower
+        // sequence and the object G-code stay consistent.
+        bool wiping_overrides_active = false;
+        for (auto &layer_tools : m_wipe_tower_data.tool_ordering.layer_tools()) {
+            if (layer_tools.wiping_extrusions().is_anything_overridden()) {
+                wiping_overrides_active = true;
+                break;
+            }
+        }
+        if (!wiping_overrides_active && m_config.purge_in_prime_tower && m_config.single_extruder_multi_material) {
+            for (const PrintObject *object : m_objects) {
+                const PrintObjectConfig &object_config = object->config();
+                if (object_config.flush_into_infill.value || object_config.flush_into_objects.value ||
+                    (object_config.flush_into_support.value && object->has_support_material())) {
+                    wiping_overrides_active = true;
+                    break;
+                }
+            }
+        }
+        if (wiping_overrides_active) {
+            BOOST_LOG_TRIVIAL(info) << "Local-Z plans disabled: wiping overrides are active";
+            for (PrintObject *object : m_objects)
+                object->clear_local_z_plan();
+        }
+
+        std::map<coordf_t, std::vector<unsigned int>> local_z_pass_sequence;
+        if (m_config.print_sequence == PrintSequence::ByLayer) {
+            for (const auto &layer_group : GCode::collect_layers_to_print(*this)) {
+                const coordf_t print_z = layer_group.first;
+                for (const auto &layer_to_print : layer_group.second) {
+                    if (layer_to_print.object_layer == nullptr)
+                        continue;
+                    const PrintObject *print_object =
+                        layer_to_print.original_object != nullptr ? layer_to_print.original_object : layer_to_print.object();
+                    if (print_object == nullptr)
+                        continue;
+
+                    const size_t layer_id = layer_to_print.object_layer->id();
+                    const std::vector<LocalZInterval> &intervals = print_object->local_z_intervals();
+                    const std::vector<SubLayerPlan>   &plans     = print_object->local_z_sublayer_plan();
+                    const auto interval_it = [&]() {
+                        auto it = std::find_if(intervals.begin(), intervals.end(), [layer_id](const LocalZInterval &interval) {
+                            return interval.layer_id == layer_id;
+                        });
+                        if (it == intervals.end())
+                            it = std::find_if(intervals.begin(), intervals.end(), [&layer_to_print](const LocalZInterval &interval) {
+                                return std::abs(interval.z_hi - layer_to_print.object_layer->print_z) <= 1e-4;
+                            });
+                        return it;
+                    }();
+                    if (interval_it == intervals.end() || !interval_it->has_mixed_paint || interval_it->sublayer_count <= 1 ||
+                        interval_it->first_sublayer_idx >= plans.size())
+                        continue;
+
+                    const size_t end_idx = std::min(plans.size(), interval_it->first_sublayer_idx + interval_it->sublayer_count);
+                    for (size_t plan_idx = interval_it->first_sublayer_idx; plan_idx < end_idx; ++plan_idx) {
+                        const SubLayerPlan &plan = plans[plan_idx];
+                        if (!plan.split_interval)
+                            continue;
+                        unsigned int pass_extruder = unsigned(-1);
+                        for (size_t extruder_idx = 0; extruder_idx < plan.painted_masks_by_extruder.size(); ++extruder_idx) {
+                            if (!plan.painted_masks_by_extruder[extruder_idx].empty()) {
+                                pass_extruder = unsigned(extruder_idx);
+                                break;
+                            }
+                        }
+                        if (pass_extruder == unsigned(-1)) {
+                            for (size_t extruder_idx = 0; extruder_idx < plan.fixed_painted_masks_by_extruder.size(); ++extruder_idx) {
+                                if (!plan.fixed_painted_masks_by_extruder[extruder_idx].empty()) {
+                                    pass_extruder = unsigned(extruder_idx);
+                                    break;
+                                }
+                            }
+                        }
+                        if (pass_extruder < number_of_extruders)
+                            local_z_pass_sequence[print_z].push_back(pass_extruder);
+                    }
+                }
+            }
+        }
+
         // Lets go through the wipe tower layers and determine pairs of extruder changes for each
         // to pass to wipe_tower (so that it can use it for planning the layout of the tower)
         {
+            auto find_local_z_sequence = [&local_z_pass_sequence](coordf_t print_z) -> const std::vector<unsigned int>* {
+                auto it = local_z_pass_sequence.find(print_z);
+                if (it != local_z_pass_sequence.end())
+                    return &it->second;
+                for (const auto &entry : local_z_pass_sequence)
+                    if (std::abs(entry.first - print_z) <= 1e-4)
+                        return &entry.second;
+                return nullptr;
+            };
+
             unsigned int current_extruder_id = m_wipe_tower_data.tool_ordering.all_extruders().back();
             for (auto &layer_tools : m_wipe_tower_data.tool_ordering.layer_tools()) { // for all layers
-                if (!layer_tools.has_wipe_tower)
+                const std::vector<unsigned int> *local_z_sequence = find_local_z_sequence(layer_tools.print_z);
+                if (!layer_tools.has_wipe_tower) {
+                    // The layer does not print a tower, so GCode performs the
+                    // Local-Z pass toolchanges with set_extruder(). Keep the
+                    // planner's current tool in sync for the next tower layer.
+                    if (local_z_sequence != nullptr) {
+                        for (unsigned int local_z_extruder : *local_z_sequence)
+                            if (local_z_extruder < number_of_extruders)
+                                current_extruder_id = local_z_extruder;
+                    }
+                    // The normal per-extruder loop still runs on this layer and
+                    // ends on the last layer extruder.
+                    if (!layer_tools.extruders.empty())
+                        current_extruder_id = layer_tools.extruders.back();
                     continue;
+                }
                 bool first_layer = &layer_tools == &m_wipe_tower_data.tool_ordering.front();
                 wipe_tower.plan_toolchange((float) layer_tools.print_z, (float) layer_tools.wipe_tower_layer_height, current_extruder_id,
                                            current_extruder_id, false);
+
+                // Orca: plan Local-Z pass toolchanges before the nominal layer
+                // toolchanges; GCode emits them in this exact order.
+                if (local_z_sequence != nullptr) {
+                    for (unsigned int local_z_extruder : *local_z_sequence) {
+                        if (local_z_extruder >= number_of_extruders || local_z_extruder == current_extruder_id)
+                            continue;
+
+                        float volume_to_wipe = m_config.prime_volume;
+                        if (m_config.purge_in_prime_tower && m_config.single_extruder_multi_material) {
+                            volume_to_wipe = wipe_volumes[current_extruder_id][local_z_extruder];
+                            volume_to_wipe *= m_config.flush_multiplier.get_at(0);
+                            volume_to_wipe = std::max(0.f, volume_to_wipe -
+                                (float) m_config.filament_minimal_purge_on_wipe_tower.get_at(local_z_extruder));
+                        }
+
+                        wipe_tower.plan_local_z_toolchange((float) layer_tools.print_z, (float) layer_tools.wipe_tower_layer_height,
+                                                           current_extruder_id, local_z_extruder, volume_to_wipe);
+                        current_extruder_id = local_z_extruder;
+                    }
+                }
+
                 for (const auto extruder_id : layer_tools.extruders) {
                     if ((first_layer && extruder_id == m_wipe_tower_data.tool_ordering.all_extruders().back()) || extruder_id !=
                         current_extruder_id) {
@@ -3391,7 +3529,8 @@ void Print::_make_wipe_tower()
 
         // Generate the wipe tower layers.
         m_wipe_tower_data.tool_changes.reserve(m_wipe_tower_data.tool_ordering.layer_tools().size());
-        wipe_tower.generate(m_wipe_tower_data.tool_changes);
+        m_wipe_tower_data.local_z_tool_changes.reserve(m_wipe_tower_data.tool_ordering.layer_tools().size());
+        wipe_tower.generate(m_wipe_tower_data.tool_changes, m_wipe_tower_data.local_z_tool_changes);
         m_wipe_tower_data.depth             = wipe_tower.get_depth();
         m_wipe_tower_data.z_and_depth_pairs = wipe_tower.get_z_and_depth_pairs();
         m_wipe_tower_data.brim_width        = wipe_tower.get_brim_width();

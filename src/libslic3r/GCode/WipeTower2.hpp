@@ -52,8 +52,14 @@ public:
 	// to be used before building begins. The entries must be added ordered in z.
     void plan_toolchange(float z_par, float layer_height_par, unsigned int old_tool, unsigned int new_tool, float wipe_volume = 0.f);
 
-	// Iterates through prepared m_plan, generates ToolChangeResults and appends them to "result"
-	void generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result);
+    // Orca: Local-Z pass toolchange. It is planned into a separate list on the
+    // same tower layer so the normal layer toolchange sequence stays untouched.
+    void plan_local_z_toolchange(float z_par, float layer_height_par, unsigned int old_tool, unsigned int new_tool, float wipe_volume = 0.f);
+
+    // Iterates through prepared m_plan, generates ToolChangeResults and appends them to "result".
+    // Local-Z pass toolchanges are generated into "local_z_result" (one vector per layer).
+    void generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result,
+                  std::vector<std::vector<WipeTower::ToolChangeResult>> &local_z_result);
 
     float get_depth() const { return m_wipe_tower_depth; }
 	std::vector<std::pair<float, float>> get_z_and_depth_pairs() const;
@@ -315,9 +321,36 @@ private:
 		float z;		// z position of the layer
 		float height;	// layer height
 		float depth;	// depth of the layer based on all layers above
-		float toolchanges_depth() const { float sum = 0.f; for (const auto &a : tool_changes) sum += a.required_depth; return sum; }
+		float toolchanges_depth() const
+        {
+            float sum = 0.f;
+            for (const auto &a : tool_changes)
+                sum += a.required_depth;
+            for (const auto &a : local_z_tool_changes)
+                sum += a.required_depth;
+            return sum;
+        }
 
 		std::vector<ToolChange> tool_changes;
+        // Orca: Local-Z pass toolchanges for this nominal layer.
+        std::vector<ToolChange> local_z_tool_changes;
+
+        size_t last_new_tool() const
+        {
+            if (!tool_changes.empty())
+                return tool_changes.back().new_tool;
+            if (!local_z_tool_changes.empty())
+                return local_z_tool_changes.back().new_tool;
+            return 0;
+        }
+        size_t first_old_tool() const
+        {
+            if (!local_z_tool_changes.empty())
+                return local_z_tool_changes.front().old_tool;
+            if (!tool_changes.empty())
+                return tool_changes.front().old_tool;
+            return 0;
+        }
 
 		WipeTowerInfo(float z_par, float layer_height_par)
 			: z{z_par}, height{layer_height_par}, depth{0} {}
@@ -338,6 +371,13 @@ private:
     // ot -1 if there is no such toolchange.
     int first_toolchange_to_nonsoluble(
             const std::vector<WipeTowerInfo::ToolChange>& tool_changes) const;
+
+    // Orca: shared depth/volume calculation for normal and Local-Z toolchanges.
+    WipeTowerInfo::ToolChange make_toolchange(unsigned int old_tool, unsigned int new_tool,
+                                              float layer_height_par, float wipe_volume);
+    // Set while generating a Local-Z pass toolchange so tool_change() uses its
+    // reserved depth instead of searching the normal layer sequence.
+    const WipeTowerInfo::ToolChange *m_active_local_z_tool_change { nullptr };
 
 	void toolchange_Unload(
 		WipeTowerWriter2 &writer,

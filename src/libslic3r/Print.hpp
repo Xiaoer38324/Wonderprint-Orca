@@ -56,6 +56,37 @@ struct groupedVolumeSlices
     ExPolygons              slices;
 };
 
+// Orca: Local-Z mixed-filament planner cache.
+// One LocalZInterval describes a nominal layer that is split into sub-Z
+// passes; the passes themselves live in PrintObject::local_z_sublayer_plan().
+struct LocalZInterval
+{
+    size_t layer_id { 0 };
+    double z_lo { 0.0 };
+    double z_hi { 0.0 };
+    double base_height { 0.0 };
+    double sublayer_height { 0.0 };
+    bool   has_mixed_paint { false };
+    size_t first_sublayer_idx { 0 };
+    size_t sublayer_count { 0 };
+};
+
+struct SubLayerPlan
+{
+    size_t layer_id { 0 };
+    size_t pass_index { 0 };
+    bool   split_interval { false };
+    double z_lo { 0.0 };
+    double z_hi { 0.0 };
+    double print_z { 0.0 };
+    double flow_height { 0.0 };
+    size_t dependency_group { 0 };
+    size_t dependency_order { 0 };
+    std::vector<ExPolygons> painted_masks_by_extruder;
+    std::vector<ExPolygons> fixed_painted_masks_by_extruder;
+    ExPolygons              base_masks;
+};
+
 enum SupportNecessaryType {
     NoNeedSupp=0,
     SharpTail,
@@ -412,7 +443,7 @@ public:
 
     // Initialize the layer_height_profile from the model_object's layer_height_profile, from model_object's layer height table, or from slicing parameters.
     // Returns true, if the layer_height_profile was changed.
-    static bool     update_layer_height_profile(const ModelObject &model_object, const SlicingParameters &slicing_parameters, std::vector<coordf_t> &layer_height_profile);
+    static bool     update_layer_height_profile(const ModelObject &model_object, const SlicingParameters &slicing_parameters, std::vector<coordf_t> &layer_height_profile, const PrintObject *print_object = nullptr);
 
     // Collect the slicing parameters, to be used by variable layer thickness algorithm,
     // by the interactive layer height editor and by the printing process itself.
@@ -438,6 +469,20 @@ public:
 
     // returns 0-based indices of extruders used to print the object (without brim, support and other helper extrusions)
     std::vector<unsigned int>   object_extruders() const;
+
+    // Orca: Local-Z mixed-filament plan built while slicing.
+    const std::vector<LocalZInterval>& local_z_intervals() const { return m_local_z_intervals; }
+    const std::vector<SubLayerPlan>&   local_z_sublayer_plan() const { return m_local_z_sublayer_plan; }
+    void set_local_z_plan(std::vector<LocalZInterval> intervals, std::vector<SubLayerPlan> sublayers)
+    {
+        m_local_z_intervals      = std::move(intervals);
+        m_local_z_sublayer_plan  = std::move(sublayers);
+    }
+    void clear_local_z_plan()
+    {
+        m_local_z_intervals.clear();
+        m_local_z_sublayer_plan.clear();
+    }
 
     // Called by make_perimeters()
     void slice();
@@ -557,6 +602,9 @@ private:
     SlicingParameters                       m_slicing_params;
     LayerPtrs                               m_layers;
     SupportLayerPtrs                        m_support_layers;
+    // Orca: Local-Z mixed-filament plan. Rebuilt on every slice.
+    std::vector<LocalZInterval>             m_local_z_intervals;
+    std::vector<SubLayerPlan>               m_local_z_sublayer_plan;
     // BBS
     std::shared_ptr<TreeSupportData>        m_tree_support_preview_cache;
 
@@ -752,6 +800,9 @@ struct WipeTowerData
     // Cache of tool changes per print layer.
     std::unique_ptr<std::vector<WipeTower::ToolChangeResult>> priming;
     std::vector<std::vector<WipeTower::ToolChangeResult>> tool_changes;
+    // Orca: Local-Z pass toolchanges per nominal layer, consumed only by
+    // Local-Z sublayer emission. Empty vectors keep the layer indices aligned.
+    std::vector<std::vector<WipeTower::ToolChangeResult>> local_z_tool_changes;
     std::unique_ptr<WipeTower::ToolChangeResult>          final_purge;
     std::vector<float>                                    used_filament;
     int                                                   number_of_toolchanges;
@@ -767,6 +818,7 @@ struct WipeTowerData
     void clear() {
         priming.reset(nullptr);
         tool_changes.clear();
+        local_z_tool_changes.clear();
         final_purge.reset(nullptr);
         used_filament.clear();
         number_of_toolchanges = -1;
@@ -1075,6 +1127,7 @@ public:
     bool &is_BBL_printer() { return m_isBBLPrinter; }
     const bool is_BBL_printer() const { return m_isBBLPrinter; }
     WipeTowerType wipe_tower_type() const { return is_BBL_printer() ? WipeTowerType::Type1 : m_config.wipe_tower_type.value; }
+
     CalibMode& calib_mode() { return m_calib_params.mode; }
     const CalibMode calib_mode() const { return m_calib_params.mode; }
     void set_calib_params(const Calib_Params& params);

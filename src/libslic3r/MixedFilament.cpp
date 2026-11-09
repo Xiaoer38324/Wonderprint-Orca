@@ -3015,6 +3015,21 @@ size_t MixedFilamentManager::enabled_count() const
     return count;
 }
 
+bool MixedFilamentManager::local_z_gradient_enabled(bool local_z_mode) const
+{
+    for (const auto &mf : m_mixed) {
+        if (!mf.enabled || mf.deleted)
+            continue;
+        if (!is_simple_gradient(mf))
+            continue;
+        // Gradient rows created by the gradient dialog request at least two
+        // sublayers; the global toggle also enables the Local-Z pipeline.
+        if (local_z_mode || mf.local_z_max_sublayers >= 2)
+            return true;
+    }
+    return false;
+}
+
 std::vector<std::string> MixedFilamentManager::display_colors() const
 {
     std::vector<std::string> colors;

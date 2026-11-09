@@ -1538,12 +1538,17 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
 	// Finds this toolchange info
 	if (tool != (unsigned int)(-1))
 	{
-		for (const auto &b : m_layer_info->tool_changes)
-			if ( b.new_tool == tool ) {
-                wipe_volume = b.wipe_volume;
-				wipe_area = b.required_depth;
-				break;
-			}
+        if (m_active_local_z_tool_change != nullptr && m_active_local_z_tool_change->new_tool == tool) {
+            wipe_volume = m_active_local_z_tool_change->wipe_volume;
+            wipe_area   = m_active_local_z_tool_change->required_depth;
+        } else {
+            for (const auto &b : m_layer_info->tool_changes)
+                if ( b.new_tool == tool ) {
+                    wipe_volume = b.wipe_volume;
+                    wipe_area = b.required_depth;
+                    break;
+                }
+        }
 	}
 	else {
 		// Otherwise we are going to Unload only. And m_layer_info would be invalid.
@@ -2030,7 +2035,7 @@ void WipeTower2::toolchange_Wipe(
           .add_wipe_point(writer.x(), writer.y() - dy)
           .add_wipe_point(! m_left_to_right ? m_wipe_tower_width : 0.f, writer.y() - dy);
 
-    if (m_layer_info != m_plan.end() && m_current_tool != m_layer_info->tool_changes.back().new_tool)
+    if (m_layer_info != m_plan.end() && m_current_tool != m_layer_info->last_new_tool())
         m_left_to_right = !m_left_to_right;
 
     writer.set_extrusion_flow(m_extrusion_flow); // Reset the extrusion flow.
@@ -2264,13 +2269,40 @@ void WipeTower2::plan_toolchange(float z_par, float layer_height_par, unsigned i
     if (old_tool == new_tool)	// new layer without toolchanges - we are done
         return;
 
+    m_plan.back().tool_changes.push_back(make_toolchange(old_tool, new_tool, layer_height_par, wipe_volume));
+}
+
+// Orca: append a Local-Z pass toolchange to the current layer. Local-Z passes
+// are printed as extra toolchanges inside a nominal layer, but they are kept in
+// a separate list so the normal per-layer toolchange sequence and G-code order
+// are unchanged.
+void WipeTower2::plan_local_z_toolchange(float z_par, float layer_height_par, unsigned int old_tool,
+                                         unsigned int new_tool, float wipe_volume)
+{
+    assert(m_plan.empty() || m_plan.back().z <= z_par + WT_EPSILON);
+
+    if (m_plan.empty() || m_plan.back().z + WT_EPSILON < z_par)
+        m_plan.push_back(WipeTowerInfo(z_par, layer_height_par));
+
+    if (m_first_layer_idx == size_t(-1) && (!m_no_sparse_layers || old_tool != new_tool || m_plan.size() == 1))
+        m_first_layer_idx = m_plan.size() - 1;
+
+    if (old_tool == new_tool)
+        return;
+
+    m_plan.back().local_z_tool_changes.push_back(make_toolchange(old_tool, new_tool, layer_height_par, wipe_volume));
+}
+
+WipeTower2::WipeTowerInfo::ToolChange WipeTower2::make_toolchange(unsigned int old_tool, unsigned int new_tool,
+                                                                  float layer_height_par, float wipe_volume)
+{
     // this is an actual toolchange - let's calculate depth to reserve on the wipe tower
-    float width = m_wipe_tower_width - 3*m_perimeter_width; 
+    float width = m_wipe_tower_width - 3*m_perimeter_width;
     const bool do_ramming = (m_semm && m_enable_filament_ramming) || m_filpar[old_tool].multitool_ramming;
     const float ramming_width = m_perimeter_width * m_wipe_tower_ramming_width_ratio;
-	float length_to_extrude = volume_to_length(0.25f * std::accumulate(m_filpar[old_tool].ramming_speed.begin(), m_filpar[old_tool].ramming_speed.end(), 0.f),
-										ramming_width,
-										layer_height_par);
+    float length_to_extrude = volume_to_length(0.25f * std::accumulate(m_filpar[old_tool].ramming_speed.begin(), m_filpar[old_tool].ramming_speed.end(), 0.f),
+                                        ramming_width,
+                                        layer_height_par);
     // Orca: Set ramming depth to 0 if ramming is disabled.
     float ramming_depth = do_ramming ? ((int(length_to_extrude / width) + 1) * (ramming_width * m_filpar[old_tool].ramming_step_multiplicator) * m_extra_spacing_ramming) : 0;
     float first_wipe_line = - (width*((length_to_extrude / width)-int(length_to_extrude / width)) - width);
@@ -2281,15 +2313,12 @@ void WipeTower2::plan_toolchange(float z_par, float layer_height_par, unsigned i
     // ORCA: On the first layer, toolchange_Wipe() advances purge rows using
     // ORCA: m_extra_flow * m_perimeter_width, while later layers use
     // ORCA: m_extra_spacing_wipe * m_perimeter_width.
-    // ORCA: float dy = (is_first_layer() ? m_extra_flow : m_extra_spacing_wipe) * m_perimeter_width;
-    // ORCA: Use the same spacing here so reserved depth matches consumed depth
-    // ORCA: and first-layer purge segments do not leave visible gaps.
     const bool first_layer_plan = (m_plan.size() - 1) == m_first_layer_idx;
     const float planning_spacing = first_layer_plan ? m_extra_flow : m_extra_spacing_wipe;
 
     float wiping_depth = get_wipe_depth(wipe_volume - first_wipe_volume, layer_height_par, m_perimeter_width, m_extra_flow, planning_spacing, width);
-    
-	m_plan.back().tool_changes.push_back(WipeTowerInfo::ToolChange(old_tool, new_tool, ramming_depth + wiping_depth, ramming_depth, first_wipe_line, wipe_volume));
+
+    return WipeTowerInfo::ToolChange(old_tool, new_tool, ramming_depth + wiping_depth, ramming_depth, first_wipe_line, wipe_volume);
 }
 
 
@@ -2404,7 +2433,8 @@ static WipeTower::ToolChangeResult merge_tcr(WipeTower::ToolChangeResult& first,
 
 // Processes vector m_plan and calls respective functions to generate G-code for the wipe tower
 // Resulting ToolChangeResults are appended into vector "result"
-void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result)
+void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> &result,
+                          std::vector<std::vector<WipeTower::ToolChangeResult>> &local_z_result)
 {
 	if (m_plan.empty())
         return;
@@ -2428,8 +2458,8 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
 
     // we don't know which extruder to start with - we'll set it according to the first toolchange
     for (const auto& layer : m_plan) {
-        if (!layer.tool_changes.empty()) {
-            m_current_tool = layer.tool_changes.front().old_tool;
+        if (!layer.tool_changes.empty() || !layer.local_z_tool_changes.empty()) {
+            m_current_tool = layer.first_old_tool();
             break;
         }
     }
@@ -2443,11 +2473,21 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
 	for (const WipeTower2::WipeTowerInfo& layer : m_plan)
 	{
         std::vector<WipeTower::ToolChangeResult> layer_result;
+        std::vector<WipeTower::ToolChangeResult> local_z_layer_result;
         set_layer(layer.z, layer.height, 0, false/*layer.z == m_plan.front().z*/, layer.z == m_plan.back().z);
         m_internal_rotation += 180.f;
 
         if (m_layer_info->depth < m_wipe_tower_depth - m_perimeter_width)
 			m_y_shift = (m_wipe_tower_depth-m_layer_info->depth-m_perimeter_width)/2.f;
+
+        // Orca: generate Local-Z pass toolchanges first. They occupy the
+        // bottom part of this nominal tower layer and keep the normal layer
+        // sequence untouched.
+        for (const WipeTowerInfo::ToolChange &local_z_tc : layer.local_z_tool_changes) {
+            m_active_local_z_tool_change = &local_z_tc;
+            local_z_layer_result.emplace_back(tool_change(local_z_tc.new_tool));
+            m_active_local_z_tool_change = nullptr;
+        }
 
         int idx = first_toolchange_to_nonsoluble(layer.tool_changes);
         WipeTower::ToolChangeResult finish_layer_tcr;
@@ -2479,6 +2519,7 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
         }
 
 		result.emplace_back(std::move(layer_result));
+        local_z_result.emplace_back(std::move(local_z_layer_result));
 
         if (m_used_filament_length_until_layer.empty() || m_used_filament_length_until_layer.back().first != layer.z)
             m_used_filament_length_until_layer.emplace_back();

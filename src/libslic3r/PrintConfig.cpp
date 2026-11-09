@@ -2301,6 +2301,80 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionString(""));
 
+    // Orca: Local-Z mixed filament dithering.
+    def = this->add("mixed_color_layer_height_a", coFloat);
+    def->label = L("Dithering cadence height A");
+    def->category = L("Material");
+    def->tooltip = L("Optional thickness of component A for one Local-Z pass. "
+                     "Set to 0 to derive the pass thickness from the mixed ratio and the Local-Z height bounds.");
+    def->sidetext = "mm";
+    def->min = 0.;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("mixed_color_layer_height_b", coFloat);
+    def->label = L("Dithering cadence height B");
+    def->category = L("Material");
+    def->tooltip = L("Optional thickness of component B for one Local-Z pass. "
+                     "Set to 0 to derive the pass thickness from the mixed ratio and the Local-Z height bounds.");
+    def->sidetext = "mm";
+    def->min = 0.;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.0));
+
+    def = this->add("mixed_filament_height_lower_bound", coFloat);
+    def->label = L("Local-Z lower height bound");
+    def->category = L("Material");
+    def->tooltip = L("Lower bound used when Local-Z mixed-filament dithering chooses per-color sublayer heights. "
+                     "Smaller values let Local-Z use thinner sublayers for a color when needed.");
+    def->sidetext = "mm";
+    def->min = 0.01;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.04));
+
+    def = this->add("mixed_filament_height_upper_bound", coFloat);
+    def->label = L("Local-Z upper height bound");
+    def->category = L("Material");
+    def->tooltip = L("Upper bound used when Local-Z mixed-filament dithering chooses per-color sublayer heights. "
+                     "Larger values let Local-Z use thicker sublayers for a color when needed.");
+    def->sidetext = "mm";
+    def->min = 0.01;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionFloat(0.16));
+
+    def = this->add("dithering_local_z_mode", coBool);
+    def->label = L("Subdivide Mix Layer");
+    def->category = L("Material");
+    def->tooltip = L("Enable Local-Z sublayer splitting for mixed-filament painted areas. "
+                     "A mixed layer is printed as several Z passes with alternating physical components, "
+                     "so a gradient can vary the component thickness inside each layer.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("dithering_local_z_whole_objects", coBool);
+    def->label = L("Full domain");
+    def->category = L("Material");
+    def->tooltip = L("Experimental. Apply Local-Z splitting across whole mixed-color regions instead of limiting it "
+                     "strictly to painted mixed masks.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
+    def = this->add("dithering_local_z_infill", coBool);
+    def->label = L("Apply subdivision to infill");
+    def->category = L("Material");
+    def->tooltip = L("When Local-Z splitting is active, also split infill inside mixed-color areas. "
+                     "Disable to keep infill at the normal layer height.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(true));
+
+    def = this->add("dithering_local_z_direct_multicolor", coBool);
+    def->label = L("Use direct multicolor Local-Z solver");
+    def->category = L("Material");
+    def->tooltip = L("Experimental. Distribute Local-Z sublayers directly across more than two physical components. "
+                     "Gradient rows in this build use the two-component A/B path.");
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionBool(false));
+
     // PS
     def = this->add("filament_notes", coStrings);
     def->label = L("Filament notes");
