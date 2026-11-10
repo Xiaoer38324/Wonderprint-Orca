@@ -3,6 +3,7 @@
 #include <tbb/parallel_for.h>
 
 #include <atomic>
+#include <map>
 #include <sstream>
 
 #include "ClipperUtils.hpp"
@@ -905,6 +906,165 @@ static bool local_z_gradient_row_eligible(const MixedFilament &mf, size_t num_ph
            mf.component_b >= 1 && mf.component_b <= num_physical;
 }
 
+static ExPolygons local_z_plan_mask(const SubLayerPlan &plan)
+{
+    ExPolygons mask;
+    for (const ExPolygons &m : plan.painted_masks_by_extruder)
+        append(mask, m);
+    for (const ExPolygons &m : plan.fixed_painted_masks_by_extruder)
+        append(mask, m);
+    if (mask.size() > 1)
+        mask = union_ex(mask);
+    return mask;
+}
+
+static int local_z_plan_extruder(const SubLayerPlan &plan)
+{
+    for (size_t i = 0; i < plan.painted_masks_by_extruder.size(); ++i)
+        if (!plan.painted_masks_by_extruder[i].empty())
+            return int(i);
+    for (size_t i = 0; i < plan.fixed_painted_masks_by_extruder.size(); ++i)
+        if (!plan.fixed_painted_masks_by_extruder[i].empty())
+            return int(i);
+    return -1;
+}
+
+// Schedule passes of one nominal layer. Two passes impose a Z dependency only
+// when their painted masks overlap; otherwise they may be printed in the same
+// tool session. Within a session the ready passes are printed bottom-to-top.
+static void schedule_local_z_passes(std::vector<SubLayerPlan> &plans, size_t begin, size_t end,
+                                    int &last_tool)
+{
+    const size_t n = end - begin;
+    if (n <= 1)
+        return;
+
+    std::vector<ExPolygons> masks(n);
+    std::vector<int>        tools(n, -1);
+    for (size_t i = 0; i < n; ++i) {
+        masks[i] = local_z_plan_mask(plans[begin + i]);
+        tools[i] = local_z_plan_extruder(plans[begin + i]);
+    }
+
+    std::vector<std::vector<uint8_t>> edge(n, std::vector<uint8_t>(n, 0));
+    auto add_edge = [&](size_t from, size_t to) {
+        if (from != to)
+            edge[from][to] = 1;
+    };
+
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = i + 1; j < n; ++j) {
+            // Same gradient row: bottom pass must precede top pass.
+            if (plans[begin + i].dependency_group == plans[begin + j].dependency_group) {
+                if (plans[begin + i].dependency_order < plans[begin + j].dependency_order)
+                    add_edge(i, j);
+                else if (plans[begin + j].dependency_order < plans[begin + i].dependency_order)
+                    add_edge(j, i);
+                continue;
+            }
+            if (masks[i].empty() || masks[j].empty())
+                continue;
+            if (!get_extents(masks[i]).overlap(get_extents(masks[j])))
+                continue;
+            if (intersection_ex(masks[i], masks[j]).empty())
+                continue;
+            if (plans[begin + i].print_z < plans[begin + j].print_z)
+                add_edge(i, j);
+            else if (plans[begin + j].print_z < plans[begin + i].print_z)
+                add_edge(j, i);
+        }
+    }
+
+    std::vector<int> indegree(n, 0);
+    for (size_t i = 0; i < n; ++i)
+        for (size_t j = 0; j < n; ++j)
+            indegree[j] += edge[i][j] != 0;
+
+    std::vector<uint8_t> done(n, 0);
+    std::vector<size_t>  order;
+    order.reserve(n);
+    int current_tool = last_tool;
+
+    while (order.size() < n) {
+        std::vector<size_t> ready;
+        for (size_t i = 0; i < n; ++i)
+            if (!done[i] && indegree[i] == 0)
+                ready.push_back(i);
+        if (ready.empty()) {
+            for (size_t i = 0; i < n; ++i)
+                if (!done[i])
+                    ready.push_back(i);
+            std::sort(ready.begin(), ready.end(), [&](size_t a, size_t b) {
+                return plans[begin + a].print_z < plans[begin + b].print_z;
+            });
+            for (size_t idx : ready) {
+                order.push_back(idx);
+                done[idx] = 1;
+            }
+            break;
+        }
+
+        int tool = -1;
+        if (current_tool >= 0)
+            for (size_t idx : ready)
+                if (tools[idx] == current_tool) {
+                    tool = current_tool;
+                    break;
+                }
+        if (tool < 0) {
+            std::map<int, int> counts;
+            for (size_t idx : ready)
+                if (tools[idx] >= 0)
+                    ++counts[tools[idx]];
+            int best_count = -1;
+            for (const auto &kv : counts)
+                if (kv.second > best_count) {
+                    best_count = kv.second;
+                    tool = kv.first;
+                }
+            if (tool < 0)
+                tool = tools[ready.front()];
+        }
+
+        std::vector<size_t> batch;
+        for (size_t idx : ready)
+            if (tools[idx] == tool)
+                batch.push_back(idx);
+        if (batch.empty())
+            batch.push_back(ready.front());
+        std::sort(batch.begin(), batch.end(), [&](size_t a, size_t b) {
+            if (std::abs(plans[begin + a].print_z - plans[begin + b].print_z) > EPSILON)
+                return plans[begin + a].print_z < plans[begin + b].print_z;
+            return plans[begin + a].dependency_order < plans[begin + b].dependency_order;
+        });
+
+        for (size_t idx : batch) {
+            if (done[idx])
+                continue;
+            order.push_back(idx);
+            done[idx] = 1;
+            for (size_t j = 0; j < n; ++j)
+                if (edge[idx][j])
+                    --indegree[j];
+        }
+        current_tool = tool;
+    }
+
+    if (order.size() != n)
+        return;
+
+    std::vector<SubLayerPlan> reordered;
+    reordered.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        SubLayerPlan plan = std::move(plans[begin + order[i]]);
+        plan.pass_index = i;
+        reordered.emplace_back(std::move(plan));
+    }
+    for (size_t i = 0; i < n; ++i)
+        plans[begin + i] = std::move(reordered[i]);
+    last_tool = current_tool;
+}
+
 static bool local_z_clamp_gradient_pass_heights(double base_height,
                                                 double lower_bound,
                                                 double upper_bound,
@@ -1020,6 +1180,7 @@ static void build_local_z_plan(PrintObject &print_object,
     double h_a_min = 1e9, h_a_max = -1e9;
     double h_b_min = 1e9, h_b_max = -1e9;
     double r_a_min = 1e9, r_a_max = -1e9;
+    int    last_local_z_tool = -1;
 
     for (size_t layer_idx = 0; layer_idx < print_object.layer_count(); ++layer_idx) {
         throw_on_cancel();
@@ -1164,17 +1325,10 @@ static void build_local_z_plan(PrintObject &print_object,
             }
         }
 
-        // The G-code pass emitter and the wipe-tower planner must consume the
-        // passes of all rows in the same Z order.
-        std::sort(plans.begin() + plans_before, plans.end(), [](const SubLayerPlan &a, const SubLayerPlan &b) {
-            if (std::abs(a.print_z - b.print_z) > EPSILON)
-                return a.print_z < b.print_z;
-            if (a.dependency_group != b.dependency_group)
-                return a.dependency_group < b.dependency_group;
-            return a.dependency_order < b.dependency_order;
-        });
-        for (size_t i = plans_before; i < plans.size(); ++i)
-            plans[i].pass_index = i - plans_before;
+        // Schedule the passes of all rows together. Passes whose painted masks
+        // do not overlap may be reordered to keep the same tool active; only
+        // overlapping passes keep a strict bottom-to-top dependency.
+        schedule_local_z_passes(plans, plans_before, plans.size(), last_local_z_tool);
 
         if (interval.sublayer_count > 1) {
             intervals.emplace_back(std::move(interval));

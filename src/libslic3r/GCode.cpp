@@ -5364,8 +5364,6 @@ LayerResult GCode::process_layer(
     }
     std::sort(local_z_pass_refs.begin(), local_z_pass_refs.end(), [](const LocalZPassRef &lhs, const LocalZPassRef &rhs) {
         assert(lhs.bucket != nullptr && rhs.bucket != nullptr && lhs.bucket->plan != nullptr && rhs.bucket->plan != nullptr);
-        if (std::abs(lhs.bucket->plan->print_z - rhs.bucket->plan->print_z) > EPSILON)
-            return lhs.bucket->plan->print_z < rhs.bucket->plan->print_z;
         if (lhs.layer_to_print_idx != rhs.layer_to_print_idx)
             return lhs.layer_to_print_idx < rhs.layer_to_print_idx;
         return lhs.bucket->plan->pass_index < rhs.bucket->plan->pass_index;
