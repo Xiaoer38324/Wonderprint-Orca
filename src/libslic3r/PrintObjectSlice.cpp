@@ -1028,12 +1028,8 @@ static void build_local_z_plan(PrintObject &print_object,
             continue;
 
         const Layer &layer = *print_object.get_layer(int(layer_idx));
-        int          active_row = -1;
-        ExPolygons   mixed_mask;
         size_t       active_rows = 0;
-        double       dominant_area = -1.0;
         std::vector<ExPolygons> row_masks(mixed_rows.size());
-        std::vector<double>     row_areas(mixed_rows.size(), 0.0);
 
         for (size_t ch = 0; ch < segmentation[layer_idx].size(); ++ch) {
             const ExPolygons &state_masks = segmentation[layer_idx][ch];
@@ -1052,30 +1048,12 @@ static void build_local_z_plan(PrintObject &print_object,
             append(row_mask, state_masks);
             if (first_channel)
                 ++active_rows;
-            row_areas[size_t(mixed_idx)] += std::abs(area(state_masks));
-        }
-
-        // Multiple gradient rows may meet on one layer. Splitting their union
-        // into one A/B pair would print the wrong component in the overlap;
-        // skipping the layer leaves a full-height stripe (visible as a much
-        // thicker band). Use the dominant gradient row for the Local-Z split
-        // and let the other rows print through the normal per-layer resolver.
-        for (size_t row_idx = 0; row_idx < row_masks.size(); ++row_idx) {
-            if (row_masks[row_idx].empty())
-                continue;
-            if (row_areas[row_idx] > dominant_area) {
-                dominant_area = row_areas[row_idx];
-                active_row    = int(row_idx);
-                mixed_mask    = std::move(row_masks[row_idx]);
-            }
         }
 
         if (active_rows > 1)
             ++multi_row_layers;
-        if (active_row < 0 || mixed_mask.empty())
+        if (active_rows == 0)
             continue;
-        if (mixed_mask.size() > 1)
-            mixed_mask = union_ex(mixed_mask);
 
         auto note_unsplit_layer = [&](const char *reason) {
             if (unsplit_mixed_layers < 12)
@@ -1086,53 +1064,6 @@ static void build_local_z_plan(PrintObject &print_object,
             ++unsplit_mixed_layers;
         };
 
-        const MixedFilament         &mf            = mixed_rows[size_t(active_row)];
-        const std::vector<int>      &painted_layers = row_painted_layers[size_t(active_row)];
-        if (std::find(painted_layers.begin(), painted_layers.end(), int(layer_idx)) == painted_layers.end()) {
-            note_unsplit_layer("layer outside dominant gradient painted range");
-            continue;
-        }
-        const int first_layer = painted_layers.front();
-        const int last_layer  = painted_layers.back();
-        const int layer_count = last_layer - first_layer + 1;
-        if (layer_count <= 0) {
-            note_unsplit_layer("empty gradient layer range");
-            continue;
-        }
-
-        const double t = (2.0 * double(layer_idx - first_layer) + 1.0) / (2.0 * double(layer_count));
-        double       r_a = double(mf.gradient_start) + (double(mf.gradient_end) - double(mf.gradient_start)) * t;
-        r_a = std::clamp(r_a, 0.01, 0.99);
-
-        double requested_a = r_a * layer.height;
-        double requested_b = (1.0 - r_a) * layer.height;
-        if (preferred_a > EPSILON || preferred_b > EPSILON) {
-            // Explicit cadence heights override the gradient ratio but are
-            // normalized to the nominal layer height.
-            const double preferred_sum = preferred_a + preferred_b;
-            if (preferred_sum > EPSILON) {
-                requested_a = layer.height * (preferred_a / preferred_sum);
-                requested_b = layer.height * (preferred_b / preferred_sum);
-            }
-        }
-
-        double h_a = 0.0;
-        double h_b = 0.0;
-        if (layer.height <= 2.0 * lower_bound + EPSILON)
-            ++thin_bound_layers;
-        if (!local_z_clamp_gradient_pass_heights(layer.height, lower_bound, upper_bound, requested_a, requested_b, h_a, h_b)) {
-            ++skipped_height_layers;
-            note_unsplit_layer("pass heights outside Local-Z bounds");
-            continue;
-        }
-
-        h_a_min = std::min(h_a_min, h_a);
-        h_a_max = std::max(h_a_max, h_a);
-        h_b_min = std::min(h_b_min, h_b);
-        h_b_max = std::max(h_b_max, h_b);
-        r_a_min = std::min(r_a_min, r_a);
-        r_a_max = std::max(r_a_max, r_a);
-
         const double z_lo = layer.print_z - layer.height;
         const double z_hi = layer.print_z;
 
@@ -1141,39 +1072,109 @@ static void build_local_z_plan(PrintObject &print_object,
         interval.z_lo               = z_lo;
         interval.z_hi               = z_hi;
         interval.base_height        = layer.height;
-        interval.sublayer_height    = std::min(h_a, h_b);
+        interval.sublayer_height    = layer.height;
         interval.has_mixed_paint    = true;
         interval.first_sublayer_idx = plans.size();
         interval.sublayer_count     = 0;
+        const size_t plans_before = plans.size();
 
-        const double       pass_heights[2] = { h_b, h_a };
-        const unsigned int components[2]   = { mf.component_b, mf.component_a };
-        const size_t       plans_before    = plans.size();
-        double             z_cursor        = z_lo;
-        for (size_t pass_idx = 0; pass_idx < 2; ++pass_idx) {
-            const double pass_z_lo = z_cursor;
-            const double pass_z_hi = (pass_idx == 1) ? z_hi : std::min(z_hi, pass_z_lo + pass_heights[pass_idx]);
-            const double pass_height = pass_z_hi - pass_z_lo;
-            if (pass_height <= EPSILON)
-                break;
+        // Split every active gradient row, not just the dominant one. Otherwise
+        // the other painted regions on this layer are still printed with the
+        // normal per-layer resolver and look like one color per layer.
+        for (size_t row_idx = 0; row_idx < row_masks.size(); ++row_idx) {
+            if (row_masks[row_idx].empty())
+                continue;
+            ExPolygons row_mask = std::move(row_masks[row_idx]);
+            if (row_mask.size() > 1)
+                row_mask = union_ex(row_mask);
 
-            SubLayerPlan plan;
-            plan.layer_id          = layer.id();
-            plan.pass_index        = pass_idx;
-            plan.split_interval    = true;
-            plan.z_lo              = pass_z_lo;
-            plan.z_hi              = pass_z_hi;
-            plan.print_z           = pass_z_hi;
-            plan.flow_height       = pass_height;
-            plan.dependency_group  = 0;
-            plan.dependency_order  = pass_idx;
-            plan.painted_masks_by_extruder.assign(num_physical, ExPolygons());
-            plan.painted_masks_by_extruder[size_t(components[pass_idx] - 1)] = mixed_mask;
+            const MixedFilament    &mf            = mixed_rows[row_idx];
+            const std::vector<int> &painted_layers = row_painted_layers[row_idx];
+            if (std::find(painted_layers.begin(), painted_layers.end(), int(layer_idx)) == painted_layers.end()) {
+                note_unsplit_layer("layer outside gradient painted range");
+                continue;
+            }
+            const int first_layer = painted_layers.front();
+            const int last_layer  = painted_layers.back();
+            const int layer_count = last_layer - first_layer + 1;
+            if (layer_count <= 0) {
+                note_unsplit_layer("empty gradient layer range");
+                continue;
+            }
 
-            plans.emplace_back(std::move(plan));
-            ++interval.sublayer_count;
-            z_cursor = pass_z_hi;
+            const double t = (2.0 * double(layer_idx - first_layer) + 1.0) / (2.0 * double(layer_count));
+            double       r_a = double(mf.gradient_start) + (double(mf.gradient_end) - double(mf.gradient_start)) * t;
+            r_a = std::clamp(r_a, 0.01, 0.99);
+
+            double requested_a = r_a * layer.height;
+            double requested_b = (1.0 - r_a) * layer.height;
+            if (preferred_a > EPSILON || preferred_b > EPSILON) {
+                const double preferred_sum = preferred_a + preferred_b;
+                if (preferred_sum > EPSILON) {
+                    requested_a = layer.height * (preferred_a / preferred_sum);
+                    requested_b = layer.height * (preferred_b / preferred_sum);
+                }
+            }
+
+            double h_a = 0.0;
+            double h_b = 0.0;
+            if (layer.height <= 2.0 * lower_bound + EPSILON)
+                ++thin_bound_layers;
+            if (!local_z_clamp_gradient_pass_heights(layer.height, lower_bound, upper_bound,
+                                                     requested_a, requested_b, h_a, h_b)) {
+                ++skipped_height_layers;
+                note_unsplit_layer("pass heights outside Local-Z bounds");
+                continue;
+            }
+
+            h_a_min = std::min(h_a_min, h_a);
+            h_a_max = std::max(h_a_max, h_a);
+            h_b_min = std::min(h_b_min, h_b);
+            h_b_max = std::max(h_b_max, h_b);
+            r_a_min = std::min(r_a_min, r_a);
+            r_a_max = std::max(r_a_max, r_a);
+
+            const double       pass_heights[2] = { h_b, h_a };
+            const unsigned int components[2]   = { mf.component_b, mf.component_a };
+            double             z_cursor        = z_lo;
+            for (size_t pass_idx = 0; pass_idx < 2; ++pass_idx) {
+                const double pass_z_lo = z_cursor;
+                const double pass_z_hi = (pass_idx == 1) ? z_hi : std::min(z_hi, pass_z_lo + pass_heights[pass_idx]);
+                const double pass_height = pass_z_hi - pass_z_lo;
+                if (pass_height <= EPSILON)
+                    break;
+
+                SubLayerPlan plan;
+                plan.layer_id          = layer.id();
+                plan.pass_index        = pass_idx;
+                plan.split_interval    = true;
+                plan.z_lo              = pass_z_lo;
+                plan.z_hi              = pass_z_hi;
+                plan.print_z           = pass_z_hi;
+                plan.flow_height       = pass_height;
+                plan.dependency_group  = int(row_idx);
+                plan.dependency_order  = pass_idx;
+                plan.painted_masks_by_extruder.assign(num_physical, ExPolygons());
+                plan.painted_masks_by_extruder[size_t(components[pass_idx] - 1)] = row_mask;
+
+                plans.emplace_back(std::move(plan));
+                ++interval.sublayer_count;
+                interval.sublayer_height = std::min(interval.sublayer_height, pass_height);
+                z_cursor = pass_z_hi;
+            }
         }
+
+        // The G-code pass emitter and the wipe-tower planner must consume the
+        // passes of all rows in the same Z order.
+        std::sort(plans.begin() + plans_before, plans.end(), [](const SubLayerPlan &a, const SubLayerPlan &b) {
+            if (std::abs(a.print_z - b.print_z) > EPSILON)
+                return a.print_z < b.print_z;
+            if (a.dependency_group != b.dependency_group)
+                return a.dependency_group < b.dependency_group;
+            return a.dependency_order < b.dependency_order;
+        });
+        for (size_t i = plans_before; i < plans.size(); ++i)
+            plans[i].pass_index = i - plans_before;
 
         if (interval.sublayer_count > 1) {
             intervals.emplace_back(std::move(interval));
@@ -1206,8 +1207,8 @@ static void build_local_z_plan(PrintObject &print_object,
         BOOST_LOG_TRIVIAL(info) << "Local-Z relaxed the lower height bound on " << thin_bound_layers
                                 << " thin layers so the A/B pass thickness can still vary";
     if (multi_row_layers > 0)
-        BOOST_LOG_TRIVIAL(warning) << "Local-Z used the dominant gradient row on " << multi_row_layers
-                                   << " layers where multiple gradient rows overlapped";
+        BOOST_LOG_TRIVIAL(warning) << "Local-Z split " << multi_row_layers
+                                   << " layers with multiple active gradient rows";
     for (size_t row_idx = 0; row_idx < row_painted_layers.size(); ++row_idx) {
         const std::vector<int> &layers = row_painted_layers[row_idx];
         if (layers.empty())

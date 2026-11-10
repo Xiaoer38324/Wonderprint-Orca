@@ -4960,6 +4960,28 @@ LayerResult GCode::process_layer(
                     }
                 }
 
+                // Local-Z in-layer passes leave the writer on a mixed component.
+                // Non-gradient/color-mixing rows do the same through the normal
+                // layer cycle. Support with "don't care" must not inherit a
+                // mixed color in either case; use the default physical filament.
+                {
+                    const size_t support_layer_idx = size_t(&layer_to_print - layers.data());
+                    const bool local_z_on_layer =
+                        local_z_runtime_supported && support_layer_idx < local_z_layer_contexts.size() &&
+                        local_z_layer_contexts[support_layer_idx].enabled;
+                    const bool mixing_active = print.mixed_filament_manager().enabled_count() > 0;
+                    if (local_z_on_layer || mixing_active) {
+                        if (support_dontcare) {
+                            support_extruder = 0;
+                            support_dontcare = false;
+                        }
+                        if (interface_dontcare) {
+                            interface_extruder = 0;
+                            interface_dontcare = false;
+                        }
+                    }
+                }
+
                 // BBS: try to print support base with a filament other than interface filament
                 if (support_dontcare && !interface_dontcare) {
                     unsigned int dontcare_extruder = first_extruder_id;
