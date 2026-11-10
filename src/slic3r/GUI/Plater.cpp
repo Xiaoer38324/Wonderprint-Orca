@@ -3706,6 +3706,29 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 // filaments that reference filaments the new printer does not have.
 // Orca: virtual painted states are encoded as physical_count + mix_index + 1. When the
 // physical count changes (printer switch, add/delete), shift them so the painting survives.
+// Removes the painted state of a deleted virtual filament and shifts every later
+// virtual state down by one, so painted states keep matching the rebuilt rows.
+static void remap_mixed_painted_after_removal(size_t num_physical, size_t removed_index)
+{
+    const size_t removed_state = num_physical + removed_index + 1;
+    EnforcerBlockerStateMap state_map;
+    for (size_t state = 0; state < state_map.size(); ++state) {
+        if (state == removed_state)
+            state_map[state] = EnforcerBlockerType(0); // unpainted
+        else if (state > removed_state)
+            state_map[state] = EnforcerBlockerType(state - 1);
+        else
+            state_map[state] = EnforcerBlockerType(state);
+    }
+
+    for (ModelObject* object : wxGetApp().model().objects) {
+        for (ModelVolume* volume : object->volumes) {
+            if (!volume->mmu_segmentation_facets.empty())
+                volume->remap_extruder_ids(size_t(EnforcerBlockerType::ExtruderMax), state_map);
+        }
+    }
+}
+
 void Sidebar::remap_mixed_painted_states(size_t old_physical_count, size_t new_physical_count)
 {
     if (old_physical_count == new_physical_count || p->m_filament_mix_entries.empty())
@@ -4280,6 +4303,9 @@ void Sidebar::rebuild_filament_mix_rows()
                 CallAfter([this, i]() {
                     if (i >= p->m_filament_mix_entries.size())
                         return;
+                    // Painted virtual states are numbered physical_count + index + 1.
+                    // Deleting this row invalidates its state and shifts later ones.
+                    remap_mixed_painted_after_removal(p->combos_filament.size(), i);
                     p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + i);
                     sync_color_mix_store();
                     save_filament_mix_configs();
