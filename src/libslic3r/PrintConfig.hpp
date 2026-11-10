@@ -1279,6 +1279,8 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionBool,                dithering_local_z_whole_objects))
     ((ConfigOptionBool,                dithering_local_z_infill))
     ((ConfigOptionBool,                dithering_local_z_direct_multicolor))
+    // Uniform pass count for non-gradient mixed rows (0 = disabled).
+    ((ConfigOptionInt,                 filament_local_z_uniform_pass_count))
     ((ConfigOptionStrings,             filament_vendor))
     ((ConfigOptionBools,               filament_is_support))
     ((ConfigOptionInts,                filament_printable))

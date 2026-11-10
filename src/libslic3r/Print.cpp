@@ -1239,11 +1239,12 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
     }
 
     if (m_config.enable_prime_tower) {
-        if (m_mixed_filament_mgr.local_z_gradient_enabled(m_config.dithering_local_z_mode.value) &&
+        if ((m_mixed_filament_mgr.local_z_gradient_enabled(m_config.dithering_local_z_mode.value) ||
+             m_config.filament_local_z_uniform_pass_count.value >= 2) &&
             (this->wipe_tower_type() != WipeTowerType::Type2 || m_config.print_sequence != PrintSequence::ByLayer)) {
-            BOOST_LOG_TRIVIAL(warning) << "Local-Z gradient requires Wipe Tower Type 2 and by-layer print sequence";
+            BOOST_LOG_TRIVIAL(warning) << "Local-Z gradient/uniform passes require Wipe Tower Type 2 and by-layer print sequence";
             StringObjectException err;
-            err.string  = L("Local-Z gradient requires Wipe Tower Type 2 and a by-layer print sequence. Type 1 does not support in-layer toolchanges; select Type 2 or disable Local-Z gradient.");
+            err.string  = L("Local-Z gradient/uniform passes require Wipe Tower Type 2 and a by-layer print sequence. Type 1 does not support in-layer toolchanges; select Type 2 or disable Local-Z.");
             err.opt_key = "wipe_tower_type";
             return err;
         }

@@ -2375,6 +2375,17 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvanced;
     def->set_default_value(new ConfigOptionBool(false));
 
+    def = this->add("filament_local_z_uniform_pass_count", coInt);
+    def->label = L("Local-Z uniform pass count");
+    def->category = L("Material");
+    def->tooltip = L("Split each nominal layer of a non-gradient mixed-color region into this many equal-thickness "
+                     "Local-Z passes. The normal mixing resolver is used per pass, so the physical component can "
+                     "change from pass to pass. 0 disables uniform Local-Z passes.");
+    def->min = 0;
+    def->max = 16;
+    def->mode = comAdvanced;
+    def->set_default_value(new ConfigOptionInt(0));
+
     // PS
     def = this->add("filament_notes", coStrings);
     def->label = L("Filament notes");

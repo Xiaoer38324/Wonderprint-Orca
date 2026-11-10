@@ -905,6 +905,15 @@ static bool local_z_gradient_row_eligible(const MixedFilament &mf, size_t num_ph
            mf.component_b >= 1 && mf.component_b <= num_physical;
 }
 
+// Non-gradient mixed rows can be split into N equal-thickness passes. Each pass
+// is resolved by the normal mixing logic, using the pass as the cadence step.
+static bool local_z_uniform_row_eligible(const MixedFilament &mf, size_t num_physical)
+{
+    return mf.enabled && !mf.deleted && !is_simple_gradient(mf) &&
+           mf.component_a >= 1 && mf.component_a <= num_physical &&
+           mf.component_b >= 1 && mf.component_b <= num_physical;
+}
+
 static bool local_z_clamp_gradient_pass_heights(double base_height,
                                                 double lower_bound,
                                                 double upper_bound,
@@ -965,7 +974,9 @@ static void build_local_z_plan(PrintObject &print_object,
     const size_t num_physical = print_cfg.filament_colour.size();
     if (num_physical == 0 || print_cfg.spiral_mode.value)
         return;
-    if (!mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value))
+    const size_t uniform_pass_count = size_t(std::clamp(print_cfg.filament_local_z_uniform_pass_count.value, 0, 16));
+    const bool   gradient_enabled   = mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value);
+    if (!gradient_enabled && uniform_pass_count < 2)
         return;
     // The Local-Z wipe-tower path is implemented for WipeTower2 in ByLayer
     // mode. Keep the conventional layer-height gradient for other tower
@@ -1032,8 +1043,12 @@ static void build_local_z_plan(PrintObject &print_object,
         ExPolygons   mixed_mask;
         size_t       active_rows = 0;
         double       dominant_area = -1.0;
+        bool         active_is_gradient = false;
+        unsigned int active_state_id = 0;
         std::vector<ExPolygons> row_masks(mixed_rows.size());
         std::vector<double>     row_areas(mixed_rows.size(), 0.0);
+        std::vector<uint8_t>    row_is_gradient(mixed_rows.size(), 0);
+        std::vector<unsigned int> row_state_ids(mixed_rows.size(), 0);
 
         for (size_t ch = 0; ch < segmentation[layer_idx].size(); ++ch) {
             const ExPolygons &state_masks = segmentation[layer_idx][ch];
@@ -1045,8 +1060,13 @@ static void build_local_z_plan(PrintObject &print_object,
             const int mixed_idx = mixed_mgr.mixed_index_from_filament_id(state_id, num_physical);
             if (mixed_idx < 0 || size_t(mixed_idx) >= mixed_rows.size())
                 continue;
-            if (!local_z_gradient_row_eligible(mixed_rows[size_t(mixed_idx)], num_physical))
+            const MixedFilament &mixed_row = mixed_rows[size_t(mixed_idx)];
+            const bool gradient_row = gradient_enabled && local_z_gradient_row_eligible(mixed_row, num_physical);
+            const bool uniform_row  = uniform_pass_count >= 2 && local_z_uniform_row_eligible(mixed_row, num_physical);
+            if (!gradient_row && !uniform_row)
                 continue;
+            row_is_gradient[size_t(mixed_idx)] = gradient_row ? 1 : 0;
+            row_state_ids[size_t(mixed_idx)]   = state_id;
             ExPolygons &row_mask = row_masks[size_t(mixed_idx)];
             const bool   first_channel = row_mask.empty();
             append(row_mask, state_masks);
@@ -1066,6 +1086,8 @@ static void build_local_z_plan(PrintObject &print_object,
             if (row_areas[row_idx] > dominant_area) {
                 dominant_area = row_areas[row_idx];
                 active_row    = int(row_idx);
+                active_is_gradient = row_is_gradient[row_idx] != 0;
+                active_state_id    = row_state_ids[row_idx];
                 mixed_mask    = std::move(row_masks[row_idx]);
             }
         }
@@ -1085,6 +1107,76 @@ static void build_local_z_plan(PrintObject &print_object,
                                            << " reason=" << reason;
             ++unsplit_mixed_layers;
         };
+
+        // Uniform N-pass path for non-gradient rows. Each pass is a virtual
+        // layer step for the normal mixing resolver; thickness is exactly
+        // base_height / N.
+        if (!active_is_gradient) {
+            const double pass_height = layer.height / double(uniform_pass_count);
+            if (pass_height <= EPSILON || uniform_pass_count < 2) {
+                note_unsplit_layer("uniform pass count produced zero height");
+                continue;
+            }
+
+            const double z_lo = layer.print_z - layer.height;
+            LocalZInterval interval;
+            interval.layer_id           = layer.id();
+            interval.z_lo               = z_lo;
+            interval.z_hi               = layer.print_z;
+            interval.base_height        = layer.height;
+            interval.sublayer_height    = pass_height;
+            interval.has_mixed_paint    = true;
+            interval.first_sublayer_idx = plans.size();
+            interval.sublayer_count     = 0;
+
+            const MixedFilament &uniform_mf = mixed_rows[size_t(active_row)];
+            const size_t plans_before = plans.size();
+            double z_cursor = z_lo;
+            for (size_t pass_idx = 0; pass_idx < uniform_pass_count; ++pass_idx) {
+                const double pass_z_hi = (pass_idx + 1 == uniform_pass_count)
+                                             ? layer.print_z
+                                             : std::min(layer.print_z, z_lo + pass_height * double(pass_idx + 1));
+                const double this_height = pass_z_hi - z_cursor;
+                if (this_height <= EPSILON)
+                    break;
+
+                unsigned int component = mixed_mgr.resolve(active_state_id, num_physical,
+                                                           int(layer_idx * uniform_pass_count + pass_idx),
+                                                           layer.print_z, float(pass_height));
+                if (component < 1 || component > num_physical)
+                    component = uniform_mf.component_a;
+                if (component < 1 || component > num_physical) {
+                    note_unsplit_layer("uniform resolver returned invalid component");
+                    break;
+                }
+
+                SubLayerPlan plan;
+                plan.layer_id         = layer.id();
+                plan.pass_index       = pass_idx;
+                plan.split_interval   = true;
+                plan.z_lo             = z_cursor;
+                plan.z_hi             = pass_z_hi;
+                plan.print_z          = pass_z_hi;
+                plan.flow_height      = this_height;
+                plan.dependency_group = 0;
+                plan.dependency_order = pass_idx;
+                plan.painted_masks_by_extruder.assign(num_physical, ExPolygons());
+                plan.painted_masks_by_extruder[size_t(component - 1)] = mixed_mask;
+
+                plans.emplace_back(std::move(plan));
+                ++interval.sublayer_count;
+                z_cursor = pass_z_hi;
+            }
+
+            if (interval.sublayer_count > 1) {
+                intervals.emplace_back(std::move(interval));
+                ++split_layer_count;
+            } else {
+                plans.resize(plans_before);
+                note_unsplit_layer("uniform N-pass produced fewer than two passes");
+            }
+            continue;
+        }
 
         const MixedFilament         &mf            = mixed_rows[size_t(active_row)];
         const std::vector<int>      &painted_layers = row_painted_layers[size_t(active_row)];
