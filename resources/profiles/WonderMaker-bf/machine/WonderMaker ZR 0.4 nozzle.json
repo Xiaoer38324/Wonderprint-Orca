@@ -1,0 +1,74 @@
+{
+    "type": "machine",
+    "name": "WonderMaker ZR 0.4 nozzle",
+    "inherits": "fdm_klipper_common",
+    "from": "system",
+    "setting_id": "GM001",
+    "instantiation": "true",
+    "printer_model": "WonderMaker ZR",
+    "default_print_profile": "0.20mm Standard @WonderMaker ZR",
+    "default_bed_type": "Textured PEI Plate",
+    "nozzle_diameter": [
+        "0.4"
+    ],
+    "default_filament_profile": [
+        "WonderMaker PLA Basic"
+    ],
+    "auxiliary_fan": "1",
+    "bed_exclude_area": [
+        "0x0",
+        "18x0",
+        "18x28",
+        "0x28"
+    ],
+    "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\n;[layer_z]\nG92 E0\n",
+    "cooling_tube_length": "5",
+    "cooling_tube_retraction": "91.5",
+    "deretraction_speed": [
+        "30"
+    ],
+    "emit_machine_limits_to_gcode": "1",
+    "enable_long_retraction_when_cut": "0",
+    "extra_loading_move": "-2",
+    "extruder_clearance_height_to_lid": "140",
+    "extruder_clearance_height_to_rod": "36",
+    "extruder_clearance_radius": "65",
+    "fan_kickstart": "0",
+    "fan_speedup_overhangs": "1",
+    "fan_speedup_time": "0",
+    "long_retractions_when_cut": [
+        "0"
+    ],
+    "machine_end_gcode": ";PRINT_END",
+    "purge_in_prime_tower": "0",
+    "enable_filament_ramming": "0",
+    "machine_load_filament_time": "80",
+    "machine_unload_filament_time": "40",
+    "adaptive_bed_mesh_margin": "5",
+    "extruder_type": "Direct Drive",
+    "default_nozzle_volume_type": "Standard",
+    "bed_mesh_max": [
+        "290",
+        "290"
+    ],
+    "bed_mesh_min": [
+        "10",
+        "10"
+    ],
+    "bed_mesh_probe_distance": [
+        "40",
+        "40"
+    ],
+    "retract_before_wipe": [
+        "80%"
+    ],
+    "retract_restart_extra": [
+        "0.02"
+    ],
+    "retraction_length": [
+        "0.6"
+    ],
+    "retraction_minimum_travel": [
+        "0.5"
+    ]
+}
