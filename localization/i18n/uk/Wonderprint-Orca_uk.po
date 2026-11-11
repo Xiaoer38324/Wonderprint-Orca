@@ -21784,6 +21784,31 @@ msgstr "Виберіть рендерер, який використовуєть
 "щільних траєкторій.\nПотрібен OpenGL 3.1+; інакше код libvg використовується "
 "автоматично."
 
+msgid "Z contouring enabled"
+msgstr "Контурування по Z увімкнено"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Увімкнути контурування Z-шару (також відомого як згладжування Z-шару)."
+
+msgid "Minimize wall height angle"
+msgstr "Мінімізуйте кут висоти стіни"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Зменште висоту периметрів верхньої поверхні, щоб відповідати висоті "
+"краю моделі.\nВпливає на периметри з нахилом, більшим за цей кут (у "
+"градусах).\nРозумним значенням є 35. Встановіть 0, щоб вимкнути."
+
+msgid "Don't alternate fill direction"
+msgstr "Не змінюйте напрямок заповнення"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Вимкніть змінний напрямок заповнення під час використання контуру Z."
+
+msgid "Z contouring"
+msgstr "Z контурування"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Якщо ви хочете спробувати бета-версію Wonderprint-Orca, ви можете "

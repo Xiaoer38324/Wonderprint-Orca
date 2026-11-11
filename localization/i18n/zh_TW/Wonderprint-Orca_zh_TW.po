@@ -20910,6 +20910,29 @@ msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 msgstr "選擇用於切片 G 程式碼預覽的渲染器。\nlibvgcode：原始 libvgcode 渲染器。\n新管道：新的 GPU "
 "管道，在放大密集刀具路徑時通常速度更快。\n需要 OpenGL 3.1+；否則會自動使用 libvgcode。"
 
+msgid "Z contouring enabled"
+msgstr "Z 輪廓啟用"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "啟用 Z 層輪廓（又稱 Z 層抗鋸齒）。"
+
+msgid "Minimize wall height angle"
+msgstr "最小化牆壁高度角度"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "降低頂面週邊的高度以符合模型邊緣高度。\n影響斜率大於此角度（度）的周長。\n合理的值為 35。設定為 0 禁用。"
+
+msgid "Don't alternate fill direction"
+msgstr "不要改變填充方向"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "使用 Z 輪廓時停用交替填滿方向。"
+
+msgid "Z contouring"
+msgstr "Z 輪廓"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想嘗試 Wonderprint-Orca 測試版，可以點擊以下載到"
 

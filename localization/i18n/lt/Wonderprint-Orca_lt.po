@@ -22591,6 +22591,33 @@ msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo "
 "GPU vamzdynas, paprastai greitesnis, kai priartinamas tankus įrankių "
 "takas.\nReikia OpenGL 3.1+; otherwise libvgcode is used automatically."
 
+msgid "Z contouring enabled"
+msgstr "Z kontūravimas įjungtas"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Įgalinti Z sluoksnio kontūravimą (dar žinomą kaip Z sluoksnio "
+"anti-aliasing)."
+
+msgid "Minimize wall height angle"
+msgstr "Sumažinkite sienos aukščio kampą"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Sumažinkite viršutinio paviršiaus perimetrų aukštį, kad jis atitiktų "
+"modelio krašto aukštį.\nPaveikia perimetrus, kurių nuolydis didesnis už šį "
+"kampą (laipsniais).\nTinkama reikšmė yra 35. Jei norite išjungti, nustatykite "
+"0."
+
+msgid "Don't alternate fill direction"
+msgstr "Nekeiskite užpildymo krypties"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Išjunkite kintamą užpildymo kryptį, kai naudojate Z kontūrą."
+
+msgid "Z contouring"
+msgstr "Z kontūravimas"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

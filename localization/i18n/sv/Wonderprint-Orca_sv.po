@@ -22366,6 +22366,32 @@ msgstr "Välj renderaren som används för förhandsgranskningen av den skivade 
 "GPU-pipeline, vanligtvis snabbare när man zoomar in i täta "
 "verktygsbanor.\nKräver OpenGL 3.1+; annars används libvgcode automatiskt."
 
+msgid "Z contouring enabled"
+msgstr "Z-konturering aktiverad"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Aktivera Z-lagers konturering (alias Z-lager kantutjämning)."
+
+msgid "Minimize wall height angle"
+msgstr "Minimera vägghöjdsvinkeln"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Minska höjden på den övre ytans omkrets för att matcha modellens "
+"kanthöjd.\nPåverkar omkretsar med en lutning större än denna vinkel "
+"(grader).\nEtt rimligt värde är 35. Ställ in på 0 för att inaktivera."
+
+msgid "Don't alternate fill direction"
+msgstr "Växla inte fyllriktningen"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Inaktivera alternerande fyllningsriktning när du använder "
+"Z-konturering."
+
+msgid "Z contouring"
+msgstr "Z-kontur"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

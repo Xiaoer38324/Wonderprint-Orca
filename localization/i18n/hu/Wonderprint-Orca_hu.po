@@ -22724,6 +22724,31 @@ msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt "
 "GPU-folyamat, általában gyorsabb, ha sűrű szerszámpályákra nagyít.\nOpenGL "
 "3.1+ szükséges; egyébként a libvgcode automatikusan használatos."
 
+msgid "Z contouring enabled"
+msgstr "Z kontúrozás engedélyezve"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Z-réteg kontúrozás engedélyezése (más néven Z-réteg élsimítás)."
+
+msgid "Minimize wall height angle"
+msgstr "Minimalizálja a fal magassági szögét"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Csökkentse a felső felület kerületének magasságát, hogy megfeleljen a "
+"modell élmagasságának.\nEnnél a szögnél (foknál) nagyobb lejtésű kerületeket "
+"érint.\nAz ésszerű érték 35. A letiltáshoz állítsa 0-ra."
+
+msgid "Don't alternate fill direction"
+msgstr "Ne váltogassa a töltési irányt"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Z kontúrozás használatakor tiltsa le a váltakozó kitöltési irányt."
+
+msgid "Z contouring"
+msgstr "Z kontúrozás"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

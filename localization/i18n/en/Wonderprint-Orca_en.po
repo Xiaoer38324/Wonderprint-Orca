@@ -19828,6 +19828,31 @@ msgstr "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
 "used automatically."
 
+msgid "Z contouring enabled"
+msgstr "Z contouring enabled"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+
+msgid "Minimize wall height angle"
+msgstr "Minimize wall height angle"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+
+msgid "Don't alternate fill direction"
+msgstr "Don't alternate fill direction"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Disable alternating fill direction when using Z contouring."
+
+msgid "Z contouring"
+msgstr "Z contouring"
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

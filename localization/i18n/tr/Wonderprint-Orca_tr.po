@@ -22570,6 +22570,32 @@ msgstr "Dilimlenmiş G kodu önizlemesi için kullanılan oluşturucuyu "
 "hızlıdır.\nOpenGL 3.1+ gerektirir; aksi takdirde libvgcode otomatik olarak "
 "kullanılır."
 
+msgid "Z contouring enabled"
+msgstr "Z şekillendirme etkin"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Z katmanı şekillendirmeyi (diğer adıyla Z katmanı kenar yumuşatma) "
+"etkinleştirin."
+
+msgid "Minimize wall height angle"
+msgstr "Duvar yüksekliği açısını en aza indirin"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Modelin kenar yüksekliğine uyacak şekilde üst yüzey çevrelerinin "
+"yüksekliğini azaltın.\nBu açıdan (derece) daha büyük bir eğimle çevreleri "
+"etkiler.\nMakul bir değer 35'tir. Devre dışı bırakmak için 0'a ayarlayın."
+
+msgid "Don't alternate fill direction"
+msgstr "Doldurma yönünü değiştirmeyin"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Z konturlamayı kullanırken alternatif dolgu yönünü devre dışı bırakın."
+
+msgid "Z contouring"
+msgstr "Z şekillendirme"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

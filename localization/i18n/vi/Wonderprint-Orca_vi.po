@@ -22137,6 +22137,32 @@ msgstr "Chọn trình kết xuất được sử dụng để xem trước mã G
 "mới, thường nhanh hơn khi phóng to các đường chạy dao dày đặc.\nYêu cầu "
 "OpenGL 3.1+; nếu không libvgcode sẽ được sử dụng tự động."
 
+msgid "Z contouring enabled"
+msgstr "Đã bật đường viền Z"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Kích hoạt tính năng tạo đường viền lớp Z (còn gọi là khử răng cưa lớp "
+"Z)."
+
+msgid "Minimize wall height angle"
+msgstr "Giảm thiểu góc chiều cao của tường"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Giảm chiều cao của chu vi bề mặt trên để phù hợp với chiều cao cạnh "
+"của mô hình.\nẢnh hưởng đến chu vi có độ dốc lớn hơn góc này (độ).\nGiá trị "
+"hợp lý là 35. Đặt thành 0 để tắt."
+
+msgid "Don't alternate fill direction"
+msgstr "Không thay đổi hướng điền"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Tắt hướng tô xen kẽ khi sử dụng đường viền Z."
+
+msgid "Z contouring"
+msgstr "Đường viền chữ Z"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

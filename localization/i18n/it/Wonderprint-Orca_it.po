@@ -23062,6 +23062,34 @@ msgstr "Seleziona il renderer utilizzato per l'anteprima del codice G "
 "utensile densi.\nRichiede OpenGL 3.1+; altrimenti libvgcode viene utilizzato "
 "automaticamente."
 
+msgid "Z contouring enabled"
+msgstr "Contornatura Z abilitata"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Abilita il contouring del livello Z (noto anche come anti-aliasing del "
+"livello Z)."
+
+msgid "Minimize wall height angle"
+msgstr "Ridurre al minimo l'angolo di altezza della parete"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Ridurre l'altezza dei perimetri della superficie superiore in modo che "
+"corrisponda all'altezza del bordo del modello.\nInteressa i perimetri con una "
+"pendenza maggiore di questo angolo (gradi).\nUn valore ragionevole è 35. "
+"Impostare su 0 per disabilitare."
+
+msgid "Don't alternate fill direction"
+msgstr "Non alternare la direzione di riempimento"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Disabilita la direzione di riempimento alternata quando si utilizza il "
+"contorno Z."
+
+msgid "Z contouring"
+msgstr "Contornatura a Z"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se vuoi provare Wonderprint-Orca Beta, puoi cliccare su"
 

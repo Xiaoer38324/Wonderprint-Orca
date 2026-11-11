@@ -22578,6 +22578,32 @@ msgstr "Selecteer de renderer die wordt gebruikt voor het gesneden "
 "nieuwe GPU-pijplijn, meestal sneller bij het inzoomen op dichte "
 "toolpaths.\nVereist OpenGL 3.1+; anders wordt libvgcode automatisch gebruikt."
 
+msgid "Z contouring enabled"
+msgstr "Z-contouren ingeschakeld"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Schakel Z-layer-contouren in (ook wel Z-layer anti-aliasing genoemd)."
+
+msgid "Minimize wall height angle"
+msgstr "Minimaliseer de hoogtehoek van de muur"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "Verklein de hoogte van de randen van het bovenoppervlak zodat deze "
+"overeenkomen met de randhoogte van het model.\nHeeft invloed op perimeters "
+"met een helling groter dan deze hoek (graden).\nEen redelijke waarde is 35. "
+"Stel deze in op 0 om uit te schakelen."
+
+msgid "Don't alternate fill direction"
+msgstr "Wissel de vulrichting niet af"
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Schakel de afwisselende vulrichting uit bij gebruik van Z-contouren."
+
+msgid "Z contouring"
+msgstr "Z-contouren"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

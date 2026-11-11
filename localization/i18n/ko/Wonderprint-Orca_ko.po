@@ -21241,6 +21241,30 @@ msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선�
 "파이프: 새 GPU 파이프라인은 일반적으로 조밀한 도구 경로를 확대할 때 더 빠릅니다.\nOpenGL 3.1 이상이 필요합니다. 그렇지 "
 "않으면 libvgcode가 자동으로 사용됩니다."
 
+msgid "Z contouring enabled"
+msgstr "Z 윤곽 활성화"
+
+msgid "Enable Z-layer contouring (aka Z-layer anti-aliasing)."
+msgstr "Z 레이어 컨투어링(Z 레이어 앤티앨리어싱이라고도 함)을 활성화합니다."
+
+msgid "Minimize wall height angle"
+msgstr "벽 높이 각도 최소화"
+
+msgid "Reduce the height of top-surface perimeters to match the model edge "
+"height.\nAffects perimeters with a slope greater than this angle "
+"(degrees).\nA reasonable value is 35. Set to 0 to disable."
+msgstr "모델 가장자리 높이와 일치하도록 윗면 둘레의 높이를 줄입니다.\n이 각도(도)보다 큰 경사로 둘레에 영향을 줍니다.\n합리적인 "
+"값은 35입니다. 비활성화하려면 0으로 설정하세요."
+
+msgid "Don't alternate fill direction"
+msgstr "채우기 방향을 바꾸지 마십시오."
+
+msgid "Disable alternating fill direction when using Z contouring."
+msgstr "Z 윤곽을 사용할 때 대체 채우기 방향을 비활성화합니다."
+
+msgid "Z contouring"
+msgstr "Z 컨투어링"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"
 
