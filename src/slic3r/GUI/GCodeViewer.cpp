@@ -51,8 +51,8 @@ namespace GUI {
 
 // Snapmaker GPU path pipeline switch (ported from Snapmaker/OrcaSlicer,
 // render engine 2.4.1). The user-facing choice lives in Preferences:
-//   Preview render type = "libvgcode"  -> original libvgcode renderer
-//   Preview render type = "new_pipe"   -> Snapmaker GPU pipeline
+//   Preview renderer type = "libvgcode"  -> original libvgcode renderer
+//   Preview renderer type = "new_pipe"   -> Snapmaker GPU pipeline
 // Missing key defaults to the new pipeline when it is supported, so existing
 // installs keep the faster renderer after upgrading. The old
 // "gcode_preview_gpu_accel" key is still honored for compatibility.
@@ -1020,13 +1020,13 @@ void GCodeViewer::init(ConfigOptionMode mode, PresetBundle* preset_bundle)
     // sliders and legend. Requires GL 3.1+ and the snapmaker_gpu_path
     // shaders; otherwise the libvgcode renderer stays in use.
     // The object is created whenever the hardware supports the pipeline, so
-    // the Preferences > "Preview render type" switch can be applied at
+    // the Preferences > "Preview renderer type" switch can be applied at
     // runtime without restarting the application.
     m_snapmaker_supported = SnapmakerPathView::IsSupported();
     if (m_snapmaker_supported)
         m_snapmaker_path_view = std::make_unique<SnapmakerPathView>();
 
-    // Seed the Preferences > "Preview render type" value with the renderer
+    // Seed the Preferences > "Preview renderer type" value with the renderer
     // that will actually be used, so the first open of Preferences shows the
     // current selection instead of an empty/incorrect one. The legacy
     // "gcode_preview_gpu_accel" key is still honored while seeding.
@@ -2294,7 +2294,7 @@ void GCodeViewer::load_shells(const Print& print, bool initialized, bool force_p
 
 void GCodeViewer::render_toolpaths()
 {
-    // Apply a runtime "Preview render type" preference change without a
+    // Apply a runtime "Preview renderer type" preference change without a
     // restart. The stack is built lazily from the current gcode result when
     // switching back to the Snapmaker pipeline.
     if (m_snapmaker_supported) {

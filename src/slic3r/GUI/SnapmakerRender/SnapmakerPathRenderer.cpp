@@ -421,7 +421,19 @@ bool SnapmakerPathRenderer::Render(SnapmakerPathLayerStack& stack, const GCodePr
     shader->set_uniform("s_attribute_table", int(STAGE_ATTRIBUTE_TABLE));
     shader->set_uniform("s_step_table", int(STAGE_STEP_TABLE));
 
-    RenderLayers(stack, result, *shader);
+    // Draw the layer nearest to the camera first, so the depth test can
+    // reject the layers behind it early. The classic top-down order is only
+    // correct while the camera is above the printed layers: when the camera
+    // is moved below the build plate, the bed no longer occludes the preview
+    // and the top-down order makes every layer render fully before the
+    // nearest (bottom) layer is reached - the "looking up through the bed"
+    // overdraw stall.
+    const auto window = stack.LayerWindow();
+    const double top_z = stack.Layer(window.second).Z();
+    const double bottom_z = stack.Layer(window.first).Z();
+    const bool draw_top_down = camera.get_position().z() >= 0.5 * (top_z + bottom_z);
+
+    RenderLayers(stack, result, *shader, draw_top_down);
 
     shader->stop_using();
 
@@ -445,7 +457,7 @@ bool SnapmakerPathRenderer::Render(SnapmakerPathLayerStack& stack, const GCodePr
         markerShader->set_uniform("s_attribute_table", int(STAGE_ATTRIBUTE_TABLE));
         markerShader->set_uniform("s_marker_table", int(STAGE_STEP_TABLE));
 
-        RenderMarkers(stack, result, *markerShader);
+        RenderMarkers(stack, result, *markerShader, draw_top_down);
 
         markerShader->stop_using();
     }
@@ -459,7 +471,7 @@ bool SnapmakerPathRenderer::Render(SnapmakerPathLayerStack& stack, const GCodePr
 }
 
 void SnapmakerPathRenderer::RenderLayers(SnapmakerPathLayerStack& stack, const GCodeProcessorResult& result,
-                                         GLShaderProgram& shader)
+                                         GLShaderProgram& shader, bool draw_top_down)
 {
     const auto window = stack.LayerWindow();
     // sequential playback end: the bottom slider is a playback of the
@@ -468,8 +480,11 @@ void SnapmakerPathRenderer::RenderLayers(SnapmakerPathLayerStack& stack, const G
     // while playback is active)
     const uint32_t sidLast = stack.MoveWindow().second;
 
-    // draw from the top layer down
-    for (uint32_t li = window.second + 1; li-- > window.first; ) {
+    // Draw front-to-back: top-down while the camera is above the plate,
+    // bottom-up once it is below it (see Render()).
+    const uint32_t layerCount = window.second - window.first + 1;
+    for (uint32_t i = 0; i < layerCount; ++i) {
+        const uint32_t li = draw_top_down ? (window.second - i) : (window.first + i);
         SnapmakerPathLayerData& layer = stack.Layer(li);
         const bool isTop = (li == window.second);
         const unsigned int stepCount = isTop
@@ -496,7 +511,7 @@ void SnapmakerPathRenderer::RenderLayers(SnapmakerPathLayerStack& stack, const G
 }
 
 void SnapmakerPathRenderer::RenderMarkers(SnapmakerPathLayerStack& stack, const GCodeProcessorResult& result,
-                                          GLShaderProgram& shader)
+                                          GLShaderProgram& shader, bool draw_top_down)
 {
     const auto window = stack.LayerWindow();
     // like the paths, the playback window only clips the markers of the
@@ -508,7 +523,9 @@ void SnapmakerPathRenderer::RenderMarkers(SnapmakerPathLayerStack& stack, const 
     const int positionId = shader.get_attrib_location("v_position");
     const int normalId = shader.get_attrib_location("v_normal");
 
-    for (uint32_t li = window.second + 1; li-- > window.first; ) {
+    const uint32_t layerCount = window.second - window.first + 1;
+    for (uint32_t i = 0; i < layerCount; ++i) {
+        const uint32_t li = draw_top_down ? (window.second - i) : (window.first + i);
         SnapmakerPathLayerData& layer = stack.Layer(li);
         const bool isTop = (li == window.second);
         const unsigned int markerCount = isTop

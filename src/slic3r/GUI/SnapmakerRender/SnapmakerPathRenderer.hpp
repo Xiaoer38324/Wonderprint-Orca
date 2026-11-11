@@ -153,9 +153,9 @@ private:
     void EnsureMeshes();
     void UpdateColorRamps(const ViewSettings& settings);
     void RenderLayers(SnapmakerPathLayerStack& stack, const GCodeProcessorResult& result,
-                      GLShaderProgram& shader);
+                      GLShaderProgram& shader, bool draw_top_down);
     void RenderMarkers(SnapmakerPathLayerStack& stack, const GCodeProcessorResult& result,
-                       GLShaderProgram& shader);
+                       GLShaderProgram& shader, bool draw_top_down);
 
     SnapmakerInstanceMesh _prismMesh;
     SnapmakerInstanceMesh _markerMesh;

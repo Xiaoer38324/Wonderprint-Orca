@@ -22343,6 +22343,29 @@ msgstr "Edit Mix"
 msgid "Mixed filaments contain incompatible material types."
 msgstr "Blandade filament innehåller inkompatibla materialtyper."
 
+msgid "Local-Z gradient requires Wipe Tower Type 2 and a by-layer print "
+"sequence. Type 1 does not support in-layer toolchanges; select Type 2 or "
+"disable Local-Z gradient."
+msgstr "Local-Z-gradient kräver Wipe Tower Type 2 och en utskriftssekvens för "
+"lager. Typ 1 stöder inte verktygsbyten i lager; välj Typ 2 eller inaktivera "
+"Local-Z-gradient."
+
+msgid "Preview renderer type"
+msgstr "Förhandsgranska renderingstyp"
+
+msgid "Select the renderer used for the sliced G-code preview.\n"
+msgstr "Välj renderaren som används för förhandsgranskningen av den skivade "
+"G-koden."
+
+msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
+"original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
+"zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
+"used automatically."
+msgstr "Välj renderaren som används för förhandsgranskningen av den skivade "
+"G-koden.\nlibvgcode: original libvgcode-renderare.\nNytt rör: ny "
+"GPU-pipeline, vanligtvis snabbare när man zoomar in i täta "
+"verktygsbanor.\nKräver OpenGL 3.1+; annars används libvgcode automatiskt."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

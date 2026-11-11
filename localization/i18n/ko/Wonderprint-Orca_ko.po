@@ -21221,6 +21221,26 @@ msgstr "편집 믹스"
 msgid "Mixed filaments contain incompatible material types."
 msgstr "혼합 필라멘트에는 호환되지 않는 재료 유형이 포함되어 있습니다."
 
+msgid "Local-Z gradient requires Wipe Tower Type 2 and a by-layer print "
+"sequence. Type 1 does not support in-layer toolchanges; select Type 2 or "
+"disable Local-Z gradient."
+msgstr "Local-Z 그라데이션에는 Wipe Tower Type 2 및 레이어별 인쇄 시퀀스가 ​​필요합니다. 유형 1은 레이어 내 "
+"도구 변경을 지원하지 않습니다. 유형 2를 선택하거나 Local-Z 그라데이션을 비활성화합니다."
+
+msgid "Preview renderer type"
+msgstr "미리보기 렌더러 유형"
+
+msgid "Select the renderer used for the sliced G-code preview.\n"
+msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선택합니다."
+
+msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
+"original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
+"zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
+"used automatically."
+msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선택합니다.\nlibvgcode: 원본 libvgcode 렌더러.\n새 "
+"파이프: 새 GPU 파이프라인은 일반적으로 조밀한 도구 경로를 확대할 때 더 빠릅니다.\nOpenGL 3.1 이상이 필요합니다. 그렇지 "
+"않으면 libvgcode가 자동으로 사용됩니다."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"
 

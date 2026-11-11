@@ -22701,6 +22701,29 @@ msgstr "Szerkesztés Mix"
 msgid "Mixed filaments contain incompatible material types."
 msgstr "A kevert szálak összeférhetetlen anyagtípusokat tartalmaznak."
 
+msgid "Local-Z gradient requires Wipe Tower Type 2 and a by-layer print "
+"sequence. Type 1 does not support in-layer toolchanges; select Type 2 or "
+"disable Local-Z gradient."
+msgstr "A Local-Z színátmenethez 2. típusú törlőtorony és rétegenkénti "
+"nyomtatási sorrend szükséges. Az 1. típus nem támogatja a rétegen belüli "
+"szerszámcseréket; válassza a 2. típust, vagy tiltsa le a Local-Z "
+"színátmenetet."
+
+msgid "Preview renderer type"
+msgstr "Megjelenítőtípus előnézete"
+
+msgid "Select the renderer used for the sliced G-code preview.\n"
+msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt megjelenítőt."
+
+msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
+"original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
+"zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
+"used automatically."
+msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt "
+"megjelenítőt.\nlibvgcode: eredeti libvgcode renderer.\nÚj cső: új "
+"GPU-folyamat, általában gyorsabb, ha sűrű szerszámpályákra nagyít.\nOpenGL "
+"3.1+ szükséges; egyébként a libvgcode automatikusan használatos."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

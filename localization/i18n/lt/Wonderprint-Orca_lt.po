@@ -22569,6 +22569,28 @@ msgstr "Redaguoti miksą"
 msgid "Mixed filaments contain incompatible material types."
 msgstr "Mišriose gijose yra nesuderinamų medžiagų tipų."
 
+msgid "Local-Z gradient requires Wipe Tower Type 2 and a by-layer print "
+"sequence. Type 1 does not support in-layer toolchanges; select Type 2 or "
+"disable Local-Z gradient."
+msgstr "Vietiniam Z gradientui reikalingas 2 tipo „Wipe Tower“ ir spausdinimo "
+"pagal sluoksnį seka. 1 tipas nepalaiko įrankių pakeitimų sluoksnyje; "
+"pasirinkite 2 tipą arba išjunkite vietinį-Z gradientą."
+
+msgid "Preview renderer type"
+msgstr "Peržiūros pateikimo tipas"
+
+msgid "Select the renderer used for the sliced G-code preview.\n"
+msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo peržiūrai."
+
+msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
+"original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
+"zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
+"used automatically."
+msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo "
+"peržiūrai.\nlibvgcode: original libvgcode renderer.\nNaujas vamzdis: naujas "
+"GPU vamzdynas, paprastai greitesnis, kai priartinamas tankus įrankių "
+"takas.\nReikia OpenGL 3.1+; otherwise libvgcode is used automatically."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

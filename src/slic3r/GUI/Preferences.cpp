@@ -1427,10 +1427,10 @@ void PreferencesDialog::create_items()
     std::vector<wxString>    preview_render_types        = { _L("libvgcode"), _L("New pipe") };
     std::vector<std::string> preview_render_type_values  = { "libvgcode", "new_pipe" };
     auto item_preview_render_type = create_item_combobox(
-        _L("Preview render type"),
+        _L("Preview renderer type"),
         _L("Select the renderer used for the sliced G-code preview.\n"
            "libvgcode: original libvgcode renderer.\n"
-           "New pipe: Snapmaker GPU pipeline, usually faster when zooming into dense toolpaths.\n"
+           "New pipe: new GPU pipeline, usually faster when zooming into dense toolpaths.\n"
            "Requires OpenGL 3.1+; otherwise libvgcode is used automatically."),
         "preview_render_type", preview_render_types, preview_render_type_values,
         [](wxString /*value*/) {

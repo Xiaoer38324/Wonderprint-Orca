@@ -22899,6 +22899,30 @@ msgstr "Edit Mix"
 msgid "Mixed filaments contain incompatible material types."
 msgstr "Els filaments barrejats contenen tipus de materials incompatibles."
 
+msgid "Local-Z gradient requires Wipe Tower Type 2 and a by-layer print "
+"sequence. Type 1 does not support in-layer toolchanges; select Type 2 or "
+"disable Local-Z gradient."
+msgstr "El gradient local-Z requereix Wipe Tower Type 2 i una seqüència "
+"d'impressió per capa. El tipus 1 no admet els canvis d'eines a la capa; "
+"seleccioneu Tipus 2 o desactiveu el degradat Local-Z."
+
+msgid "Preview renderer type"
+msgstr "Vista prèvia del tipus de renderitzador"
+
+msgid "Select the renderer used for the sliced G-code preview.\n"
+msgstr "Seleccioneu el renderitzador utilitzat per a la previsualització del "
+"codi G en rodanxes."
+
+msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
+"original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
+"zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
+"used automatically."
+msgstr "Seleccioneu el renderitzador utilitzat per a la previsualització del "
+"codi G en rodanxes.\nlibvgcode: representador original de libvgcode.\nNova "
+"canonada: nova canalització de GPU, generalment més ràpida quan es fa zoom en "
+"camins d'eines densos.\nRequereix OpenGL 3.1+; en cas contrari, libvgcode "
+"s'utilitza automàticament."
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 

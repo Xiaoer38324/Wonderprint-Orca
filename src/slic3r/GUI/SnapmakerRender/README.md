@@ -57,7 +57,7 @@ toolpaths consistent.
 ## Disabling
 
 The renderer is selectable at runtime in
-**Preferences > General > Features > Preview render type**:
+**Preferences > General > Features > Preview renderer type**:
 
 * `libvgcode` - the original libvgcode renderer;
 * `New pipe` - the Snapmaker GPU pipeline.
@@ -86,6 +86,10 @@ gcode_preview_gpu_accel = false
 
 * Layers are grouped by `GCodeProcessorResult::MoveVertex::layer_id` instead
   of a Z scan, so the stack is in 1:1 lockstep with libvgcode's layer table.
+* Layers are drawn front-to-back relative to the camera (top-down above the
+  plate, bottom-up below it). Drawing only top-down made the underside view
+  pathologically slow: with the bed out of the way every layer rendered fully
+  before the nearest bottom layer wrote depth (classic overdraw stall).
 * The bottom-slider endpoints and all slider UI stay owned by libvgcode; the
   Snapmaker legacy render-path records used only for those endpoints were not
   ported.

@@ -248,7 +248,7 @@ mutable bool m_no_render_path { false };
     // model, sliders and legend stay in libvgcode; only the toolpath drawing
     // is replaced when the pipeline and its shaders are available.
     // m_snapmaker_supported = GL/shader capability, independent of the
-    // user's "Preview render type" preference (which drives
+    // user's "Preview renderer type" preference (which drives
     // m_snapmaker_pipeline_enabled and can be changed without a restart).
     std::unique_ptr<SnapmakerPathView> m_snapmaker_path_view;
     bool m_snapmaker_supported{ false };

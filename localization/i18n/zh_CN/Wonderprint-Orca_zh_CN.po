@@ -20753,6 +20753,24 @@ msgstr "编辑混色"
 msgid "Mixed filaments contain incompatible material types."
 msgstr "混合耗材包含不相容的材料类型。"
 
+msgid "Local-Z gradient requires Wipe Tower Type 2 and a by-layer print "
+"sequence. Type 1 does not support in-layer toolchanges; select Type 2 or "
+"disable Local-Z gradient."
+msgstr "Local-Z 梯度需要 Wipe Tower Type 2 和逐层打印序列。类型1不支持层内换刀；选择类型 2 或禁用局部 Z 梯度。"
+
+msgid "Preview renderer type"
+msgstr "预览渲染器类型"
+
+msgid "Select the renderer used for the sliced G-code preview.\n"
+msgstr "选择用于切片 G 代码预览的渲染器。"
+
+msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
+"original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
+"zooming into dense toolpaths.\nRequires OpenGL 3.1+; otherwise libvgcode is "
+"used automatically."
+msgstr "选择用于切片 G 代码预览的渲染器。\nlibvgcode：原始 libvgcode 渲染器。\n新管道：新的 GPU "
+"管道，在放大密集刀具路径时通常速度更快。\n需要 OpenGL 3.1+；否则会自动使用 libvgcode。"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想尝试Wonderprint-Orca Beta，您可以点击"
 
