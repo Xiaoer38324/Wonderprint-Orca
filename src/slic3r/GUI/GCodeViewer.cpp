@@ -22,6 +22,7 @@
 #include "GLCanvas3D.hpp"
 #include "GLToolbar.hpp"
 #include "GUI_Preview.hpp"
+#include "SnapmakerRender/SnapmakerPathView.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Layer.hpp"
 #include "Widgets/ProgressDialog.hpp"
@@ -47,6 +48,30 @@
 
 namespace Slic3r {
 namespace GUI {
+
+// Snapmaker GPU path pipeline switch (ported from Snapmaker/OrcaSlicer,
+// render engine 2.4.1). The user-facing choice lives in Preferences:
+//   Preview render type = "libvgcode"  -> original libvgcode renderer
+//   Preview render type = "new_pipe"   -> Snapmaker GPU pipeline
+// Missing key defaults to the new pipeline when it is supported, so existing
+// installs keep the faster renderer after upgrading. The old
+// "gcode_preview_gpu_accel" key is still honored for compatibility.
+static bool snapmaker_pipeline_requested()
+{
+    AppConfig* config = get_app_config();
+    if (config == nullptr)
+        return true;
+
+    if (config->has("app", "preview_render_type"))
+        return config->get("app", "preview_render_type") != "libvgcode";
+
+    if (config->has("app", "gcode_preview_gpu_accel")) {
+        const std::string value = config->get("app", "gcode_preview_gpu_accel");
+        return value == "true" || value == "1";
+    }
+
+    return true;
+}
 
 //BBS translation of EViewType
 //const std::string EViewType_Map[(int) GCodeViewer::EViewType::Count] = {
@@ -990,6 +1015,32 @@ void GCodeViewer::init(ConfigOptionMode mode, PresetBundle* preset_bundle)
         msg_dlg.ShowModal();
     }
 
+    // Snapmaker GPU path pipeline: it only replaces the toolpath drawing, so
+    // it can be enabled independently from libvgcode, which keeps the data,
+    // sliders and legend. Requires GL 3.1+ and the snapmaker_gpu_path
+    // shaders; otherwise the libvgcode renderer stays in use.
+    // The object is created whenever the hardware supports the pipeline, so
+    // the Preferences > "Preview render type" switch can be applied at
+    // runtime without restarting the application.
+    m_snapmaker_supported = SnapmakerPathView::IsSupported();
+    if (m_snapmaker_supported)
+        m_snapmaker_path_view = std::make_unique<SnapmakerPathView>();
+
+    // Seed the Preferences > "Preview render type" value with the renderer
+    // that will actually be used, so the first open of Preferences shows the
+    // current selection instead of an empty/incorrect one. The legacy
+    // "gcode_preview_gpu_accel" key is still honored while seeding.
+    if (AppConfig* config = get_app_config(); config != nullptr && !config->has("app", "preview_render_type"))
+        config->set("preview_render_type", std::string(
+            (m_snapmaker_supported && snapmaker_pipeline_requested()) ? "new_pipe" : "libvgcode"));
+
+    m_snapmaker_pipeline_enabled = m_snapmaker_supported && snapmaker_pipeline_requested();
+    if (!m_snapmaker_supported)
+        BOOST_LOG_TRIVIAL(info) << "GCodeViewer: Snapmaker GPU path pipeline unavailable (GL/shader), using libvgcode renderer";
+    else
+        BOOST_LOG_TRIVIAL(info) << "GCodeViewer: Snapmaker GPU path pipeline available, selected renderer: "
+                                << (m_snapmaker_pipeline_enabled ? "new_pipe" : "libvgcode");
+
     // Orca:
     // Default view type at first slice.
     // May be overridden in load() once we know how many tools are actually used in the G-code.
@@ -1099,6 +1150,17 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
             color_print_colors.emplace_back(libvgcode::convert(color));
         }
         m_viewer.set_color_print_colors(color_print_colors);
+
+        // A print preview may have reset the Snapmaker stack in between;
+        // rebuild it for the same gcode result instead of falling back.
+        m_snapmaker_pipeline_enabled = m_snapmaker_supported && snapmaker_pipeline_requested();
+        if (m_snapmaker_pipeline_enabled && m_snapmaker_path_view && !m_snapmaker_path_view->HasData()) {
+            gcode_result.lock();
+            m_snapmaker_path_view->Load(gcode_result);
+            gcode_result.unlock();
+        }
+        else if (!m_snapmaker_pipeline_enabled && m_snapmaker_path_view)
+            m_snapmaker_path_view->Reset();
         return;
     }
 
@@ -1218,6 +1280,17 @@ void GCodeViewer::load_as_gcode(const GCodeProcessorResult& gcode_result, const 
     // send data to the viewer
     m_viewer.reset_default_extrusion_roles_colors();
     m_viewer.load(std::move(data));
+
+    // Snapmaker GPU path pipeline: build the de-geometrized layer tables from
+    // the same gcode result. This is CPU-only work (no GL allocation), the
+    // buffer textures are uploaded on the first draw. The preference can be
+    // changed at runtime, so re-evaluate it for every new result and drop a
+    // stale stack when the user selected libvgcode.
+    m_snapmaker_pipeline_enabled = m_snapmaker_supported && snapmaker_pipeline_requested();
+    if (m_snapmaker_pipeline_enabled && m_snapmaker_path_view)
+        m_snapmaker_path_view->Load(gcode_result);
+    else if (m_snapmaker_path_view)
+        m_snapmaker_path_view->Reset();
 
 // #if !VGCODE_ENABLE_COG_AND_TOOL_MARKERS
 //     const size_t vertices_count = m_viewer.get_vertices_count();
@@ -1438,6 +1511,11 @@ void GCodeViewer::load_as_preview(libvgcode::GCodeInputData&& data)
     const libvgcode::AABox bbox = m_viewer.get_extrusion_bounding_box();
     const BoundingBoxf3 paths_bounding_box(libvgcode::convert(bbox[0]).cast<double>(), libvgcode::convert(bbox[1]).cast<double>());
     m_contained_in_bed = wxGetApp().plater()->build_volume().all_paths_inside(GCodeProcessorResult(), paths_bounding_box);
+
+    // The Snapmaker pipeline is fed from GCodeProcessorResult only; the
+    // print preview path has no such result, so let libvgcode render it.
+    if (m_snapmaker_path_view)
+        m_snapmaker_path_view->Reset();
 }
 
 void GCodeViewer::update_shells_color_by_extruder(const DynamicPrintConfig *config)
@@ -1463,8 +1541,13 @@ void GCodeViewer::reset()
     m_last_result_id = -1;
     //BBS: add only gcode mode
     m_only_gcode_in_preview = false;
+    m_gcode_result = nullptr;
 
     m_viewer.reset();
+
+    // release the Snapmaker GPU path tables/buffers together with the viewer
+    if (m_snapmaker_path_view)
+        m_snapmaker_path_view->Reset();
 
     m_paths_bounding_box = BoundingBoxf3();
     m_max_bounding_box = BoundingBoxf3();
@@ -2211,6 +2294,41 @@ void GCodeViewer::load_shells(const Print& print, bool initialized, bool force_p
 
 void GCodeViewer::render_toolpaths()
 {
+    // Apply a runtime "Preview render type" preference change without a
+    // restart. The stack is built lazily from the current gcode result when
+    // switching back to the Snapmaker pipeline.
+    if (m_snapmaker_supported) {
+        const bool requested = snapmaker_pipeline_requested();
+        if (requested != m_snapmaker_pipeline_enabled) {
+            m_snapmaker_pipeline_enabled = requested;
+            if (requested) {
+                if (m_snapmaker_path_view && !m_snapmaker_path_view->HasData() &&
+                    !m_loaded_as_preview && m_gcode_result != nullptr) {
+                    m_gcode_result->lock();
+                    if (!m_gcode_result->moves.empty())
+                        m_snapmaker_path_view->Load(*m_gcode_result);
+                    m_gcode_result->unlock();
+                }
+            }
+            // When switching back to libvgcode, keep the already built stack
+            // so switching again is instant. It is still dropped on the next
+            // load/reset or when the preview is replaced.
+
+            BOOST_LOG_TRIVIAL(info) << "GCodeViewer: preview render type changed to "
+                                    << (requested ? "new_pipe" : "libvgcode");
+        }
+    }
+
+    // Snapmaker GPU path pipeline: draw the de-geometrized toolpaths with
+    // shader-generated geometry. libvgcode still owns the data model,
+    // sliders and legend; the adapter mirrors its state every frame. When
+    // the state cannot be mapped, fall through to libvgcode's renderer.
+    if (m_snapmaker_pipeline_enabled && m_snapmaker_path_view && !m_loaded_as_preview &&
+        m_gcode_result != nullptr && m_snapmaker_path_view->HasData() &&
+        m_snapmaker_path_view->SyncFromViewer(m_viewer) &&
+        m_snapmaker_path_view->Render(*m_gcode_result))
+        return;
+
     const Camera& camera = wxGetApp().plater()->get_camera();
     const libvgcode::Mat4x4 converted_view_matrix = libvgcode::convert(static_cast<Matrix4f>(camera.get_view_matrix().matrix().cast<float>()));
     const libvgcode::Mat4x4 converted_projetion_matrix = libvgcode::convert(static_cast<Matrix4f>(camera.get_projection_matrix().matrix().cast<float>()));

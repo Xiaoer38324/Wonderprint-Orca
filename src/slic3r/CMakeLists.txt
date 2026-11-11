@@ -122,6 +122,14 @@ set(SLIC3R_GUI_SOURCES
     GUI/format.hpp
     GUI/GCodeViewer.cpp
     GUI/GCodeViewer.hpp
+    GUI/SnapmakerRender/SnapmakerBufferTexture.cpp
+    GUI/SnapmakerRender/SnapmakerBufferTexture.hpp
+    GUI/SnapmakerRender/SnapmakerPathData.cpp
+    GUI/SnapmakerRender/SnapmakerPathData.hpp
+    GUI/SnapmakerRender/SnapmakerPathRenderer.cpp
+    GUI/SnapmakerRender/SnapmakerPathRenderer.hpp
+    GUI/SnapmakerRender/SnapmakerPathView.cpp
+    GUI/SnapmakerRender/SnapmakerPathView.hpp
     GUI/Gizmos/GizmoObjectManipulation.cpp
     GUI/Gizmos/GizmoObjectManipulation.hpp
     GUI/Gizmos/GLGizmoAssembly.cpp

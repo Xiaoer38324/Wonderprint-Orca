@@ -1286,7 +1286,7 @@ void ViewerImpl::update_colors()
     m_settings.update_colors = false;
 }
 
-void ViewerImpl::render(const Mat4x4& view_matrix, const Mat4x4& projection_matrix)
+void ViewerImpl::update()
 {
     if (m_settings.update_view_full_range)
         update_view_full_range();
@@ -1296,6 +1296,13 @@ void ViewerImpl::render(const Mat4x4& view_matrix, const Mat4x4& projection_matr
 
     if (m_settings.update_colors)
         update_colors();
+}
+
+void ViewerImpl::render(const Mat4x4& view_matrix, const Mat4x4& projection_matrix)
+{
+    // Keep the CPU-side state (ranges, enabled entities, colors) current even
+    // when a replacement renderer skips the draw calls.
+    update();
 
     const Mat4x4 inv_view_matrix = inverse(view_matrix);
     const Vec3 camera_position = { inv_view_matrix[12], inv_view_matrix[13], inv_view_matrix[14] };

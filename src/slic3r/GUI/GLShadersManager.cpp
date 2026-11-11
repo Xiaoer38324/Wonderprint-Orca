@@ -60,6 +60,15 @@ std::pair<bool, std::string> GLShadersManager::init()
 #endif // SLIC3R_OPENGL_ES
     // used to render bed axes and model, selection hints, gcode sequential view marker model, preview shells, options in gcode preview
     valid &= append_shader("gouraud_light", { prefix + "gouraud_light.vs", prefix + "gouraud_light.fs" });
+    // Snapmaker GPU toolpath pipeline (ported from Snapmaker/OrcaSlicer
+    // render engine 2.4.1): toolpaths with shader-generated prism geometry
+    // (data tables in TBOs) and option markers placed in the vertex shader.
+    // These are optional: when they fail to compile, GCodeViewer falls back
+    // to the libvgcode renderer instead of failing OpenGL initialization.
+    if (GUI::wxGetApp().is_gl_version_greater_or_equal_to(3, 1)) {
+        append_shader("snapmaker_gpu_path", { prefix + "snapmaker_gpu_path.vs", prefix + "snapmaker_gpu_path.fs" });
+        append_shader("snapmaker_gpu_path_marker", { prefix + "snapmaker_gpu_path_marker.vs", prefix + "snapmaker_gpu_path_marker.fs" });
+    }
     //used to render thumbnail
     valid &= append_shader("thumbnail", { prefix + "thumbnail.vs", prefix + "thumbnail.fs"});
     // used to render printbed

@@ -56,6 +56,12 @@ public:
     //
     void load(GCodeInputData&& gcode_data);
     //
+    // Process the pending view/visibility/color updates without drawing.
+    // Useful for replacement renderers that keep reading the viewer ranges
+    // and colors but draw the toolpaths themselves.
+    //
+    void update();
+    //
     // Render the toolpaths according to the current settings and
     // using the given camera matrices.
     //

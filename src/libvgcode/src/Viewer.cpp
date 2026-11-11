@@ -37,6 +37,11 @@ void Viewer::load(GCodeInputData&& gcode_data)
     m_impl->load(std::move(gcode_data));
 }
 
+void Viewer::update()
+{
+    m_impl->update();
+}
+
 void Viewer::render(const Mat4x4& view_matrix, const Mat4x4& projection_matrix)
 {
     m_impl->render(view_matrix, projection_matrix);

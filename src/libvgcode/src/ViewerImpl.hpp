@@ -54,6 +54,12 @@ public:
     // from the given gcode data.
     //
     void load(GCodeInputData&& gcode_data);
+    //
+    // Process the pending view/visibility/color updates without drawing.
+    // Used by renderers that replace libvgcode's own draw calls (the
+    // Snapmaker GPU toolpath pipeline) but still read its ranges and colors.
+    //
+    void update();
 
     //
     // Update the visibility property of toolpaths in dependence

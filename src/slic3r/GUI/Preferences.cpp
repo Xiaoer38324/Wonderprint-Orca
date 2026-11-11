@@ -3,6 +3,7 @@
 #include "GUI_App.hpp"
 #include "MainFrame.hpp"
 #include "Plater.hpp"
+#include "GLCanvas3D.hpp"
 #include "MsgDialog.hpp"
 #include "I18N.hpp"
 #include "libslic3r/AppConfig.hpp"
@@ -104,7 +105,8 @@ wxBoxSizer* PreferencesDialog::create_item_combobox(wxString title, wxString too
     return sizer;
 }
 
-wxBoxSizer *PreferencesDialog::create_item_combobox(wxString title, wxString tooltip, std::string param, std::vector<wxString> vlist, std::vector<std::string> config_name_index)
+wxBoxSizer *PreferencesDialog::create_item_combobox(wxString title, wxString tooltip, std::string param, std::vector<wxString> vlist,
+    std::vector<std::string> config_name_index, std::function<void(wxString)> onchange)
 {
     assert(vlist.size() == config_name_index.size());
     unsigned int current_index = 0;
@@ -119,8 +121,11 @@ wxBoxSizer *PreferencesDialog::create_item_combobox(wxString title, wxString too
     auto [sizer, combobox] = create_item_combobox_base(title, tooltip, param, vlist, current_index);
 
     //// save config
-    combobox->GetDropDown().Bind(wxEVT_COMBOBOX, [this, param, config_name_index](wxCommandEvent& e) {
-        app_config->set(param, config_name_index[e.GetSelection()]);
+    combobox->GetDropDown().Bind(wxEVT_COMBOBOX, [this, param, config_name_index, onchange](wxCommandEvent& e) {
+        const std::string value = config_name_index[e.GetSelection()];
+        app_config->set(param, value);
+        if (onchange)
+            onchange(wxString::FromUTF8(value));
         e.Skip();
     });
 
@@ -1414,6 +1419,27 @@ void PreferencesDialog::create_items()
 
     //// GENERAL > Features
     g_sizer->Add(create_item_title(_L("Features")), 1, wxEXPAND);
+
+    // Snapmaker GPU toolpath pipeline vs. the original libvgcode renderer.
+    // The value is read by GCodeViewer::render_toolpaths(), so the switch is
+    // applied immediately; when the GPU pipeline is unavailable the preview
+    // falls back to libvgcode automatically.
+    std::vector<wxString>    preview_render_types        = { _L("libvgcode"), _L("New pipe") };
+    std::vector<std::string> preview_render_type_values  = { "libvgcode", "new_pipe" };
+    auto item_preview_render_type = create_item_combobox(
+        _L("Preview render type"),
+        _L("Select the renderer used for the sliced G-code preview.\n"
+           "libvgcode: original libvgcode renderer.\n"
+           "New pipe: Snapmaker GPU pipeline, usually faster when zooming into dense toolpaths.\n"
+           "Requires OpenGL 3.1+; otherwise libvgcode is used automatically."),
+        "preview_render_type", preview_render_types, preview_render_type_values,
+        [](wxString /*value*/) {
+            if (GLCanvas3D* canvas = wxGetApp().plater()->get_preview_canvas3D()) {
+                canvas->set_as_dirty();
+                canvas->request_extra_frame();
+            }
+        });
+    g_sizer->Add(item_preview_render_type);
 
     auto item_multi_machine    = create_item_checkbox(_L("Multi device management"), _L("With this option enabled, you can send a task to multiple devices at the same time and manage multiple devices."), "enable_multi_machine", _L("(Requires restart)"));
     g_sizer->Add(item_multi_machine);

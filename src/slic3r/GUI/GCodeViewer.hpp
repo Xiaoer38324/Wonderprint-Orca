@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <float.h>
+#include <memory>
 #include <set>
 #include <unordered_set>
 
@@ -29,6 +30,9 @@ namespace GUI {
 
 class PartPlateList;
 class OpenGLManager;
+// Snapmaker GPU toolpath pipeline (see GUI/SnapmakerRender/). Kept as a
+// pointer so this widely included header does not pull in the renderer.
+class SnapmakerPathView;
 
 static const float GCODE_VIEWER_SLIDER_SCALE = 0.6f;
 static const float SLIDER_DEFAULT_RIGHT_MARGIN  = 10.0f;
@@ -182,7 +186,7 @@ private:
     bool m_gl_data_initialized{ false };
     unsigned int m_last_result_id{ 0 };
     //BBS: save m_gcode_result as well
-    const GCodeProcessorResult* m_gcode_result;
+    const GCodeProcessorResult* m_gcode_result{ nullptr };
     //BBS: add only gcode mode
     bool m_only_gcode_in_preview {false};
 
@@ -239,6 +243,16 @@ mutable bool m_no_render_path { false };
 
     libvgcode::Viewer m_viewer;
     bool m_loaded_as_preview{ false };
+
+    // Snapmaker render pipeline (de-geometrized GPU toolpaths). The data
+    // model, sliders and legend stay in libvgcode; only the toolpath drawing
+    // is replaced when the pipeline and its shaders are available.
+    // m_snapmaker_supported = GL/shader capability, independent of the
+    // user's "Preview render type" preference (which drives
+    // m_snapmaker_pipeline_enabled and can be changed without a restart).
+    std::unique_ptr<SnapmakerPathView> m_snapmaker_path_view;
+    bool m_snapmaker_supported{ false };
+    bool m_snapmaker_pipeline_enabled{ false };
 
 public:
     GCodeViewer();
