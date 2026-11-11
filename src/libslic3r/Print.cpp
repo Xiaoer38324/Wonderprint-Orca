@@ -2211,6 +2211,18 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             }
         }
 
+        // Orca: Z-Contouring runs after perimeters, infill and ironing, and before support
+        // generation, so it can adjust the Z of every top-surface extrusion path.
+        for (PrintObject *obj : m_objects) {
+            if (need_slicing_objects.count(obj) != 0 && obj->need_z_contouring()) {
+                obj->contour_z();
+            }
+            else {
+                if (obj->set_started(posContouring))
+                    obj->set_done(posContouring);
+            }
+        }
+
         tbb::parallel_for(tbb::blocked_range<int>(0, int(m_objects.size())),
             [this, need_slicing_objects](const tbb::blocked_range<int>& range) {
                 for (int i = range.begin(); i < range.end(); i++) {
@@ -2249,6 +2261,8 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                     obj->set_done(posInfill);
                 if (obj->set_started(posIroning))
                     obj->set_done(posIroning);
+                if (obj->set_started(posContouring))
+                    obj->set_done(posContouring);
                 if (obj->set_started(posSupportMaterial))
                     obj->set_done(posSupportMaterial);
                 if (obj->set_started(posDetectOverhangsForLift))
@@ -2258,6 +2272,11 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 obj->make_perimeters();
                 obj->infill();
                 obj->ironing();
+                // Orca: Z-Contouring must run before support generation, also on this cache path.
+                if (obj->need_z_contouring())
+                    obj->contour_z();
+                else if (obj->set_started(posContouring))
+                    obj->set_done(posContouring);
                 obj->generate_support_material();
                 obj->detect_overhangs_for_lift();
                 obj->estimate_curled_extrusions();

@@ -4,6 +4,7 @@
 #include "ClipperUtils.hpp"
 #include "Extruder.hpp"
 #include "Flow.hpp"
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <sstream>
@@ -14,6 +15,54 @@
 namespace Slic3r {
     
 static const double slope_inner_outer_wall_gap = 0.4;
+
+// Orca: ZAA (Z contouring) helpers -------------------------------------------------
+// A z-contoured path carries one Z offset per vertex of its 2D polyline. Polyline does
+// not know about those offsets, so the few geometric operations which may still run
+// after contouring (seam splitting and loop clipping) re-map the offsets onto the
+// re-partitioned vertices here. Vertices inserted by such an operation get an offset
+// interpolated linearly along the original polyline.
+static coord_t z_offset_at_point(const Points &src_points, const std::vector<coord_t> &src_z, const Point &q)
+{
+    const size_t n = std::min(src_points.size(), src_z.size());
+    if (n == 0)
+        return 0;
+    // Fast path: the point is an original vertex.
+    for (size_t i = 0; i < n; ++ i)
+        if (src_points[i] == q)
+            return src_z[i];
+    // Otherwise the point lies inside a segment: interpolate to the closest one.
+    const Vec2d  qd      = q.cast<double>();
+    double       best_d2 = std::numeric_limits<double>::max();
+    coord_t      best_z  = src_z.front();
+    for (size_t i = 0; i + 1 < n; ++ i) {
+        const Vec2d  a   = src_points[i].cast<double>();
+        const Vec2d  b   = src_points[i + 1].cast<double>();
+        const Vec2d  ab  = b - a;
+        const double l2  = ab.squaredNorm();
+        double       t   = l2 > 0. ? (qd - a).dot(ab) / l2 : 0.;
+        t = std::clamp(t, 0., 1.);
+        const double d2 = (a + t * ab - qd).squaredNorm();
+        if (d2 < best_d2) {
+            best_d2 = d2;
+            best_z  = coord_t(std::llround(double(src_z[i]) + t * double(src_z[i + 1] - src_z[i])));
+        }
+    }
+    return best_z;
+}
+
+// Map the Z offsets of @src onto the vertices of @dst_points. @dst_points must be a
+// re-partitioning (split, rotation or clip) of @src's polyline.
+static void remap_z_offsets(const ExtrusionPath &src, const Points &dst_points, std::vector<coord_t> &dst_z)
+{
+    dst_z.clear();
+    if (! src.z_contoured || src.z_offsets.empty() || src.z_offsets.size() != src.polyline.points.size())
+        return;
+    dst_z.reserve(dst_points.size());
+    for (const Point &q : dst_points)
+        dst_z.push_back(z_offset_at_point(src.polyline.points, src.z_offsets, q));
+}
+// End Orca ZAA helpers ------------------------------------------------------------
 
 void ExtrusionPath::intersect_expolygons(const ExPolygons &collection, ExtrusionEntityCollection* retval) const
 {
@@ -27,16 +76,40 @@ void ExtrusionPath::subtract_expolygons(const ExPolygons &collection, ExtrusionE
 
 void ExtrusionPath::clip_end(double distance)
 {
+    if (! this->z_contoured) {
+        this->polyline.clip_end(distance);
+        return;
+    }
+    // Orca: ZAA - snapshot geometry and Z before clipping, so the trimmed end vertex
+    // (which Polyline moves onto the cut position) keeps an interpolated Z offset.
+    const Points               old_points = this->polyline.points;
+    const std::vector<coord_t> old_z      = this->z_offsets;
     this->polyline.clip_end(distance);
+    const size_t n = this->polyline.size();
+    if (n == 0) {
+        this->z_offsets.clear();
+        return;
+    }
+    this->z_offsets.resize(n);
+    // All but the last vertex are an unchanged prefix of the original polyline.
+    if (n > old_points.size() || this->polyline.points.back() != old_points[n - 1])
+        this->z_offsets.back() = z_offset_at_point(old_points, old_z, this->polyline.points.back());
 }
 
 void ExtrusionPath::simplify(double tolerance)
 {
+    // Orca: ZAA - simplifying would re-partition the vertices and invalidate the
+    // per-vertex Z offsets, so z-contoured paths are not simplified (same as upstream).
+    if (this->z_contoured)
+        return;
     this->polyline.simplify(tolerance);
 }
 
 void ExtrusionPath::simplify_by_fitting_arc(double tolerance)
 {
+    // Orca: ZAA - arc fitting would replace the vertices by arcs and drop the Z offsets.
+    if (this->z_contoured)
+        return;
     this->polyline.simplify_by_fitting_arc(tolerance);
 }
 
@@ -172,8 +245,14 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                 path->polyline.split_at_index(idx, &p1, &p2);
                 if (p1.is_valid() && p2.is_valid()) {
                     p2.append(std::move(p1));
+                    // Orca: ZAA - rotate the per-vertex Z offsets the same way. Computed from
+                    // the still-intact original before the polyline is replaced.
+                    std::vector<coord_t> new_z;
+                    remap_z_offsets(*path, p2.points, new_z);
                     std::swap(path->polyline.points, p2.points);
                     std::swap(path->polyline.fitting_result, p2.fitting_result);
+                    if (path->z_contoured)
+                        path->z_offsets = std::move(new_z);
                 }
             } else {
                 // new paths list starts with the second half of current path
@@ -183,8 +262,12 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                 new_paths.reserve(this->paths.size() + 1);
                 {
                     ExtrusionPath p = *path;
+                    std::vector<coord_t> z2;
+                    remap_z_offsets(*path, p2.points, z2);
                     std::swap(p.polyline.points, p2.points);
                     std::swap(p.polyline.fitting_result, p2.fitting_result);
+                    if (p.z_contoured)
+                        p.z_offsets = std::move(z2);
                     if (p.polyline.is_valid()) new_paths.push_back(p);
                 }
             
@@ -197,8 +280,12 @@ bool ExtrusionLoop::split_at_vertex(const Point &point, const double scaled_epsi
                 // finally we add the first half of current path
                 {
                     ExtrusionPath p = *path;
+                    std::vector<coord_t> z1;
+                    remap_z_offsets(*path, p1.points, z1);
                     std::swap(p.polyline.points, p1.points);
                     std::swap(p.polyline.fitting_result, p1.fitting_result);
+                    if (p.z_contoured)
+                        p.z_offsets = std::move(z1);
                     if (p.polyline.is_valid()) new_paths.push_back(p);
                 }
                 // we can now override the old path list with the new one and stop looping
@@ -267,20 +354,37 @@ void ExtrusionLoop::split_at(const Point &point, bool prefer_non_overhang, const
     ExtrusionPath p1(path.role(), path.mm3_per_mm, path.width, path.height);
     ExtrusionPath p2(path.role(), path.mm3_per_mm, path.width, path.height);
     path.polyline.split_at(p, &p1.polyline, &p2.polyline);
+    // Orca: ZAA - carry the per-vertex Z offsets onto the two halves. A vertex inserted by
+    // the split gets an offset interpolated along the original path.
+    if (path.z_contoured) {
+        p1.z_contoured = true;
+        p2.z_contoured = true;
+        remap_z_offsets(path, p1.polyline.points, p1.z_offsets);
+        remap_z_offsets(path, p2.polyline.points, p2.z_offsets);
+    }
     
     if (this->paths.size() == 1) {
         if (!p1.polyline.is_valid()) {
+            std::vector<coord_t> z;
+            if (path.z_contoured) remap_z_offsets(path, p2.polyline.points, z);
             std::swap(this->paths.front().polyline.points, p2.polyline.points);
             std::swap(this->paths.front().polyline.fitting_result, p2.polyline.fitting_result);
+            if (this->paths.front().z_contoured) this->paths.front().z_offsets = std::move(z);
         }
         else if (!p2.polyline.is_valid()) {
+            std::vector<coord_t> z;
+            if (path.z_contoured) remap_z_offsets(path, p1.polyline.points, z);
             std::swap(this->paths.front().polyline.points, p1.polyline.points);
             std::swap(this->paths.front().polyline.fitting_result, p1.polyline.fitting_result);
+            if (this->paths.front().z_contoured) this->paths.front().z_offsets = std::move(z);
         }
         else {
             p2.polyline.append(std::move(p1.polyline));
+            std::vector<coord_t> z;
+            if (path.z_contoured) remap_z_offsets(path, p2.polyline.points, z);
             std::swap(this->paths.front().polyline.points, p2.polyline.points);
             std::swap(this->paths.front().polyline.fitting_result, p2.polyline.fitting_result);
+            if (this->paths.front().z_contoured) this->paths.front().z_offsets = std::move(z);
         }
     } else {
         // install the two paths
@@ -304,7 +408,8 @@ void ExtrusionLoop::clip_end(double distance, ExtrusionPaths* paths) const
             paths->pop_back();
             distance -= len;
         } else {
-            last.polyline.clip_end(distance);
+            // Orca: ZAA - ExtrusionPath::clip_end() also trims the per-vertex Z offsets.
+            last.clip_end(distance);
             break;
         }
     }

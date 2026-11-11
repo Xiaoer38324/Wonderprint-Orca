@@ -26,6 +26,11 @@ namespace FillLightning {
     class Generator;
 };
 
+// Orca: ZAA (Z contouring) raycasts the extrusion paths against the original mesh.
+namespace sla {
+    class IndexedMesh;
+}
+
 class LayerRegion
 {
 public:
@@ -191,6 +196,8 @@ public:
                                                                            FillAdaptive::Octree *support_fill_octree,
                                                                            FillLightning::Generator* lightning_generator) const;
     void 					make_ironing();
+    // Orca: ZAA - adjust the Z of the top-surface extrusion paths so they follow the model surface.
+    void                    make_contour_z(const sla::IndexedMesh &mesh);
 
     void                    export_region_slices_to_svg(const char *path) const;
     void                    export_region_fill_surfaces_to_svg(const char *path) const;

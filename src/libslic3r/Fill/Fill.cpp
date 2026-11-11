@@ -1219,6 +1219,14 @@ void Layer::make_fills(FillAdaptive::Octree* adaptive_fill_octree, FillAdaptive:
         f->z 		= this->print_z;
         f->angle 	= surface_fill.params.angle;
         f->fixed_angle = surface_fill.params.fixed_angle;
+        {
+            // Orca: ZAA - optionally keep the fill direction identical on every layer.
+            // SurfaceFill::region_id is size_t(-1) for fills not attached to a region, guard it.
+            if (surface_fill.region_id < this->regions().size()) {
+                const PrintRegionConfig &rcfg = this->regions()[surface_fill.region_id]->region().config();
+                f->dont_alternate_fill_direction = rcfg.zaa_enabled && rcfg.zaa_dont_alternate_fill_direction;
+            }
+        }
         f->adapt_fill_octree   = (surface_fill.params.pattern == ipSupportCubic) ? support_fill_octree : adaptive_fill_octree;
         f->print_config        = &this->object()->print()->config();
         f->print_object_config = &this->object()->config();
@@ -1412,6 +1420,14 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
         f->z        = this->print_z;
         f->angle    = surface_fill.params.angle;
         f->fixed_angle = surface_fill.params.fixed_angle;
+        {
+            // Orca: ZAA - optionally keep the fill direction identical on every layer.
+            // SurfaceFill::region_id is size_t(-1) for fills not attached to a region, guard it.
+            if (surface_fill.region_id < this->regions().size()) {
+                const PrintRegionConfig &rcfg = this->regions()[surface_fill.region_id]->region().config();
+                f->dont_alternate_fill_direction = rcfg.zaa_enabled && rcfg.zaa_dont_alternate_fill_direction;
+            }
+        }
         f->adapt_fill_octree   = (surface_fill.params.pattern == ipSupportCubic) ? support_fill_octree : adaptive_fill_octree;
         f->print_config        = &this->object()->print()->config();
         f->print_object_config = &this->object()->config();
@@ -1663,6 +1679,9 @@ void Layer::make_ironing()
         f->spacing = ironing_params.line_spacing;
         f->angle = float(ironing_params.angle);
         f->fixed_angle = ironing_params.fixed_angle;
+        // Orca: ZAA - optionally keep the ironing direction identical on every layer.
+        f->dont_alternate_fill_direction = ironing_params.layerm->region().config().zaa_enabled &&
+                                           ironing_params.layerm->region().config().zaa_dont_alternate_fill_direction;
         f->link_max_length = (coord_t) scale_(3. * f->spacing);
 		double  extrusion_height = ironing_params.height * f->spacing / nozzle_dmr;
 		float  extrusion_width  = Flow::rounded_rectangle_extrusion_width_from_spacing(float(nozzle_dmr), float(extrusion_height));

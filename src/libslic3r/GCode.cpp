@@ -6614,6 +6614,10 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
 
     const ExtrusionPathSloped* sloped = dynamic_cast<const ExtrusionPathSloped*>(&path);
 
+    // Orca: ZAA - a z-contoured path carries one Z offset per vertex and is emitted with a
+    // real Z move per segment. A sloped (scarf) path has its own Z interpolation instead.
+    const bool z_contoured = path.z_contoured && ! path.z_offsets.empty() && sloped == nullptr;
+
     const auto get_sloped_z = [&sloped, this](double z_ratio) {
         const auto height = sloped->height;
         return lerp(m_nominal_z - height, m_nominal_z, z_ratio);
@@ -6629,19 +6633,41 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
     // Add m_need_change_layer_lift_z when change_layer in case of no lift if m_last_pos is equal to path.first_point() by chance
     if (!m_last_pos_defined || m_last_pos != path.first_point() || m_need_change_layer_lift_z || slope_need_z_travel) {
         const bool _last_pos_undefined = !m_last_pos_defined;
+        double first_z = DBL_MAX;
+        if (sloped != nullptr)
+            first_z = get_sloped_z(sloped->slope_begin.z_ratio);
+        else if (z_contoured)
+            // Travel to the first vertex at the Z it will be extruded at.
+            first_z = m_nominal_z + unscale<double>(path.z_offsets.front());
         gcode += this->travel_to(
             path.first_point(),
             path.role(),
             "move to first " + description + " point",
-            sloped == nullptr ? DBL_MAX : get_sloped_z(sloped->slope_begin.z_ratio)
+            first_z
         );
         m_need_change_layer_lift_z = false;
         // Orca: ensure Z matches planned layer height
         if (_last_pos_undefined && !slope_need_z_travel) {
-            gcode += this->writer().travel_to_z(m_nominal_z, "ensure Z matches planned layer height", true);
+            // For a contoured path the exact start Z is set right below.
+            gcode += this->writer().travel_to_z(z_contoured ? first_z : m_nominal_z, "ensure Z matches planned layer height", true);
         }
     }
 
+    // Orca: ZAA. Set the Z of the first vertex before extruding and restore the nominal
+    // layer Z afterwards so that non-contoured paths still print at the planned height.
+    if (z_contoured) {
+        const double current_z = m_writer.get_position().z();
+        const double first_z   = m_nominal_z + unscale<double>(path.z_offsets.front());
+        if (GCodeFormatter::quantize_xyzf(first_z) != GCodeFormatter::quantize_xyzf(current_z))
+            gcode += m_writer.travel_to_z(first_z, "set Z for contouring", true);
+    }
+    if (!z_contoured && sloped == nullptr && m_last_path_z_contoured) {
+        // Only needed after a contoured path: otherwise the nominal Z may still be off.
+        const double current_z = m_writer.get_position().z();
+        if (GCodeFormatter::quantize_xyzf(current_z) != GCodeFormatter::quantize_xyzf(m_nominal_z))
+            gcode += this->writer().travel_to_z(m_nominal_z, "reset Z after contouring", true);
+    }
+    m_last_path_z_contoured = z_contoured;
 
     // if needed, write the gcode_label_objects_end then gcode_label_objects_start
     // should be already done by travel_to, but just in case
@@ -6882,7 +6908,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
     std::vector<ProcessedPoint> new_points {};
 
     if (m_config.enable_overhang_speed && !this->on_first_layer() &&
-        (is_bridge(path.role()) || is_perimeter(path.role()))) {
+        (is_bridge(path.role()) || is_perimeter(path.role())) && !z_contoured) {
             bool is_external = is_external_perimeter(path.role());
             double ref_speed   = is_external ? m_config.get_abs_value("outer_wall_speed") : m_config.get_abs_value("inner_wall_speed");
             if (ref_speed == 0)
@@ -7198,12 +7224,21 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
             }
             // BBS: use G1 if not enable arc fitting or has no arc fitting result or in spiral_mode mode or we are doing sloped extrusion
             // Attention: G2 and G3 is not supported in spiral_mode mode
-            if (!m_config.enable_arc_fitting || path.polyline.fitting_result.empty() || m_config.spiral_mode || sloped != nullptr) {
+            // Orca: ZAA - contoured paths are always emitted as G1 segments so that every vertex keeps its own Z.
+            if (!m_config.enable_arc_fitting || path.polyline.fitting_result.empty() || m_config.spiral_mode || sloped != nullptr || z_contoured) {
                 double path_length = 0.;
                 double total_length = sloped == nullptr ? 0. : path.polyline.length() * SCALING_FACTOR;
-                for (const Line& line : path.polyline.lines()) {
+                const Lines lines = path.polyline.lines();
+                for (size_t line_idx = 0; line_idx < lines.size(); ++line_idx) {
+                    const Line& line = lines[line_idx];
                     std::string tempDescription = description;
-                    const double line_length = line.length() * SCALING_FACTOR;
+                    // Orca: ZAA - the end vertex of this segment may be offset in Z.
+                    const double z_diff  = (z_contoured && line_idx + 1 < path.z_offsets.size()) ? unscale<double>(path.z_offsets[line_idx + 1]) : 0.;
+                    const double z_prev  = (z_contoured && line_idx < path.z_offsets.size())     ? unscale<double>(path.z_offsets[line_idx])     : 0.;
+                    double line_length = line.length() * SCALING_FACTOR;
+                    if (z_contoured)
+                        // Sloped segment: use its real 3D length so the extruded volume stays consistent.
+                        line_length = std::sqrt(line_length * line_length + (z_diff - z_prev) * (z_diff - z_prev));
                     if (line_length < EPSILON)
                         continue;
                     path_length += line_length;
@@ -7216,13 +7251,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
                             tempDescription += Slic3r::format(" | Old Flow Value: %0.5f Length: %0.5f",oldE, line_length);
                         }
                     }
-                    if (sloped == nullptr) {
-                        // Normal extrusion
-                        gcode += m_writer.extrude_to_xy(
-                            this->point_to_gcode(line.b),
-                            dE,
-                            GCodeWriter::full_gcode_comment ? tempDescription : "", path.is_force_no_extrusion());
-                    } else {
+                    if (sloped != nullptr) {
                         // Sloped extrusion
                         const auto [z_ratio, e_ratio] = sloped->interpolate(path_length / total_length);
                         Vec2d dest2d = this->point_to_gcode(line.b);
@@ -7230,6 +7259,22 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
                         gcode += m_writer.extrude_to_xyz(
                             dest3d,
                             dE * e_ratio,
+                            GCodeWriter::full_gcode_comment ? tempDescription : "", path.is_force_no_extrusion());
+                    } else if (z_contoured) {
+                        // Orca: ZAA - move to the per-vertex Z and scale the flow to the real layer
+                        // thickness at this point so the top surface is filled evenly.
+                        const Vec2d dest2d = this->point_to_gcode(line.b);
+                        Vec3d       dest3d(dest2d(0), dest2d(1), m_nominal_z + z_diff);
+                        const double extrusion_ratio = (path.role() == erIroning || path.height <= 0.) ? 1. : (path.height + z_diff) / path.height;
+                        gcode += m_writer.extrude_to_xyz(
+                            dest3d,
+                            dE * extrusion_ratio,
+                            GCodeWriter::full_gcode_comment ? tempDescription : "", path.is_force_no_extrusion());
+                    } else {
+                        // Normal extrusion
+                        gcode += m_writer.extrude_to_xy(
+                            this->point_to_gcode(line.b),
+                            dE,
                             GCodeWriter::full_gcode_comment ? tempDescription : "", path.is_force_no_extrusion());
                     }
                 }

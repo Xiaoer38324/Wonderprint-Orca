@@ -243,6 +243,11 @@ public:
     Linef() : a(Vec2d::Zero()), b(Vec2d::Zero()) {}
     Linef(const Vec2d& _a, const Vec2d& _b) : a(_a), b(_b) {}
 
+    // Orca: ZAA walks extrusion paths in double precision.
+    Vec2d   vector() const { return this->b - this->a; }
+    Vec2d   unit_vector() const { return (length() == 0.0) ? Vec2d::Zero() : vector().normalized(); }
+    double  length() const { return vector().norm(); }
+
     Vec2d a;
     Vec2d b;
 
@@ -256,12 +261,40 @@ class Linef3
 public:
     Linef3() : a(Vec3d::Zero()), b(Vec3d::Zero()) {}
     Linef3(const Vec3d& _a, const Vec3d& _b) : a(_a), b(_b) {}
+    Linef3(const Vec2d& _a, const Vec2d& _b, double z) : a(Vec3d(_a.x(), _a.y(), z)), b(Vec3d(_b.x(), _b.y(), z)) {}
 
     Vec3d   intersect_plane(double z) const;
     void    scale(double factor) { this->a *= factor; this->b *= factor; }
     Vec3d   vector() const { return this->b - this->a; }
     Vec3d   unit_vector() const { return (length() == 0.0) ? Vec3d::Zero() : vector().normalized(); }
     double  length() const { return vector().norm(); }
+
+    // Orca: ZAA needs the distance from a 3D point to the infinite line through a and b.
+    double distance_to_infinite_squared(const Vec3d &point, Vec3d *closest_point) const {
+        const Vec3d  v  = this->b - this->a;
+        const Vec3d  va = point - this->a;
+        const double l2 = v.squaredNorm();
+        if (l2 == 0.) {
+            // a == b case
+            *closest_point = this->a;
+            return va.squaredNorm();
+        }
+        // Consider the line extending the segment, parameterized as a + t (b - a).
+        // Find parameter value t of the projection of point onto the line.
+        const double t  = va.dot(v) / l2;
+        *closest_point = this->a + t * v;
+        return (point - *closest_point).squaredNorm();
+    }
+
+    double distance_to_infinite_squared(const Vec3d &point) const {
+        Vec3d nearest_point;
+        return distance_to_infinite_squared(point, &nearest_point);
+    }
+
+    static inline double distance_to_infinite_squared(const Vec3d &point, const Vec3d &a, const Vec3d &b) {
+        Linef3 line{a, b};
+        return line.distance_to_infinite_squared(point);
+    }
 
     Vec3d a;
     Vec3d b;

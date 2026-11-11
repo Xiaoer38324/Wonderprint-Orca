@@ -6,8 +6,10 @@
 #include "Polyline.hpp"
 
 #include <assert.h>
+#include <algorithm>
 #include <string_view>
 #include <numeric>
+#include <vector>
 
 namespace Slic3r {
 
@@ -157,6 +159,13 @@ public:
     float width;
     // Height of the extrusion, used for visualization purposes.
     float height;
+    // Orca: ZAA (Z-layer anti-aliasing / Z contouring).
+    // When z_contoured is true, z_offsets holds one Z offset per vertex of polyline.points.
+    // The offsets are in scaled coordinates and are relative to the nominal layer print Z.
+    // Paths are contoured as the very last geometry step (after perimeters, infill, ironing
+    // and support generation), so z_offsets is empty unless z_contoured is set.
+    std::vector<coord_t> z_offsets;
+    bool z_contoured = false;
 
     ExtrusionPath() : mm3_per_mm(-1), width(-1), height(-1), m_role(erNone), m_no_extrusion(false) {}
     ExtrusionPath(ExtrusionRole role) : mm3_per_mm(-1), width(-1), height(-1), m_role(role), m_no_extrusion(false) {}
@@ -167,6 +176,8 @@ public:
         , mm3_per_mm(rhs.mm3_per_mm)
         , width(rhs.width)
         , height(rhs.height)
+        , z_offsets(rhs.z_offsets)
+        , z_contoured(rhs.z_contoured)
         , m_can_reverse(rhs.m_can_reverse)
         , m_role(rhs.m_role)
         , m_no_extrusion(rhs.m_no_extrusion)
@@ -176,10 +187,14 @@ public:
         , mm3_per_mm(rhs.mm3_per_mm)
         , width(rhs.width)
         , height(rhs.height)
+        , z_offsets(std::move(rhs.z_offsets))
+        , z_contoured(rhs.z_contoured)
         , m_can_reverse(rhs.m_can_reverse)
         , m_role(rhs.m_role)
         , m_no_extrusion(rhs.m_no_extrusion)
     {}
+    // The polyline passed in replaces the geometry of @rhs, so any Z contouring of @rhs
+    // does not apply to the new geometry and is intentionally dropped.
     ExtrusionPath(const Polyline &polyline, const ExtrusionPath &rhs)
         : polyline(polyline)
         , mm3_per_mm(rhs.mm3_per_mm)
@@ -207,6 +222,8 @@ public:
         this->width = rhs.width;
         this->height = rhs.height;
         this->polyline = rhs.polyline;
+        this->z_offsets = rhs.z_offsets;
+        this->z_contoured = rhs.z_contoured;
         return *this;
     }
     ExtrusionPath& operator=(ExtrusionPath&& rhs) {
@@ -217,13 +234,20 @@ public:
         this->width = rhs.width;
         this->height = rhs.height;
         this->polyline = std::move(rhs.polyline);
+        this->z_offsets = std::move(rhs.z_offsets);
+        this->z_contoured = rhs.z_contoured;
         return *this;
     }
 
 	ExtrusionEntity* clone() const override { return new ExtrusionPath(*this); }
     // Create a new object, initialize it with this object using the move semantics.
 	ExtrusionEntity* clone_move() override { return new ExtrusionPath(std::move(*this)); }
-    void reverse() override { this->polyline.reverse(); }
+    void reverse() override {
+        this->polyline.reverse();
+        // Orca: ZAA - the Z offsets are per vertex, so they reverse together with the vertices.
+        if (this->z_contoured)
+            std::reverse(this->z_offsets.begin(), this->z_offsets.end());
+    }
     const Point& first_point() const override { return this->polyline.points.front(); }
     const Point& last_point() const override { return this->polyline.points.back(); }
     size_t size() const { return this->polyline.size(); }
