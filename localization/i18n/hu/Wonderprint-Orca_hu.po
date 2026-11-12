@@ -22749,6 +22749,12 @@ msgstr "Z kontúrozás használatakor tiltsa le a váltakozó kitöltési irány
 msgid "Z contouring"
 msgstr "Z kontúrozás"
 
+msgid "New pipe"
+msgstr "Új cső"
+
+msgid "New pipeline"
+msgstr "Új csővezeték"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

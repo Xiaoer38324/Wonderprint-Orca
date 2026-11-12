@@ -22847,6 +22847,12 @@ msgstr "Desative a direção de preenchimento alternada ao usar o contorno Z."
 msgid "Z contouring"
 msgstr "Contorno Z"
 
+msgid "New pipe"
+msgstr "Novo tubo"
+
+msgid "New pipeline"
+msgstr "Novo pipeline"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se você gostaria de testar o Wonderprint-Orca Beta, clique para"
 

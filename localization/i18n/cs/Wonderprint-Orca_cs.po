@@ -22275,6 +22275,12 @@ msgstr "Při použití Z konturování deaktivujte střídavý směr výplně."
 msgid "Z contouring"
 msgstr "Z konturování"
 
+msgid "New pipe"
+msgstr "Nová trubka"
+
+msgid "New pipeline"
+msgstr "Nové potrubí"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 

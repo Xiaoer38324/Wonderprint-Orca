@@ -21265,6 +21265,12 @@ msgstr "Z 윤곽을 사용할 때 대체 채우기 방향을 비활성화합니�
 msgid "Z contouring"
 msgstr "Z 컨투어링"
 
+msgid "New pipe"
+msgstr "새 파이프"
+
+msgid "New pipeline"
+msgstr "새로운 파이프라인"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"
 

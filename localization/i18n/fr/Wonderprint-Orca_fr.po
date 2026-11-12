@@ -23268,6 +23268,12 @@ msgstr "Désactivez la direction de remplissage alternée lors de l’utilisatio
 msgid "Z contouring"
 msgstr "Contour en Z"
 
+msgid "New pipe"
+msgstr "Nouveau tuyau"
+
+msgid "New pipeline"
+msgstr "Nouveau pipeline"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Si vous souhaitez essayer Wonderprint-Orca Beta, vous pouvez cliquer sur"

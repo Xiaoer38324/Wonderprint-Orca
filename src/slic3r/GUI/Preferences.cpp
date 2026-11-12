@@ -1424,7 +1424,7 @@ void PreferencesDialog::create_items()
     // The value is read by GCodeViewer::render_toolpaths(), so the switch is
     // applied immediately; when the GPU pipeline is unavailable the preview
     // falls back to libvgcode automatically.
-    std::vector<wxString>    preview_render_types        = { _L("libvgcode"), _L("New pipe") };
+    std::vector<wxString>    preview_render_types        = { _L("libvgcode"), _L("New pipeline") };
     std::vector<std::string> preview_render_type_values  = { "libvgcode", "new_pipe" };
     auto item_preview_render_type = create_item_combobox(
         _L("Preview renderer type"),

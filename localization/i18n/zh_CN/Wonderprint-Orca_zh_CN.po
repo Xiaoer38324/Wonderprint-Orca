@@ -20794,6 +20794,12 @@ msgstr "使用 Z 轮廓时禁用交替填充方向。"
 msgid "Z contouring"
 msgstr "Z 轮廓"
 
+msgid "New pipe"
+msgstr "新管"
+
+msgid "New pipeline"
+msgstr "新管线"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想尝试Wonderprint-Orca Beta，您可以点击"
 

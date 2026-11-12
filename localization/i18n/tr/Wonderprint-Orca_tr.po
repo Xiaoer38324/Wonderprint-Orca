@@ -22596,6 +22596,12 @@ msgstr "Z konturlamayı kullanırken alternatif dolgu yönünü devre dışı b�
 msgid "Z contouring"
 msgstr "Z şekillendirme"
 
+msgid "New pipe"
+msgstr "Yeni boru"
+
+msgid "New pipeline"
+msgstr "Yeni boru hattı"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

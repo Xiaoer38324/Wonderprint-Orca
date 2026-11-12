@@ -17834,6 +17834,12 @@ msgstr "Z コンタリングを使用する場合は、交互の塗りつぶし�
 msgid "Z contouring"
 msgstr "Zコンタリング"
 
+msgid "New pipe"
+msgstr "新しいパイプ"
+
+msgid "New pipeline"
+msgstr "新しいパイプライン"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

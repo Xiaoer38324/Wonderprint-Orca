@@ -22604,6 +22604,12 @@ msgstr "Schakel de afwisselende vulrichting uit bij gebruik van Z-contouren."
 msgid "Z contouring"
 msgstr "Z-contouren"
 
+msgid "New pipe"
+msgstr "Nieuwe pijp"
+
+msgid "New pipeline"
+msgstr "Nieuwe pijpleiding"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

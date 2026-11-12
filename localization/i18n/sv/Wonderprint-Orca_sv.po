@@ -22392,6 +22392,12 @@ msgstr "Inaktivera alternerande fyllningsriktning när du använder "
 msgid "Z contouring"
 msgstr "Z-kontur"
 
+msgid "New pipe"
+msgstr "Nytt rör"
+
+msgid "New pipeline"
+msgstr "Ny pipeline"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

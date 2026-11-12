@@ -21809,6 +21809,12 @@ msgstr "Вимкніть змінний напрямок заповнення п
 msgid "Z contouring"
 msgstr "Z контурування"
 
+msgid "New pipe"
+msgstr "Нова труба"
+
+msgid "New pipeline"
+msgstr "Новий трубопровід"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Якщо ви хочете спробувати бета-версію Wonderprint-Orca, ви можете "

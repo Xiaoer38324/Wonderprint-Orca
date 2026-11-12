@@ -1077,12 +1077,10 @@ void GLGizmoMmuSegmentation::update_used_filaments()
 {
     m_used_filaments.clear();
 
-    // Add base extruder IDs from volumes (unpainted areas)
+    // Base volume extruders are used by unpainted areas. They must be listed so
+    // a fresh, unpainted object still offers its default filament in the remap
+    // panel.
     for (int ext_id : m_volumes_extruder_idxs) {
-        // ext_id is 1-based (1 = Extruder 1), 0 = Default (usually maps to first available or object default)
-        // Here we assume 0 maps to index 0 (Extruder 1) for simplicity in display, 
-        // or we should check logic in init_model_triangle_selectors where it does:
-        // int extruder_idx = (mv->extruder_id() > 0) ? mv->extruder_id() - 1 : 0;
         int idx = (ext_id > 0) ? ext_id - 1 : 0;
         if (idx >= 0 && idx < m_extruders_colors.size())
              m_used_filaments.insert((size_t)idx);
@@ -1298,15 +1296,19 @@ void GLGizmoMmuSegmentation::remap_filament_assignments()
     for (size_t i = 0; i <= MAX_EBT; ++i)
         state_map[i] = static_cast<EnforcerBlockerType>(i);
 
-    size_t n_extr = std::min(m_extruder_remap.size(), MAX_EBT);
-    const int start_extruder = (int) EnforcerBlockerType::Extruder1;
+    size_t n_extr = std::min<size_t>(m_extruder_remap.size(), m_extruders_colors.size());
     bool   any_change = false;
     for (size_t src = 0; src < n_extr; ++src) {
-        size_t dst = m_extruder_remap[src];
-        if (dst != src) {
-            state_map[src+start_extruder] = static_cast<EnforcerBlockerType>(dst+start_extruder);
-            any_change     = true;
-        }
+        const size_t dst = m_extruder_remap[src];
+        if (dst >= m_extruders_colors.size() || dst == src)
+            continue;
+
+        const unsigned int src_state = static_cast<unsigned int>(src) + 1;
+        const unsigned int dst_state = static_cast<unsigned int>(dst) + 1;
+        state_map[src_state] = static_cast<EnforcerBlockerType>(dst_state);
+        if (src_state == 1)
+            state_map[0] = static_cast<EnforcerBlockerType>(dst_state);
+        any_change = true;
     }
     if (!any_change)
         return;
@@ -1320,52 +1322,37 @@ void GLGizmoMmuSegmentation::remap_filament_assignments()
     ModelObject* mo = m_c->selection_info()->model_object();
     if (!mo) return;
 
-    bool volume_extruder_changed = false;
-
     for (ModelVolume* mv : mo->volumes) {
         if (!mv->is_model_part()) continue;
         ++idx;
         TriangleSelectorGUI* ts = m_triangle_selectors[idx].get();
         if (!ts) continue;
 
-        // Remap painted triangles
+        // Remap painted triangles (including the default/unpainted state 0).
         ts->remap_triangle_state(state_map);
         ts->request_update_render_data(true);
 
-        // ORCA: Remap base volume extruder as well if selected
-        int current_ext_id = mv->extruder_id();
-        int current_idx = (current_ext_id > 0) ? current_ext_id - 1 : 0;
-
-        if (current_idx >= 0 && current_idx < m_extruder_remap.size()) {
-            size_t dest_idx = m_extruder_remap[current_idx];
-            if (dest_idx != current_idx) {
-                // Check if volume has its own extruder config or uses object's fallback                                                                                                                                            
-                const ConfigOption *vol_opt = mv->config.option("extruder");                                                                                                                                                        
-                if (vol_opt != nullptr && vol_opt->getInt() != 0) {                                                                                                                                                                 
-                    // Volume has its own extruder setting, update it                                                                                                                                                               
-                    mv->config.set("extruder", (int)dest_idx + 1);                                                                                                                                                                  
-                } else {                                                                                                                                                                                                            
-                    // Volume uses object's extruder setting, update the object                                                                                                                                                     
-                    mo->config.set("extruder", (int)dest_idx + 1);                                                                                                                                                                  
-                }      
-                if (idx < m_volumes_extruder_idxs.size())
-                    m_volumes_extruder_idxs[idx] = (int)dest_idx + 1;
-                volume_extruder_changed = true;
+        // Remap the base volume extruder as well, otherwise unpainted areas
+        // keep the old filament (e.g. 1) after 1 -> 5 and the old entry never
+        // disappears from the remap list.
+        const int base_id = (mv->extruder_id() > 0) ? mv->extruder_id() : mo->config.extruder();
+        if (base_id > 0 && size_t(base_id) <= m_extruder_remap.size()) {
+            const size_t dest_idx = m_extruder_remap[size_t(base_id - 1)];
+            const int    new_id   = int(dest_idx) + 1;
+            if (new_id != base_id) {
+                const ConfigOption* vol_opt = mv->config.option("extruder");
+                if (vol_opt != nullptr && vol_opt->getInt() != 0)
+                    mv->config.set("extruder", new_id);
+                else
+                    mo->config.set("extruder", new_id);
+                if (idx < (int)m_volumes_extruder_idxs.size())
+                    m_volumes_extruder_idxs[idx] = new_id;
             }
         }
-
         updated = true;
     }
 
     if (updated) {
-        // ORCA: Update renderer colors if base volume extruder changed
-        if (volume_extruder_changed) {
-            this->update_triangle_selectors_colors();
-            // ORCA: Update GUI_ObjectList extruder column to reflect the new extruder value
-            wxGetApp().obj_list()->update_objects_list_filament_column(wxGetApp().filaments_cnt());
-        }
-
-        // ORCA: Removed "Filament remapping finished" notification to reduce UI noise.
         update_model_object();
         m_parent.set_as_dirty();
         

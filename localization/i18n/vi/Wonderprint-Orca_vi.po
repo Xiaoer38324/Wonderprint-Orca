@@ -22163,6 +22163,12 @@ msgstr "Tắt hướng tô xen kẽ khi sử dụng đường viền Z."
 msgid "Z contouring"
 msgstr "Đường viền chữ Z"
 
+msgid "New pipe"
+msgstr "Ống mới"
+
+msgid "New pipeline"
+msgstr "Đường ống mới"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

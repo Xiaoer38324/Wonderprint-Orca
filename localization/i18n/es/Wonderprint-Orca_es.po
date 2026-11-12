@@ -23052,6 +23052,12 @@ msgstr "Desactive la dirección de relleno alternante cuando utilice el "
 msgid "Z contouring"
 msgstr "Contorno Z"
 
+msgid "New pipe"
+msgstr "Tuberia nueva"
+
+msgid "New pipeline"
+msgstr "Nuevo oleoducto"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si desea probar Wonderprint-Orca Beta, puede hacer clic para"
 

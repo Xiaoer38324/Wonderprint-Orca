@@ -22618,6 +22618,12 @@ msgstr "Išjunkite kintamą užpildymo kryptį, kai naudojate Z kontūrą."
 msgid "Z contouring"
 msgstr "Z kontūravimas"
 
+msgid "New pipe"
+msgstr "Naujas vamzdis"
+
+msgid "New pipeline"
+msgstr "Naujas vamzdynas"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

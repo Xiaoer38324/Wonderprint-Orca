@@ -23056,6 +23056,12 @@ msgstr "Deaktivieren Sie die wechselnde Füllrichtung, wenn Sie die "
 msgid "Z contouring"
 msgstr "Z-Konturierung"
 
+msgid "New pipe"
+msgstr "Neues Rohr"
+
+msgid "New pipeline"
+msgstr "Neue Pipeline"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Wenn Sie Wonderprint-Orca Beta ausprobieren möchten, können Sie hier "

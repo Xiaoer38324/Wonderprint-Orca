@@ -19853,6 +19853,12 @@ msgstr "Disable alternating fill direction when using Z contouring."
 msgid "Z contouring"
 msgstr "Z contouring"
 
+msgid "New pipe"
+msgstr "New pipe"
+
+msgid "New pipeline"
+msgstr "New pipeline"
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

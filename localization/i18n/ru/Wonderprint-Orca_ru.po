@@ -23486,6 +23486,12 @@ msgstr "Отключите чередование направления зал�
 msgid "Z contouring"
 msgstr "Z-контуринг"
 
+msgid "New pipe"
+msgstr "Новая труба"
+
+msgid "New pipeline"
+msgstr "Новый трубопровод"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Нажмите, если хотите попробовать бета-версию Wonderprint-Orca:"
 

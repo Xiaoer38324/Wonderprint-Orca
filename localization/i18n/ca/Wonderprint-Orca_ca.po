@@ -22951,6 +22951,12 @@ msgstr "Desactiveu la direcció d'ompliment alternant quan utilitzeu el contorn 
 msgid "Z contouring"
 msgstr "Contorn Z"
 
+msgid "New pipe"
+msgstr "Pipa nova"
+
+msgid "New pipeline"
+msgstr "Nova canonada"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 
