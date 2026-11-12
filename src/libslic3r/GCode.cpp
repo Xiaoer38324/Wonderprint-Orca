@@ -4971,12 +4971,19 @@ LayerResult GCode::process_layer(
                         local_z_layer_contexts[support_layer_idx].enabled;
                     const bool mixing_active = print.mixed_filament_manager().enabled_count() > 0;
                     if (local_z_on_layer || mixing_active) {
+                        // Support must not inherit a mixed/virtual component. Use the
+                        // layer's first physical extruder instead of hard-coding
+                        // filament 1: filament 1 may not be part of this layer's
+                        // tool list, which made the support disappear entirely.
+                        const unsigned int physical_support_extruder = !layer_tools.extruders.empty()
+                            ? layer_tools.extruders.front()
+                            : first_extruder_id;
                         if (support_dontcare) {
-                            support_extruder = 0;
+                            support_extruder = physical_support_extruder;
                             support_dontcare = false;
                         }
                         if (interface_dontcare) {
-                            interface_extruder = 0;
+                            interface_extruder = physical_support_extruder;
                             interface_dontcare = false;
                         }
                     }

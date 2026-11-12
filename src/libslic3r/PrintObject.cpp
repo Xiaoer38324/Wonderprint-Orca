@@ -827,6 +827,12 @@ void PrintObject::generate_support_material()
 {
     if (this->set_started(posSupportMaterial)) {
         this->clear_support_layers();
+        BOOST_LOG_TRIVIAL(warning) << "[SupportExtruder] generate_support object="
+                                   << (model_object() != nullptr ? model_object()->name : std::string("<none>"))
+                                   << " has_support=" << has_support()
+                                   << " support_filament=" << m_config.support_filament.value
+                                   << " support_interface_filament=" << m_config.support_interface_filament.value
+                                   << " layers=" << m_layers.size();
 
         if(!has_support() && !m_print->get_no_check_flag()) {
             // BBS: pop a warning if objects have significant amount of overhangs but support material is not enabled
@@ -864,6 +870,7 @@ void PrintObject::generate_support_material()
             m_print->set_status(50, L("Generating support"));
 
             this->_generate_support_material();
+            BOOST_LOG_TRIVIAL(warning) << "[SupportExtruder] generated support layers=" << m_support_layers.size();
             m_print->throw_if_canceled();
         }
         this->set_done(posSupportMaterial);
@@ -3372,8 +3379,15 @@ PrintObjectConfig PrintObject::object_config_from_model_object(const PrintObject
         config.apply(src_normalized, true);
     }
     // Clamp invalid extruders to the default extruder (with index 1).
+    BOOST_LOG_TRIVIAL(warning) << "[SupportExtruder] object=" << object.name
+                            << " num_extruders=" << num_extruders
+                            << " support_filament=" << config.support_filament.value
+                            << " support_interface_filament=" << config.support_interface_filament.value
+                            << " object_extruder=" << (object.config.has("extruder") ? object.config.opt_int("extruder") : -1);
     clamp_exturder_to_default(config.support_filament,           num_extruders);
     clamp_exturder_to_default(config.support_interface_filament, num_extruders);
+    BOOST_LOG_TRIVIAL(warning) << "[SupportExtruder] after clamp support_filament=" << config.support_filament.value
+                            << " support_interface_filament=" << config.support_interface_filament.value;
     return config;
 }
 
@@ -3478,6 +3492,10 @@ SlicingParameters PrintObject::slicing_parameters(const DynamicPrintConfig &full
 	default_region_config.apply(full_config, true);
     // BBS
 	size_t              filament_extruders = print_config.filament_diameter.size();
+	BOOST_LOG_TRIVIAL(warning) << "[SupportExtruder] slicing_parameters object=" << model_object.name
+	                        << " filament_extruders=" << filament_extruders
+	                        << " filament_colour=" << print_config.filament_colour.size()
+	                        << " nozzle_diameter=" << print_config.nozzle_diameter.size();
 	object_config = object_config_from_model_object(object_config, model_object, filament_extruders);
 
 	std::vector<unsigned int> object_extruders;
