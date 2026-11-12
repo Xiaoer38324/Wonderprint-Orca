@@ -1072,29 +1072,52 @@ void GLMmSegmentationGizmo3DScene::finalize_triangle_indices()
     }
 }
 
-// ORCA: Update the cache of used filaments (both base volume extruders and painted triangles)
+// ORCA: Refresh the filaments used by the model.
+// Do NOT serialize/iterate triangle selectors here: that copies the whole
+// triangle bitstream on every paint stroke and is very slow for large meshes.
+// FacetsAnnotation keeps "used_states" incrementally up to date, so this is
+// O(volumes * filament states), not O(triangles).
 void GLGizmoMmuSegmentation::update_used_filaments()
 {
     m_used_filaments.clear();
 
-    // Base volume extruders are used by unpainted areas. They must be listed so
-    // a fresh, unpainted object still offers its default filament in the remap
-    // panel.
-    for (int ext_id : m_volumes_extruder_idxs) {
-        int idx = (ext_id > 0) ? ext_id - 1 : 0;
-        if (idx >= 0 && idx < m_extruders_colors.size())
-             m_used_filaments.insert((size_t)idx);
+    const ModelObject *mo = m_c->selection_info()->model_object();
+    if (mo == nullptr)
+        return;
+
+    bool has_unpainted = false;
+    for (const ModelVolume *mv : mo->volumes) {
+        if (!mv->is_model_part() || mv->mmu_segmentation_facets.empty())
+            continue;
+        const TriangleSelector::TriangleSplittingData &data = mv->mmu_segmentation_facets.get_data();
+        if (!data.used_states.empty() && data.used_states[0])
+            has_unpainted = true;
+        for (size_t state = size_t(EnforcerBlockerType::Extruder1); state < data.used_states.size(); ++state) {
+            if (!data.used_states[state])
+                continue;
+            const size_t idx = state - size_t(EnforcerBlockerType::Extruder1);
+            if (idx < m_extruders_colors.size())
+                m_used_filaments.insert(idx);
+        }
     }
 
-    // Add painted states
-    for (const auto& selector : m_triangle_selectors) {
-        if (!selector) continue;
-        TriangleSelector::TriangleSplittingData data = selector->serialize();
-        std::vector<EnforcerBlockerType> states = TriangleSelector::extract_used_facet_states(data);
-        for (EnforcerBlockerType s : states) {
-             int idx = (int)s - (int)EnforcerBlockerType::Extruder1;
-             if (idx >= 0 && idx < m_extruders_colors.size())
-                 m_used_filaments.insert((size_t)idx);
+    // A volume without any segmentation data uses its base extruder. This also
+    // covers a fully unpainted object.
+    if (m_used_filaments.empty() || has_unpainted) {
+        const int object_extruder = mo->config.has("extruder") ? mo->config.opt_int("extruder") : 1;
+        for (const ModelVolume *mv : mo->volumes) {
+            if (!mv->is_model_part())
+                continue;
+            if (!mv->mmu_segmentation_facets.empty() && !has_unpainted)
+                continue;
+            int base_extruder = mv->extruder_id();
+            if (base_extruder <= 0)
+                base_extruder = object_extruder;
+            if (base_extruder <= 0)
+                base_extruder = 1;
+            const int idx = base_extruder - 1;
+            if (idx >= 0 && idx < int(m_extruders_colors.size()))
+                m_used_filaments.insert(size_t(idx));
         }
     }
 }
