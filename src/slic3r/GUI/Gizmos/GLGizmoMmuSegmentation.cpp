@@ -844,7 +844,13 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
         if (!mv->is_model_part())
             continue;
 
-        int extruder_idx = (mv->extruder_id() > 0) ? mv->extruder_id() - 1 : 0;
+        int base_extruder = mv->extruder_id();
+        if (base_extruder <= 0 && mo->config.has("extruder"))
+            base_extruder = mo->config.opt_int("extruder");
+        if (base_extruder <= 0)
+            base_extruder = 1;
+
+        const int extruder_idx = base_extruder - 1;
         std::vector<ColorRGBA> ebt_colors;
         ebt_colors.push_back(m_extruders_colors[size_t(extruder_idx)]);
         ebt_colors.insert(ebt_colors.end(), m_extruders_colors.begin(), m_extruders_colors.end());
@@ -857,7 +863,7 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
         m_triangle_selectors.back()->deserialize(mv->mmu_segmentation_facets.get_data(), false, max_ebt);
         m_triangle_selectors.back()->request_update_render_data();
         m_triangle_selectors.back()->set_wireframe_needed(true);
-        m_volumes_extruder_idxs.push_back(mv->extruder_id());
+        m_volumes_extruder_idxs.push_back(base_extruder);
     }
 }
 
@@ -1072,21 +1078,14 @@ void GLMmSegmentationGizmo3DScene::finalize_triangle_indices()
     }
 }
 
-// ORCA: Update the cache of used filaments (both base volume extruders and painted triangles)
+// ORCA: Update the cache of used filaments.
+// The remap list follows what the model actually uses: painted states first.
+// Only when nothing is painted do we fall back to the effective base extruder
+// of the volumes (volume extruder, else object extruder, else 1).
 void GLGizmoMmuSegmentation::update_used_filaments()
 {
     m_used_filaments.clear();
 
-    // Base volume extruders are used by unpainted areas. They must be listed so
-    // a fresh, unpainted object still offers its default filament in the remap
-    // panel.
-    for (int ext_id : m_volumes_extruder_idxs) {
-        int idx = (ext_id > 0) ? ext_id - 1 : 0;
-        if (idx >= 0 && idx < m_extruders_colors.size())
-             m_used_filaments.insert((size_t)idx);
-    }
-
-    // Add painted states
     for (const auto& selector : m_triangle_selectors) {
         if (!selector) continue;
         TriangleSelector::TriangleSplittingData data = selector->serialize();
@@ -1095,6 +1094,14 @@ void GLGizmoMmuSegmentation::update_used_filaments()
              int idx = (int)s - (int)EnforcerBlockerType::Extruder1;
              if (idx >= 0 && idx < m_extruders_colors.size())
                  m_used_filaments.insert((size_t)idx);
+        }
+    }
+
+    if (m_used_filaments.empty()) {
+        for (int ext_id : m_volumes_extruder_idxs) {
+            int idx = (ext_id > 0) ? ext_id - 1 : 0;
+            if (idx >= 0 && idx < m_extruders_colors.size())
+                m_used_filaments.insert((size_t)idx);
         }
     }
 }
