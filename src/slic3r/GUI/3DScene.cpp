@@ -858,6 +858,44 @@ void GLVolumeCollection::load_object_auxiliary(
     }
 }
 
+// Orca: wipe tower previews are painted with the real physical components of
+// the virtual Color Mixing filaments instead of their blended display color.
+static std::vector<int> wipe_tower_physical_extruders(const std::vector<int> &plate_extruders, size_t num_physical)
+{
+    std::vector<int> out;
+    auto push = [&out](int id) {
+        if (id > 0 && std::find(out.begin(), out.end(), id) == out.end())
+            out.push_back(id);
+    };
+
+    if (num_physical == 0)
+        return out;
+
+    const PresetBundle *preset_bundle = GUI::wxGetApp().preset_bundle;
+    for (int extruder_id : plate_extruders) {
+        if (extruder_id <= 0)
+            continue;
+        if (size_t(extruder_id) <= num_physical) {
+            push(extruder_id);
+            continue;
+        }
+        const MixedFilament *mixed = preset_bundle != nullptr
+            ? preset_bundle->mixed_filaments.mixed_filament_from_id(unsigned(extruder_id), num_physical)
+            : nullptr;
+        if (mixed == nullptr) {
+            push(1);
+            continue;
+        }
+        push(int(mixed->component_a));
+        push(int(mixed->component_b));
+        for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed->gradient_component_ids, num_physical))
+            push(int(id));
+    }
+    if (out.empty())
+        out.push_back(1);
+    return out;
+}
+
 int GLVolumeCollection::load_wipe_tower_preview(
     int obj_idx, float pos_x, float pos_y, float width, float depth, float height,
     float rotation_angle, bool size_unknown, float brim_width)
@@ -869,16 +907,18 @@ int GLVolumeCollection::load_wipe_tower_preview(
     if (height == 0.0f)
         height = 0.1f;
 
-    std::vector<ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(true);
+    std::vector<ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(false);
     std::vector<ColorRGBA> colors;
     GUI::PartPlateList& ppl = GUI::wxGetApp().plater()->get_partplate_list();
     std::vector<int> plate_extruders = ppl.get_plate(plate_idx)->get_extruders(true);
+    const std::vector<int> physical_extruders =
+        wipe_tower_physical_extruders(plate_extruders, extruder_colors.size());
     TriangleMesh wipe_tower_shell = make_cube(width, depth, height);
-    for (int extruder_id : plate_extruders) {
-        if (extruder_id <= extruder_colors.size())
-            colors.push_back(extruder_colors[extruder_id - 1]);
-        else
-            colors.push_back(extruder_colors[0]);
+    for (int extruder_id : physical_extruders) {
+        if (extruder_id > 0 && size_t(extruder_id) <= extruder_colors.size())
+            colors.push_back(extruder_colors[size_t(extruder_id - 1)]);
+        else if (!extruder_colors.empty())
+            colors.push_back(extruder_colors.front());
     }
 
     // Orca: make it transparent
@@ -911,15 +951,18 @@ int GLVolumeCollection::load_real_wipe_tower_preview(
     int plate_idx = obj_idx - 1000;
     if (wt_mesh.its.vertices.empty()) return int(this->volumes.size() - 1);
 
-    std::vector<Slic3r::ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(true);
+    std::vector<Slic3r::ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(false);
     GUI::PartPlateList               &ppl              = GUI::wxGetApp().plater()->get_partplate_list();
     std::vector<int>                  plate_extruders  = ppl.get_plate(plate_idx)->get_extruders(true);
+    const std::vector<int>            physical_extruders =
+        wipe_tower_physical_extruders(plate_extruders, extruder_colors.size());
     std::vector<Slic3r::ColorRGBA>    colors;
-    if (!plate_extruders.empty()) {
-        if (plate_extruders.front() <= extruder_colors.size())
-            colors.push_back(extruder_colors[plate_extruders.front() - 1]);
-        else
-            colors.push_back(extruder_colors[0]);
+    if (!physical_extruders.empty()) {
+        const int extruder_id = physical_extruders.front();
+        if (extruder_id > 0 && size_t(extruder_id) <= extruder_colors.size())
+            colors.push_back(extruder_colors[size_t(extruder_id - 1)]);
+        else if (!extruder_colors.empty())
+            colors.push_back(extruder_colors.front());
     }
     if (colors.empty()) return int(this->volumes.size() - 1);
     volumes.emplace_back(new GLWipeTowerVolume({colors}));
