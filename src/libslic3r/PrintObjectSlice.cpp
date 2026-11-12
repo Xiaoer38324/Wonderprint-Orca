@@ -938,22 +938,6 @@ static bool local_z_gradient_row_eligible(const MixedFilament &mf, size_t num_ph
            mf.component_b >= 1 && mf.component_b <= num_physical;
 }
 
-// Quantize the split to 0.01 mm. This keeps pass planes from different mixed
-// rows on a shared grid, so the scheduler can merge them into one tool session.
-static void local_z_quantize_gradient_heights(double base_height, double &h_a, double &h_b)
-{
-    constexpr double step = 0.01;
-    if (base_height <= 2.0 * step + EPSILON) {
-        h_a = base_height * 0.5;
-        h_b = base_height - h_a;
-        return;
-    }
-    double b = std::round(h_b / step) * step;
-    b = std::clamp(b, step, base_height - step);
-    h_b = b;
-    h_a = base_height - b;
-}
-
 static ExPolygons local_z_plan_mask(const SubLayerPlan &plan)
 {
     ExPolygons mask;
@@ -981,7 +965,7 @@ static int local_z_plan_extruder(const SubLayerPlan &plan)
 // when their painted masks overlap; otherwise they may be printed in the same
 // tool session. Within a session the ready passes are printed bottom-to-top.
 static void schedule_local_z_passes(std::vector<SubLayerPlan> &plans, size_t begin, size_t end,
-                                    int &last_tool, int preferred_last_tool)
+                                    int &last_tool)
 {
     const size_t n = end - begin;
     if (n <= 1)
@@ -1053,37 +1037,6 @@ static void schedule_local_z_passes(std::vector<SubLayerPlan> &plans, size_t beg
         }
 
         int tool = -1;
-        if (ready.size() == n - order.size()) {
-            // No dependencies remain. Finish with the tool that starts the
-            // normal 0.2 mm layer, so the next main-layer print needs no
-            // additional change.
-            std::map<int, std::vector<size_t>> groups;
-            for (size_t idx : ready)
-                groups[tools[idx]].push_back(idx);
-            for (auto &kv : groups)
-                std::sort(kv.second.begin(), kv.second.end(), [&](size_t a, size_t b) {
-                    return plans[begin + a].print_z < plans[begin + b].print_z;
-                });
-            auto emit_group = [&](int group_tool) {
-                auto it = groups.find(group_tool);
-                if (it == groups.end())
-                    return;
-                for (size_t idx : it->second) {
-                    if (done[idx])
-                        continue;
-                    order.push_back(idx);
-                    done[idx] = 1;
-                }
-                current_tool = group_tool;
-            };
-            for (const auto &kv : groups)
-                if (kv.first != preferred_last_tool)
-                    emit_group(kv.first);
-            if (groups.count(preferred_last_tool))
-                emit_group(preferred_last_tool);
-            break;
-        }
-
         if (current_tool >= 0)
             for (size_t idx : ready)
                 if (tools[idx] == current_tool) {
@@ -1260,8 +1213,6 @@ static void build_local_z_plan(PrintObject &print_object,
     double h_b_min = 1e9, h_b_max = -1e9;
     double r_a_min = 1e9, r_a_max = -1e9;
     int    last_local_z_tool = -1;
-    const std::vector<unsigned int> object_extruders = print_object.object_extruders();
-    const int preferred_main_tool = object_extruders.empty() ? -1 : int(object_extruders.front());
 
     for (size_t layer_idx = 0; layer_idx < print_object.layer_count(); ++layer_idx) {
         throw_on_cancel();
@@ -1368,7 +1319,6 @@ static void build_local_z_plan(PrintObject &print_object,
                 note_unsplit_layer("pass heights outside Local-Z bounds");
                 continue;
             }
-            local_z_quantize_gradient_heights(layer.height, h_a, h_b);
 
             h_a_min = std::min(h_a_min, h_a);
             h_a_max = std::max(h_a_max, h_a);
@@ -1410,7 +1360,7 @@ static void build_local_z_plan(PrintObject &print_object,
         // Schedule the passes of all rows together. Passes whose painted masks
         // do not overlap may be reordered to keep the same tool active; only
         // overlapping passes keep a strict bottom-to-top dependency.
-        schedule_local_z_passes(plans, plans_before, plans.size(), last_local_z_tool, preferred_main_tool);
+        schedule_local_z_passes(plans, plans_before, plans.size(), last_local_z_tool);
 
         if (interval.sublayer_count > 1) {
             intervals.emplace_back(std::move(interval));
