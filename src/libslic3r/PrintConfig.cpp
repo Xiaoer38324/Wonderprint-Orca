@@ -8345,7 +8345,20 @@ static void extend_extruder_variant(DynamicPrintConfig& config, const unsigned i
     }
     auto extruder_variant_opt = dynamic_cast<ConfigOptionStrings*>(config.option("extruder_variant_list"));
     assert(extruder_variant_opt != nullptr);
-    extruder_variant_opt->resize(num_extruders, extruder_variant_opt); // Use the first option as the default value, so all extruders have the same variant
+    // Fill every extruder with the first variant. ConfigOptionVector::resize()
+    // may leave the appended entries empty, which then makes
+    // printer_extruder_variant contain only the first extruder and the lookup
+    // for extruders 2..N fail.
+    const std::string default_variant = extruder_variant_opt->values.empty()
+        ? std::string("Direct Drive Standard") : extruder_variant_opt->values.front();
+    extruder_variant_opt->values.resize(num_extruders, default_variant);
+    {
+        std::string list;
+        for (const std::string &v : extruder_variant_opt->values)
+            list += "[" + v + "]";
+        BOOST_LOG_TRIVIAL(warning) << "[ExtruderVariant] extend num_extruders=" << num_extruders
+                                   << " list=" << list;
+    }
 
     // 2. Update `printer_extruder_variant` and `printer_extruder_id` based on `extruder_variant_list`
     auto printer_extruder_id_opt = dynamic_cast<ConfigOptionInts*>(config.option("printer_extruder_id"));
@@ -8366,6 +8379,11 @@ static void extend_extruder_variant(DynamicPrintConfig& config, const unsigned i
             printer_extruder_variant_opt->values.insert(printer_extruder_variant_opt->values.end(), variants_list.begin(), variants_list.end());
         }
     }
+
+    // NOTE: print_extruder_id / print_extruder_variant live in the print
+    // settings, not in the printer preset. Creating them here made the preset
+    // loader report "incorrect keys ... which were removed". They are generated
+    // on demand in update_values_to_printer_extruders() instead.
 }
 
 void DynamicPrintConfig::set_num_extruders(unsigned int num_extruders)
@@ -8571,6 +8589,19 @@ int DynamicPrintConfig::get_index_for_extruder(int extruder_or_filament_id, std:
 
             }
         }
+    }
+    if (ret < 0) {
+        std::string available;
+        if (variant_opt != nullptr) {
+            for (const std::string &v : variant_opt->values)
+                available += "[" + v + "]";
+        }
+        BOOST_LOG_TRIVIAL(warning) << "[ExtruderVariant] lookup failed variant_name=" << variant_name
+                                   << " id=" << extruder_or_filament_id
+                                   << " type=" << int(extruder_type)
+                                   << " volume=" << int(nozzle_volume_type)
+                                   << " wanted=" << get_extruder_variant_string(extruder_type, nozzle_volume_type)
+                                   << " available=" << available;
     }
     return ret;
 }
@@ -9166,13 +9197,27 @@ void DynamicPrintConfig::update_values_to_printer_extruders(DynamicPrintConfig& 
         auto opt_nozzle_volume_type = dynamic_cast<const ConfigOptionEnumsGeneric*>(printer_config.option("nozzle_volume_type"));
         std::vector<int> variant_index;
 
+        // Custom multi-extruder profiles do not carry print_extruder_variant /
+        // print_extruder_id (those are print settings, not printer preset keys).
+        // Fall back to the printer variant tables, which extend_extruder_variant()
+        // generated for every extruder.
+        std::string effective_variant_name = variant_name;
+        std::string effective_id_name      = id_name;
+        if (variant_name == "print_extruder_variant") {
+            const auto *print_variants = this->option<ConfigOptionStrings>(variant_name);
+            if (print_variants == nullptr || print_variants->size() < size_t(extruder_count)) {
+                effective_variant_name = "printer_extruder_variant";
+                effective_id_name      = "printer_extruder_id";
+            }
+        }
+
         if (extruder_id > 0 && extruder_id <= static_cast<unsigned> (extruder_count)) {
             variant_index.resize(1);
             ExtruderType extruder_type = (ExtruderType)(opt_extruder_type->get_at(extruder_id - 1));
             NozzleVolumeType nozzle_volume_type = (NozzleVolumeType)(opt_nozzle_volume_type->get_at(extruder_id - 1));
 
             //variant index
-            variant_index[0] = get_index_for_extruder(extruder_id, id_name, extruder_type, nozzle_volume_type, variant_name);
+            variant_index[0] = get_index_for_extruder(extruder_id, effective_id_name, extruder_type, nozzle_volume_type, effective_variant_name);
 
             if (variant_index[0] < 0) {
                 BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(", Line %1%: could not found extruder_type %2%, nozzle_volume_type %3%, for filament")
@@ -9191,7 +9236,7 @@ void DynamicPrintConfig::update_values_to_printer_extruders(DynamicPrintConfig& 
                 NozzleVolumeType nozzle_volume_type = (NozzleVolumeType)(opt_nozzle_volume_type->get_at(e_index));
 
                 //variant index
-                variant_index[e_index] = get_index_for_extruder(e_index+1, id_name, extruder_type, nozzle_volume_type, variant_name);
+                variant_index[e_index] = get_index_for_extruder(e_index+1, effective_id_name, extruder_type, nozzle_volume_type, effective_variant_name);
                 if (variant_index[e_index] < 0) {
                     BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(", Line %1%: could not found extruder_type %2%, nozzle_volume_type %3%, extruder_index %4%")
                         %__LINE__ %s_keys_names_ExtruderType[extruder_type] % s_keys_names_NozzleVolumeType[nozzle_volume_type] % (e_index+1);
