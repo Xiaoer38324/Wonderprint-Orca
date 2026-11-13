@@ -476,6 +476,25 @@ std::vector<unsigned int> Print::object_extruders() const
         }
     }
     sort_remove_duplicates(extruders);
+
+    // Orca: virtual Color Mixing filaments are numbered after the physical ones and are printed by
+    // their physical components only. Replace them here so that the G-code generator, the wipe
+    // tower decision and the statistics never see an extruder id the printer does not have.
+    const size_t num_physical = m_config.filament_colour.size();
+    if (num_physical > 0 && !extruders.empty()) {
+        std::vector<int> ids_1based;
+        ids_1based.reserve(extruders.size());
+        for (unsigned int id : extruders)
+            ids_1based.push_back(int(id) + 1);
+        m_mixed_filament_mgr.expand_virtual_extruder_ids(ids_1based, num_physical);
+        extruders.clear();
+        for (int id : ids_1based)
+            if (id >= 1 && size_t(id) <= num_physical)
+                extruders.push_back(unsigned(id - 1));
+        sort_remove_duplicates(extruders);
+        if (extruders.empty())
+            extruders.push_back(0);
+    }
     return extruders;
 }
 

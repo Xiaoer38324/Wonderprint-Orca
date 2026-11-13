@@ -74,7 +74,7 @@ wxBitmap create_scaled_bitmap(const std::string& bmp_name, wxWindow *win = nullp
 #endif
 
 wxBitmap* get_default_extruder_color_icon(bool thin_icon = false);
-std::vector<wxBitmap *> get_extruder_color_icons(bool thin_icon = false);
+std::vector<wxBitmap *> get_extruder_color_icons(bool thin_icon = false, bool include_virtual = false);
 wxBitmap * get_extruder_color_icon(std::string color, std::string label, int icon_width, int icon_height);
 wxBitmap * get_extruder_color_icon(std::vector<std::string> colors, bool is_gradient, std::string label, int icon_width, int icon_height);
 std::vector<std::vector<std::string>> read_color_pack(std::vector<std::string> color_pack);
@@ -90,7 +90,8 @@ void apply_extruder_selector(Slic3r::GUI::BitmapComboBox** ctrl,
                              const std::string& first_item = "",
                              wxPoint pos = wxDefaultPosition,
                              wxSize size = wxDefaultSize,
-                             bool use_thin_icon = false);
+                             bool use_thin_icon = false,
+                             bool include_virtual = false);
 
 class wxCheckListBoxComboPopup : public wxCheckListBox, public wxComboPopup
 {

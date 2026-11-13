@@ -421,7 +421,8 @@ void ObjectDataViewModelNode::UpdateExtruderAndColorIcon(wxString extruder /*= "
 
     if (extruder_idx > 0) --extruder_idx;
     // Create the bitmap with color bars.
-    std::vector<wxBitmap*> bmps = get_extruder_color_icons(false);// use wide icons
+    // Orca: include the virtual Color Mixing filaments, they are numbered after the physical ones.
+    std::vector<wxBitmap*> bmps = get_extruder_color_icons(false, /*include_virtual=*/true);// use wide icons
     if (bmps.empty()) {
         m_extruder_bmp = wxNullBitmap;
         return;

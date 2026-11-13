@@ -1772,9 +1772,40 @@ void PrintObject::slice_volumes()
     this->apply_conical_overhang();
 
     // Is any ModelVolume multi-material painted?
-    if (const auto& volumes = this->model_object()->volumes;
-        m_print->config().filament_colour.size() > 1 && // Orca: painted states index filament_colour
-        std::find_if(volumes.begin(), volumes.end(), [](const ModelVolume* v) { return !v->mmu_segmentation_facets.empty(); }) != volumes.end()) {
+    const auto  &volumes               = this->model_object()->volumes;
+    const size_t num_physical_filaments = m_print->config().filament_colour.size();
+    const bool   has_painted_facets =
+        std::find_if(volumes.begin(), volumes.end(), [](const ModelVolume* v) { return !v->mmu_segmentation_facets.empty(); }) != volumes.end();
+
+    // Orca: a volume that is *assigned* (not painted) to a virtual Color Mixing filament is sliced
+    // as if all of its facets were painted with that virtual filament: the masks are put into the
+    // virtual channel and collapsed onto the physical components per layer further below.
+    // A PrintRegion may be shared by several volumes, so only treat a region as virtual when none
+    // of its model parts prints a physical filament.
+    std::map<int, unsigned int> virtual_region_states;    // print_object_region_id -> virtual filament id
+    std::map<int, bool>         region_has_physical_part; // print_object_region_id -> see above
+    if (num_physical_filaments > 1) {
+        for (const PrintObjectRegions::LayerRangeRegions &layer_range : this->shared_regions()->layer_ranges)
+            for (const PrintObjectRegions::VolumeRegion &volume_region : layer_range.volume_regions) {
+                const ModelVolume *volume = volume_region.model_volume;
+                if (volume == nullptr || !volume->is_model_part())
+                    continue;
+                const int region_id   = volume_region.region->print_object_region_id();
+                const int extruder_id = volume->extruder_id();
+                // Ids above EnforcerBlockerType::ExtruderMax cannot be represented by a painted state.
+                if (extruder_id > 0 && size_t(extruder_id) > num_physical_filaments &&
+                    size_t(extruder_id) <= size_t(EnforcerBlockerType::ExtruderMax))
+                    virtual_region_states[region_id] = unsigned(extruder_id);
+                else
+                    region_has_physical_part[region_id] = true;
+            }
+        for (const auto &entry : region_has_physical_part)
+            virtual_region_states.erase(entry.first);
+    }
+    const bool has_virtual_regions = !virtual_region_states.empty();
+
+    if (num_physical_filaments > 1 && // Orca: painted states index filament_colour
+        (has_painted_facets || has_virtual_regions)) {
 
         // If XY Size compensation is also enabled, notify the user that XY Size compensation
         // would not be used because the object is multi-material painted.
@@ -1786,9 +1817,41 @@ void PrintObject::slice_volumes()
             BOOST_LOG_TRIVIAL(info) << "xy compensation will not work for object " << this->model_object()->name << " for multi filament.";
         }
 
-        BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
-        std::vector<std::vector<ExPolygons>> mm_segmentation =
-            multi_material_segmentation_by_painting(*this, [print]() { print->throw_if_canceled(); });
+        std::vector<std::vector<ExPolygons>> mm_segmentation;
+        if (has_painted_facets) {
+            BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - MMU segmentation";
+            mm_segmentation = multi_material_segmentation_by_painting(*this, [print]() { print->throw_if_canceled(); });
+        }
+        if (has_virtual_regions) {
+            BOOST_LOG_TRIVIAL(debug) << "Slicing volumes - virtual filament assignment segmentation";
+            const size_t channel_count = m_print->mixed_filament_manager().total_filaments(num_physical_filaments);
+            if (mm_segmentation.size() != m_layers.size())
+                mm_segmentation.assign(m_layers.size(), std::vector<ExPolygons>(channel_count));
+            for (size_t layer_idx = 0; layer_idx < m_layers.size(); ++layer_idx) {
+                if (mm_segmentation[layer_idx].size() < channel_count)
+                    mm_segmentation[layer_idx].resize(channel_count);
+                const Layer &layer = *m_layers[layer_idx];
+                for (int region_idx = 0; region_idx < int(layer.region_count()); ++region_idx) {
+                    const LayerRegion &layer_region = *layer.get_region(region_idx);
+                    const auto         it           = virtual_region_states.find(layer_region.region().print_object_region_id());
+                    if (it == virtual_region_states.end())
+                        continue;
+                    const size_t channel = size_t(it->second) - 1;
+                    if (channel < num_physical_filaments || channel >= mm_segmentation[layer_idx].size())
+                        continue;
+                    // Only the *unpainted* part of the volume belongs to the assigned virtual filament:
+                    // facets painted with another filament keep their own channel, otherwise the
+                    // virtual component would cover (and erase) the painted regions.
+                    ExPolygons painted;
+                    for (size_t any_channel = 0; any_channel < mm_segmentation[layer_idx].size(); ++any_channel)
+                        if (!mm_segmentation[layer_idx][any_channel].empty())
+                            expolygons_append(painted, mm_segmentation[layer_idx][any_channel]);
+                    ExPolygons volume_slices = to_expolygons(layer_region.slices.surfaces);
+                    ExPolygons unpainted     = painted.empty() ? std::move(volume_slices) : diff_ex(volume_slices, painted);
+                    expolygons_append(mm_segmentation[layer_idx][channel], std::move(unpainted));
+                }
+            }
+        }
         // Build the Local-Z plan from the raw painted masks before
         // apply_mm_segmentation collapses virtual channels into a single
         // physical component for this layer.

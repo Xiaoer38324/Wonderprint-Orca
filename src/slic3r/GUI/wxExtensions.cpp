@@ -20,6 +20,7 @@
 #include "../Utils/WxFontUtils.hpp"
 #include "FilamentBitmapUtils.hpp"
 #include "../Utils/ColorSpaceConvert.hpp"
+#include "libslic3r/PresetBundle.hpp"
 #ifndef __linux__
 // msw_menuitem_bitmaps is used for MSW and OSX
 static std::map<int, std::string> msw_menuitem_bitmaps;
@@ -529,7 +530,7 @@ wxBitmap* get_default_extruder_color_icon(bool thin_icon/* = false*/)
     return bitmap;
 }
 
-std::vector<wxBitmap*> get_extruder_color_icons(bool thin_icon/* = false*/)
+std::vector<wxBitmap*> get_extruder_color_icons(bool thin_icon/* = false*/, bool include_virtual/* = false*/)
 {
     // Create the bitmap with color bars.
     std::vector<wxBitmap*> bmps;
@@ -567,6 +568,20 @@ std::vector<wxBitmap*> get_extruder_color_icons(bool thin_icon/* = false*/)
         for (const auto &color : colors) {
             auto label = std::to_string(++index);
             bmps.push_back(get_extruder_color_icon(color, label, icon_width, icon_height));
+        }
+    }
+    // Orca: virtual Color Mixing filaments are numbered after the physical ones. Append their
+    // icons so the object list can assign a virtual filament to an object/volume as well.
+    if (include_virtual) {
+        if (Slic3r::PresetBundle *preset_bundle = Slic3r::GUI::wxGetApp().preset_bundle) {
+            const double em          = Slic3r::GUI::wxGetApp().em_unit();
+            const int    icon_width  = lround((thin_icon ? 2 : 4.4) * em);
+            const int    icon_height = lround(2 * em);
+            int          index       = int(bmps.size());
+            for (const std::string &color : preset_bundle->mixed_filaments.display_colors()) {
+                const std::string label = std::to_string(++index);
+                bmps.push_back(get_extruder_color_icon(color, label, icon_width, icon_height));
+            }
         }
     }
     return bmps;
@@ -755,9 +770,10 @@ void apply_extruder_selector(Slic3r::GUI::BitmapComboBox** ctrl,
                              const std::string& first_item/* = ""*/,
                              wxPoint pos/* = wxDefaultPosition*/,
                              wxSize size/* = wxDefaultSize*/,
-                             bool use_thin_icon/* = false*/)
+                             bool use_thin_icon/* = false*/,
+                             bool include_virtual/* = false*/)
 {
-    std::vector<wxBitmap*> icons = get_extruder_color_icons(use_thin_icon);
+    std::vector<wxBitmap*> icons = get_extruder_color_icons(use_thin_icon, include_virtual);
 
     if (!*ctrl) {
         *ctrl = new Slic3r::GUI::BitmapComboBox(parent, wxID_ANY, wxEmptyString, pos, size, 0, nullptr, wxCB_READONLY);

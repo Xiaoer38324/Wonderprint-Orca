@@ -305,7 +305,9 @@ wxWindow* BitmapChoiceRenderer::CreateEditorCtrl(wxWindow* parent, wxRect labelR
     if (can_create_editor_ctrl && !can_create_editor_ctrl())
         return nullptr;
 
-    std::vector<wxBitmap*> icons = get_extruder_color_icons();
+    // Orca: virtual Color Mixing filaments are numbered after the physical ones, include them
+    // so the object list filament combo can assign them as well.
+    std::vector<wxBitmap*> icons = get_extruder_color_icons(false, /*include_virtual=*/true);
     if (icons.empty())
         return nullptr;
 

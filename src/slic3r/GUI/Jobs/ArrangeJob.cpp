@@ -262,7 +262,20 @@ arrangement::ArrangePolygon estimate_wipe_tower_info(int plate_index, std::set<i
     int plate_index_valid = std::min(plate_index, plate_count - 1);
 
     // we have to estimate the depth using the extruder number of all plates
-    int extruder_size = extruder_ids.size();
+    // Orca: a virtual Color Mixing filament is purged between its physical components, so the tower
+    // depth has to be estimated from the physical filaments that are actually swapped.
+    size_t num_physical = 0;
+    if (const ConfigOptionStrings *colours = full_config.option<ConfigOptionStrings>("filament_colour"))
+        num_physical = colours->values.size();
+    std::vector<int> used_1based(extruder_ids.begin(), extruder_ids.end());
+    if (PresetBundle *preset_bundle = wxGetApp().preset_bundle)
+        preset_bundle->mixed_filaments.expand_virtual_extruder_ids(used_1based, num_physical);
+    std::vector<int> physical_ids;
+    for (int id : used_1based)
+        if (id >= 1 && size_t(id) <= num_physical &&
+            std::find(physical_ids.begin(), physical_ids.end(), id) == physical_ids.end())
+            physical_ids.push_back(id);
+    int extruder_size = int(physical_ids.size());
 
     Vec3d wipe_tower_size, wipe_tower_pos;
     int nozzle_nums = wxGetApp().preset_bundle->get_printer_extruder_count();

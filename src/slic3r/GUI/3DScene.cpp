@@ -860,39 +860,173 @@ void GLVolumeCollection::load_object_auxiliary(
 
 // Orca: wipe tower previews are painted with the real physical components of
 // the virtual Color Mixing filaments instead of their blended display color.
-static std::vector<int> wipe_tower_physical_extruders(const std::vector<int> &plate_extruders, size_t num_physical)
+//
+// The Color Mixing rows are project data (mixed_filament_definitions). The
+// PresetBundle::mixed_filaments cache is rebuilt from that string by the sidebar,
+// and when a project is opened that happens *after* the scene (and therefore the
+// wipe tower preview) has already been built. So resolve against the project data
+// itself here and never substitute a physical filament the plate does not use:
+// that is what painted the tower of a pure virtual-filament plate with filament 1.
+static const MixedFilamentManager *wipe_tower_mixed_manager(const PresetBundle *preset_bundle, MixedFilamentManager &storage)
+{
+    if (preset_bundle == nullptr)
+        return nullptr;
+    const auto *colours     = dynamic_cast<const ConfigOptionStrings *>(preset_bundle->project_config.option("filament_colour"));
+    const auto *definitions = dynamic_cast<const ConfigOptionString *>(preset_bundle->project_config.option("mixed_filament_definitions"));
+    if (colours != nullptr && definitions != nullptr && !definitions->value.empty() && colours->values.size() >= 2) {
+        storage.load_custom_entries(definitions->value, colours->values);
+        storage.apply_gradient_settings(0, 0.04f, 0.16f, false);
+        if (storage.enabled_count() > 0)
+            return &storage;
+    }
+    return &preset_bundle->mixed_filaments;
+}
+
+// Orca: collect the filaments a volume really prints. PartPlate::get_extruders() reports the base
+// extruder of a fully painted volume as well, which may be a virtual filament that the paint
+// completely overrides - such an id must not reach the wipe tower preview.
+static void wipe_tower_collect_volume_filaments(const ModelVolume &volume, std::vector<int> &printed)
+{
+    if (!volume.is_model_part())
+        return;
+
+    const int              base = volume.extruder_id();
+    const std::vector<int> volume_extruders = volume.get_extruders();
+
+    // `used_states` is indexed by EnforcerBlockerType, NONE (0) meaning unpainted facets.
+    // A painted volume without any unpainted facet never prints its base extruder.
+    bool fully_painted = false;
+    if (volume.is_mm_painted()) {
+        const auto  &used_states   = volume.mmu_segmentation_facets.get_data().used_states;
+        const size_t unpainted_idx = size_t(EnforcerBlockerType::NONE);
+        const bool   any_state     = std::any_of(used_states.begin(), used_states.end(), [](bool used) { return used; });
+        fully_painted = any_state && unpainted_idx < used_states.size() && !used_states[unpainted_idx];
+    }
+
+    // ModelVolume::get_extruders() appends the base extruder after the painted states.
+    // For a fully painted volume that appended entry is dropped, but a painted state that
+    // happens to be the same filament as the base must be kept.
+    for (size_t i = 0; i < volume_extruders.size(); ++i) {
+        const int id = volume_extruders[i];
+        if (id <= 0)
+            continue;
+        if (fully_painted && i + 1 == volume_extruders.size() && id == base)
+            continue;
+        printed.push_back(id);
+    }
+}
+
+std::vector<int> wipe_tower_plate_physical_filaments(GUI::PartPlate &plate, size_t num_physical)
 {
     std::vector<int> out;
-    auto push = [&out](int id) {
-        if (id > 0 && std::find(out.begin(), out.end(), id) == out.end())
-            out.push_back(id);
-    };
-
     if (num_physical == 0)
         return out;
 
-    const PresetBundle *preset_bundle = GUI::wxGetApp().preset_bundle;
-    for (int extruder_id : plate_extruders) {
-        if (extruder_id <= 0)
-            continue;
-        if (size_t(extruder_id) <= num_physical) {
-            push(extruder_id);
-            continue;
+    // Only ids of real physical filaments may end up in the preview. Dropping the
+    // others also keeps the palette lookup in the callers from falling back to filament 1.
+    auto add = [num_physical](std::vector<int> &dst, unsigned int id) {
+        if (id < 1 || id > num_physical)
+            return;
+        if (std::find(dst.begin(), dst.end(), int(id)) == dst.end())
+            dst.push_back(int(id));
+    };
+    auto contains = [](const std::vector<int> &ids, int id) {
+        return std::find(ids.begin(), ids.end(), id) != ids.end();
+    };
+
+    std::vector<int> plate_extruders        = plate.get_extruders(true);
+    std::vector<int> plate_extruders_no_sup = plate.get_extruders_without_support(true);
+
+    std::vector<int> volume_printed;  // filaments the plate's volumes print (painted states + usable base)
+    std::vector<int> volume_reported; // every filament a volume reports, base included
+    for (const ModelObject *object : plate.get_objects_on_this_plate())
+        for (const ModelVolume *volume : object->volumes) {
+            const std::vector<int> ids = volume->get_extruders();
+            volume_reported.insert(volume_reported.end(), ids.begin(), ids.end());
+            wipe_tower_collect_volume_filaments(*volume, volume_printed);
         }
-        const MixedFilament *mixed = preset_bundle != nullptr
-            ? preset_bundle->mixed_filaments.mixed_filament_from_id(unsigned(extruder_id), num_physical)
+
+    // Filaments that do not come from the volumes: support, height ranges, custom G-code. Ids that
+    // a volume reports are excluded, because those were already filtered above (a fully painted
+    // volume must not contribute its base filament, virtual or not).
+    std::vector<int> sources = volume_printed;
+    for (int filament_id : plate_extruders)
+        if (!contains(volume_reported, filament_id) &&
+            std::find(sources.begin(), sources.end(), filament_id) == sources.end())
+            sources.push_back(filament_id);
+    // Support filaments are reported by the plate only when support is enabled, keep them even
+    // when the same id is also the base extruder of a fully painted volume.
+    for (int filament_id : plate_extruders)
+        if (!contains(plate_extruders_no_sup, filament_id) &&
+            std::find(sources.begin(), sources.end(), filament_id) == sources.end())
+            sources.push_back(filament_id);
+
+    MixedFilamentManager        local_manager;
+    const PresetBundle         *preset_bundle = GUI::wxGetApp().preset_bundle;
+    const MixedFilamentManager *mixed_manager = wipe_tower_mixed_manager(preset_bundle, local_manager);
+
+    // Append the physical filaments a (possibly virtual) filament is printed with.
+    // A row that blends 0% / 100% of one component only prints the other one.
+    auto add_filament = [&](std::vector<int> &dst, int filament_id) {
+        if (filament_id <= 0)
+            return;
+        if (size_t(filament_id) <= num_physical) {
+            add(dst, unsigned(filament_id));
+            return;
+        }
+        const MixedFilament *mixed = mixed_manager != nullptr
+            ? mixed_manager->mixed_filament_from_id(unsigned(filament_id), num_physical)
             : nullptr;
-        if (mixed == nullptr) {
-            push(1);
-            continue;
-        }
-        push(int(mixed->component_a));
-        push(int(mixed->component_b));
-        for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed->gradient_component_ids, num_physical))
-            push(int(id));
+        if (mixed == nullptr)
+            return;
+
+        const std::vector<unsigned int> gradient_ids =
+            MixedFilamentManager::decode_gradient_component_ids(mixed->gradient_component_ids, num_physical);
+        const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed->manual_pattern);
+        const int         mix_b   = std::clamp(mixed->mix_b_percent, 0, 100);
+        if (gradient_ids.size() >= 3 || !pattern.empty() || mix_b < 100)
+            add(dst, mixed->component_a);
+        if (gradient_ids.size() >= 3 || !pattern.empty() || mix_b > 0)
+            add(dst, mixed->component_b);
+        for (unsigned int id : gradient_ids)
+            add(dst, id);
+        // A manual pattern may address further physical filaments by token.
+        if (!pattern.empty())
+            for (const std::string &group : MixedFilamentManager::split_pattern_groups(pattern))
+                for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, num_physical))
+                    add(dst, MixedFilamentManager::physical_filament_from_token(token, *mixed, num_physical));
+    };
+
+    for (int filament_id : sources)
+        add_filament(out, filament_id);
+
+    if (out.empty()) {
+        // Nothing resolved to a real filament (e.g. an unknown virtual id). Keep a
+        // physical filament the plate actually uses, only then fall back to 1.
+        for (int filament_id : plate_extruders)
+            if (filament_id >= 1 && size_t(filament_id) <= num_physical)
+                add(out, unsigned(filament_id));
+        if (out.empty())
+            out.push_back(1);
     }
-    if (out.empty())
-        out.push_back(1);
+
+    // Orca: leave a trace of the decision in the debug log - virtual filaments make the
+    // wipe tower preview color hard to reason about from the outside.
+    auto to_list = [](const std::vector<int> &ids) {
+        std::string text;
+        for (int id : ids) {
+            if (!text.empty())
+                text += ',';
+            text += std::to_string(id);
+        }
+        return text;
+    };
+    BOOST_LOG_TRIVIAL(debug) << "wipe tower physical filaments: plate=" << plate.get_index()
+                             << " physical_count=" << num_physical
+                             << " plate=[" << to_list(plate_extruders) << "]"
+                             << " volume_printed=[" << to_list(volume_printed) << "]"
+                             << " sources=[" << to_list(sources) << "]"
+                             << " -> [" << to_list(out) << "]";
     return out;
 }
 
@@ -910,9 +1044,8 @@ int GLVolumeCollection::load_wipe_tower_preview(
     std::vector<ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(false);
     std::vector<ColorRGBA> colors;
     GUI::PartPlateList& ppl = GUI::wxGetApp().plater()->get_partplate_list();
-    std::vector<int> plate_extruders = ppl.get_plate(plate_idx)->get_extruders(true);
     const std::vector<int> physical_extruders =
-        wipe_tower_physical_extruders(plate_extruders, extruder_colors.size());
+        wipe_tower_plate_physical_filaments(*ppl.get_plate(plate_idx), extruder_colors.size());
     TriangleMesh wipe_tower_shell = make_cube(width, depth, height);
     for (int extruder_id : physical_extruders) {
         if (extruder_id > 0 && size_t(extruder_id) <= extruder_colors.size())
@@ -953,9 +1086,8 @@ int GLVolumeCollection::load_real_wipe_tower_preview(
 
     std::vector<Slic3r::ColorRGBA> extruder_colors = GUI::wxGetApp().plater()->get_extruders_colors(false);
     GUI::PartPlateList               &ppl              = GUI::wxGetApp().plater()->get_partplate_list();
-    std::vector<int>                  plate_extruders  = ppl.get_plate(plate_idx)->get_extruders(true);
     const std::vector<int>            physical_extruders =
-        wipe_tower_physical_extruders(plate_extruders, extruder_colors.size());
+        wipe_tower_plate_physical_filaments(*ppl.get_plate(plate_idx), extruder_colors.size());
     std::vector<Slic3r::ColorRGBA>    colors;
     if (!physical_extruders.empty()) {
         const int extruder_id = physical_extruders.front();
@@ -1558,6 +1690,17 @@ void GLVolumeCollection::update_colors_by_extruder(const DynamicPrintConfig *con
             const std::string& fil_color = config->opt_string("filament_colour", i);
             if (decode_color(fil_color, rgba))
                 colors[i] = { fil_color, rgba };
+        }
+
+        // Orca: virtual Color Mixing filaments are numbered after the physical ones. Append their
+        // blended display colours so a volume assigned to one is rendered with it instead of
+        // falling back to filament 1 below.
+        if (const PresetBundle *preset_bundle = GUI::wxGetApp().preset_bundle) {
+            for (const std::string &color : preset_bundle->mixed_filaments.display_colors()) {
+                ColorRGBA rgba(0.8f, 0.8f, 0.8f, 1.f);
+                decode_color(color, rgba);
+                colors.emplace_back(color, rgba);
+            }
         }
     }
 

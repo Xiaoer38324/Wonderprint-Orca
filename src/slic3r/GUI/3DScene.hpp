@@ -560,6 +560,15 @@ private:
 
 GLVolumeWithIdAndZList volumes_to_render(const GLVolumePtrs& volumes, GLVolumeCollection::ERenderType type, const Transform3d& view_matrix, std::function<bool(const GLVolume&)> filter_func = nullptr);
 
+namespace GUI { class PartPlate; } // forward declaration
+
+// Orca: physical filaments the prime tower of this plate is printed with.
+// Virtual Color Mixing filaments are expanded to their physical components. The base
+// extruder of a volume whose facets are fully painted is only counted when the painted
+// filaments resolve back to it (it is not printed otherwise).
+// Used both for the wipe tower preview colors and to decide whether the tower is needed.
+std::vector<int> wipe_tower_plate_physical_filaments(GUI::PartPlate &plate, size_t num_physical);
+
 struct _3DScene
 {
     static void thick_lines_to_verts(const Lines& lines, const std::vector<double>& widths, const std::vector<double>& heights, bool closed, double top_z, GUI::GLModel::Geometry& geometry);

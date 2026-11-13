@@ -41,6 +41,14 @@ static int filaments_count()
     return wxGetApp().filaments_cnt();
 }
 
+// Orca: virtual Color Mixing filaments are numbered after the physical ones (physical_count + i + 1).
+// The "Change filament" menus have to offer them as well.
+static int mixed_filaments_count()
+{
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    return preset_bundle != nullptr ? int(preset_bundle->mixed_filaments.enabled_count()) : 0;
+}
+
 static bool is_improper_category(const std::string& category, const int filaments_cnt, const bool is_object_settings = true)
 {
     return  category.empty() ||
@@ -918,7 +926,9 @@ void MenuFactory::append_menu_item_change_extruder(wxMenu* menu)
             menu->Destroy(item_id);
     }
 
-    const int filaments_cnt = filaments_count();
+    const int physical_cnt = filaments_count();
+    // Orca: include the virtual Color Mixing filaments in the selection menu.
+    const int filaments_cnt = physical_cnt + mixed_filaments_count();
     if (filaments_cnt <= 1)
         return;
 
@@ -927,7 +937,7 @@ void MenuFactory::append_menu_item_change_extruder(wxMenu* menu)
     if (sels.IsEmpty())
         return;
 
-    std::vector<wxBitmap*> icons = get_extruder_color_icons(true);
+    std::vector<wxBitmap*> icons = get_extruder_color_icons(true, /*include_virtual=*/true);
     wxMenu* extruder_selection_menu = new wxMenu();
     const wxString& name = sels.Count() == 1 ? names[0] : names[1];
 
@@ -946,7 +956,9 @@ void MenuFactory::append_menu_item_change_extruder(wxMenu* menu)
         wxString item_name = _L("Default");
 
         if (i > 0) {
-            auto preset = wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[i - 1]);
+            Preset* preset = i <= physical_cnt
+                ? wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[i - 1])
+                : nullptr;
             if (preset == nullptr) {
                 item_name = wxString::Format(_L("Filament %d"), i);
             } else {
@@ -2076,7 +2088,9 @@ void MenuFactory::append_menu_item_change_filament(wxMenu* menu)
             menu->Destroy(item_id);
     }
 
-    int filaments_cnt = filaments_count();
+    const int physical_cnt = filaments_count();
+    // Orca: include the virtual Color Mixing filaments in the selection menu.
+    int filaments_cnt = physical_cnt + mixed_filaments_count();
     if (filaments_cnt <= 1)
         return;
 
@@ -2091,7 +2105,7 @@ void MenuFactory::append_menu_item_change_filament(wxMenu* menu)
             return;
     }
 
-    std::vector<wxBitmap*> icons = get_extruder_color_icons(true);
+    std::vector<wxBitmap*> icons = get_extruder_color_icons(true, /*include_virtual=*/true);
     if (icons.size() < filaments_cnt) {
         BOOST_LOG_TRIVIAL(warning) << boost::format("Warning: icons size %1%, filaments_cnt=%2%")%icons.size()%filaments_cnt;
         if (icons.size() <= 1)
@@ -2131,7 +2145,9 @@ void MenuFactory::append_menu_item_change_filament(wxMenu* menu)
         wxString item_name = _L("Default");
 
         if (i > 0) {
-            auto preset = wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[i - 1]);
+            Preset* preset = i <= physical_cnt
+                ? wxGetApp().preset_bundle->filaments.find_preset(wxGetApp().preset_bundle->filament_presets[i - 1])
+                : nullptr;
             if (preset == nullptr) {
                 item_name = wxString::Format(_L("Filament %d"), i);
             } else {

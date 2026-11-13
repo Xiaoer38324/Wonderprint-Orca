@@ -1682,6 +1682,11 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         m_full_print_config = std::move(new_full_config);
     }
 
+    // Orca: make sure the Color Mixing rows are available before the region targets below are
+    // collected (a virtual filament may be assigned to a volume instead of being painted on it).
+    if (this->mixed_filament_manager().enabled_count() == 0 && !m_config.mixed_filament_definitions.value.empty())
+        this->load_mixed_filaments();
+
     // All regions now have distinct settings.
     // Check whether applying the new region config defaults we would get different regions,
     // update regions or create regions from scratch.
@@ -1700,9 +1705,26 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
             print_object_regions->ref_cnt_inc();
         }
         std::vector<unsigned int> painting_extruders;
+        // Orca: a volume may also be *assigned* a virtual Color Mixing filament instead of being
+        // painted with it. Such an assignment behaves like "painted all over" for the slicing
+        // pipeline (see PrintObject::slice_volumes), so its components need target regions too.
+        std::vector<unsigned int> assigned_virtual_extruders;
+        if (num_filaments > 1) {
+            for (const ModelVolume *volume : print_object.model_object()->volumes) {
+                if (!volume->is_model_part())
+                    continue;
+                const int extruder_id = volume->extruder_id();
+                if (extruder_id <= 0 || size_t(extruder_id) <= num_filaments)
+                    continue;
+                // Painted states cannot exceed EnforcerBlockerType::ExtruderMax either.
+                if (size_t(extruder_id) <= size_t(EnforcerBlockerType::ExtruderMax))
+                    assigned_virtual_extruders.emplace_back(unsigned(extruder_id));
+            }
+        }
         if (const auto &volumes = print_object.model_object()->volumes;
             num_filaments > 1 &&
-            std::find_if(volumes.begin(), volumes.end(), [](const ModelVolume *v) { return ! v->mmu_segmentation_facets.empty(); }) != volumes.end()) {
+            (std::find_if(volumes.begin(), volumes.end(), [](const ModelVolume *v) { return ! v->mmu_segmentation_facets.empty(); }) != volumes.end() ||
+             ! assigned_virtual_extruders.empty())) {
 
             std::array<bool, static_cast<size_t>(EnforcerBlockerType::ExtruderMax) + 1> used_facet_states{};
             for (const ModelVolume *volume : volumes) {
@@ -1712,6 +1734,8 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 for (size_t state_idx = 0; state_idx < std::min(volume_used_facet_states.size(), used_facet_states.size()); ++state_idx)
                     used_facet_states[state_idx] |= volume_used_facet_states[state_idx];
             }
+            for (unsigned int extruder_id : assigned_virtual_extruders)
+                used_facet_states[size_t(extruder_id)] = true;
 
             for (size_t state_idx = static_cast<size_t>(EnforcerBlockerType::Extruder1); state_idx < used_facet_states.size(); ++state_idx) {
                 if (used_facet_states[state_idx])
@@ -1753,6 +1777,40 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
                 std::sort(expanded.begin(), expanded.end());
                 expanded.erase(std::unique(expanded.begin(), expanded.end()), expanded.end());
                 painting_extruders = std::move(expanded);
+            }
+        }
+
+        // Orca: a volume that was just assigned to a virtual Color Mixing filament has no painted
+        // target region for its physical components yet, and its region configuration does not
+        // change (the virtual id is clamped to the default filament), so the incremental region
+        // check below would keep the old regions and the slicing pipeline would find no target.
+        // Force a rebuild in that case.
+        if (print_object_regions != nullptr && !assigned_virtual_extruders.empty()) {
+            bool missing_target = false;
+            for (unsigned int target : painting_extruders) {
+                bool found = false;
+                for (const PrintObjectRegions::LayerRangeRegions &layer_range : print_object_regions->layer_ranges) {
+                    for (const PrintObjectRegions::PaintedRegion &painted_region : layer_range.painted_regions)
+                        if (painted_region.extruder_id == target) {
+                            found = true;
+                            break;
+                        }
+                    if (found)
+                        break;
+                }
+                if (!found) {
+                    missing_target = true;
+                    break;
+                }
+            }
+            if (missing_target) {
+                // The slicing pipeline changed for this object: make sure it is re-sliced.
+                for (auto it = it_print_object; it != it_print_object_end; ++it)
+                    if ((*it)->m_shared_regions != nullptr)
+                        update_apply_status((*it)->invalidate_all_steps());
+                print_object_regions->clear();
+                model_object_status.print_object_regions_status = ModelObjectStatus::PrintObjectRegionsStatus::Invalid;
+                print_regions_reshuffled = true;
             }
         }
         if (model_object_status.print_object_regions_status == ModelObjectStatus::PrintObjectRegionsStatus::Valid) {

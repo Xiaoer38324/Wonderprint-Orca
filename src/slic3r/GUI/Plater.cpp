@@ -9623,7 +9623,12 @@ bool Plater::priv::clamp_wipe_tower_inside_printable_area(int plate_idx, bool re
         const double v  = print_cfg.opt_float("prime_volume");
         const int    nozzle_nums = preset_bundle->get_printer_extruder_count();
         const bool   wrapping    = print_cfg.opt_bool("enable_wrapping_detection");
-        const Vec3d  wt_size     = plate->estimate_wipe_tower_size(print_cfg, w, v, nozzle_nums, 0, false, wrapping);
+        // Orca: the tower depth depends on the filaments that are swapped, i.e. on the physical
+        // components of a virtual Color Mixing filament, not on the raw plate list (which may hold
+        // only the virtual id and would estimate a zero depth).
+        const size_t num_physical = print->config().filament_colour.size();
+        const int    tower_filaments = int(wipe_tower_plate_physical_filaments(*plate, num_physical).size());
+        const Vec3d  wt_size     = plate->estimate_wipe_tower_size(print_cfg, w, v, nozzle_nums, tower_filaments, false, wrapping);
         if (wt_size(0) < EPSILON || wt_size(1) < EPSILON)
             return false;
         double brim = print_cfg.opt_float("prime_tower_brim_width");
@@ -13238,7 +13243,15 @@ void Plater::load_project(wxString const& filename2,
     // Orca: Color Mixing belongs to the project (mixed_filament_definitions in the 3MF).
     // Drop the previous project's rows and reload from the freshly loaded project config.
     sidebar().reset_filament_mix_state();
-    CallAfter([this]() { sidebar().load_filament_mix_configs(); });
+    CallAfter([this]() {
+        sidebar().load_filament_mix_configs();
+        // Orca: the wipe tower preview bakes the physical component colors of the Color
+        // Mixing rows when the scene is built, which above happened before those rows were
+        // restored from the project. Rebuild the scene once so a tower that was painted with
+        // a fallback filament color does not stay wrong until the next scene reload.
+        if (p->view3D != nullptr)
+            p->view3D->reload_scene(true);
+    });
     m_loading_project = false;
 }
 

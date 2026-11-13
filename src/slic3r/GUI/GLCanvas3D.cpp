@@ -2220,7 +2220,9 @@ void GLCanvas3D::render_thumbnail(ThumbnailData &           thumbnail_data,
         shader = wxGetApp().get_shader("flat");
     else
         shader = wxGetApp().get_shader("thumbnail");
-    std::vector<ColorRGBA> colors = wxGetApp().plater()->get_extruders_colors();
+    // Orca: include the virtual Color Mixing colours so plate thumbnails show an object assigned
+    // to a virtual filament with its blended colour.
+    std::vector<ColorRGBA> colors = wxGetApp().plater()->get_extruders_colors(true);
     switch (OpenGLManager::get_framebuffers_type())
     {
     case OpenGLManager::EFramebufferType::Arb:
@@ -2851,13 +2853,24 @@ void GLCanvas3D::reload_scene(bool refresh_immediately, bool force_full_scene_re
 
                 const Print* print = m_process->fff_print();
                 const Print* current_print = part_plate->fff_print();
-                if (!need_wipe_tower && part_plate->get_extruders(true).size() < 2) continue;
+                // Orca: count the physical filaments the tower is actually printed with. A plate
+                // whose model is painted entirely with one virtual Color Mixing filament still
+                // needs a tower (its components alternate per layer), while the base extruder of
+                // that volume must not be counted.
+                const std::vector<int> tower_filaments =
+                    wipe_tower_plate_physical_filaments(*part_plate, filaments_count);
+                if (!need_wipe_tower && tower_filaments.size() < 2)
+                    continue;
                 if (part_plate->get_objects_on_this_plate().empty()) continue;
 
                 float brim_width = print->wipe_tower_data(filaments_count).brim_width;
                 const DynamicPrintConfig &print_cfg   = wxGetApp().preset_bundle->prints.get_edited_preset().config;
                 int nozzle_nums = wxGetApp().preset_bundle->get_printer_extruder_count();
-                Vec3d wipe_tower_size = ppl.get_plate(plate_id)->estimate_wipe_tower_size(print_cfg, w, v, nozzle_nums, 0, false, dynamic_cast<const ConfigOptionBool*>(dconfig.option("enable_wrapping_detection"))->value);
+                // Orca: the tower size depends on the number of filaments that need to be swapped,
+                // i.e. on the physical components of a virtual filament, not on the raw plate list
+                // (which may contain only the virtual filament id). A single id would estimate a
+                // zero depth and the tower preview would disappear.
+                Vec3d wipe_tower_size = ppl.get_plate(plate_id)->estimate_wipe_tower_size(print_cfg, w, v, nozzle_nums, int(tower_filaments.size()), false, dynamic_cast<const ConfigOptionBool*>(dconfig.option("enable_wrapping_detection"))->value);
 
                 {
                     const float                 margin     = WIPE_TOWER_MARGIN + brim_width;

@@ -78,6 +78,14 @@ static int filaments_count()
     return wxGetApp().filaments_cnt();
 }
 
+// Orca: virtual Color Mixing filaments are numbered after the physical ones (physical_count + i + 1),
+// so the object list has to accept ids up to physical_count + enabled mixed count.
+static int mixed_filaments_count()
+{
+    Slic3r::PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    return preset_bundle != nullptr ? int(preset_bundle->mixed_filaments.enabled_count()) : 0;
+}
+
 static void take_snapshot(const std::string& snapshot_name)
 {
     Plater* plater = wxGetApp().plater();
@@ -286,7 +294,8 @@ ObjectList::ObjectList(wxWindow* parent) :
 
         for (int i = 1; i < 10; i++)
             this->Bind(wxEVT_MENU, [this, i](wxCommandEvent &evt) {
-                if (filaments_count() > 1 && i <= filaments_count())
+                // Orca: virtual Color Mixing filaments are addressed after the physical ones.
+                if (i <= filaments_count() + mixed_filaments_count())
                     this->set_extruder_for_selected_items(i);
             }, wxID_LAST+i);
 
@@ -681,6 +690,10 @@ ModelConfig& ObjectList::get_item_config(const wxDataViewItem& item) const
 
 void ObjectList::update_filament_values_for_items(const size_t filaments_count)
 {
+    // Orca: virtual Color Mixing filaments are numbered after the physical ones and may be
+    // assigned to an object/volume, so only ids beyond the total filament count are invalid.
+    const size_t extruder_limit = filaments_count + size_t(mixed_filaments_count());
+
     for (size_t i = 0; i < m_objects->size(); ++i)
     {
         wxDataViewItem item = m_objects_model->GetItemById(i);
@@ -688,7 +701,7 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
 
         auto object = (*m_objects)[i];
         wxString extruder;
-        if (!object->config.has("extruder") || size_t(object->config.extruder()) > filaments_count) {
+        if (!object->config.has("extruder") || size_t(object->config.extruder()) > extruder_limit) {
             extruder = "1";
             object->config.set_key_value("extruder", new ConfigOptionInt(1));
         }
@@ -707,7 +720,7 @@ void ObjectList::update_filament_values_for_items(const size_t filaments_count)
                 item = m_objects_model->GetItemByVolumeId(i, id);
                 if (!item) continue;
                 if (!object->volumes[id]->config.has("extruder") ||
-                    size_t(object->volumes[id]->config.extruder()) > filaments_count) {
+                    size_t(object->volumes[id]->config.extruder()) > extruder_limit) {
                     extruder = wxString::Format("%d", object->config.extruder());
                 }
                 else {
@@ -970,7 +983,7 @@ void ObjectList::update_objects_list_filament_column(size_t filaments_count)
     update_filament_colors();
 
     // set show/hide for this column
-    set_filament_column_hidden(filaments_count == 1);
+    set_filament_column_hidden(filaments_count + size_t(mixed_filaments_count()) <= 1);
     //a workaround for a wrong last column width updating under OSX
     auto em = em_unit(this);
     GetColumn(colEditing)->SetWidth(m_columns_width[colEditing]*em);
@@ -989,7 +1002,7 @@ void ObjectList::update_objects_list_filament_column_when_delete_filament(size_t
     update_filament_colors();
 
     // set show/hide for this column
-    set_filament_column_hidden(filaments_count == 1);
+    set_filament_column_hidden(filaments_count + size_t(mixed_filaments_count()) <= 1);
     // a workaround for a wrong last column width updating under OSX
     GetColumn(colEditing)->SetWidth(25);
 
@@ -1609,7 +1622,7 @@ void ObjectList::extruder_editing()
     pos.x = GetColumn(colName)->GetWidth() + GetColumn(colPrint)->GetWidth() + GetColumn(colHeight)->GetWidth() + 5;
     pos.y -= GetTextExtent("m").y;
 
-    apply_extruder_selector(&m_extruder_editor, this, "1", pos, size);
+    apply_extruder_selector(&m_extruder_editor, this, "1", pos, size, false, /*include_virtual=*/true);
 
     m_extruder_editor->SetSelection(m_objects_model->GetExtruderNumber(item));
     m_extruder_editor->Show();
@@ -6196,8 +6209,9 @@ void ObjectList::OnEditingDone(wxDataViewEvent &event)
 void ObjectList::set_extruder_for_selected_items(const int extruder)
 {
     // BBS: check extruder id
-    std::vector<std::string> colors = wxGetApp().plater()->get_extruder_colors_from_plater_config();
-    if (extruder > colors.size())
+    // Orca: virtual Color Mixing filaments are addressed after the physical ones. 0 means "Default".
+    std::vector<std::string> colors = wxGetApp().plater()->get_extruder_colors_from_plater_config(nullptr, true);
+    if (extruder < 0 || extruder > (int)colors.size())
         return;
 
     wxDataViewItemArray sels;
