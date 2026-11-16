@@ -453,18 +453,38 @@ bool VirtualFilamentState::apply_base_extruder_map(Model &model, const std::map<
         return false;
 
     bool changed = false;
-    auto remap   = [&id_map, &changed](ModelConfig &config, bool is_object) {
-        if (!config.has("extruder"))
-            return;
-        const auto it = id_map.find(config.extruder());
+    // Orca: an object without an explicit "extruder" key (or with 0) uses filament 1, the slicer
+    // default - exactly like ModelVolume::extruder_id() resolves it. Such an object has to be
+    // remapped too, otherwise remapping filament 1 changes the painted facets but not the base
+    // filament, and erasing the painting silently falls back to the old filament 1.
+    // Volumes and layer height ranges without a key inherit from their object, which is remapped
+    // here as well, so they must stay key-less.
+    auto remap = [&id_map, &changed](ModelConfig &config, bool is_object) {
+        const bool has_key   = config.has("extruder");
+        const int  own       = has_key ? config.extruder() : 0;
+        const int  effective = own > 0 ? own : (is_object ? 1 : 0);
+        if (effective <= 0)
+            return; // inherits from the object
+
+        const auto it = id_map.find(effective);
         if (it == id_map.end())
             return;
-        if (it->second > 0)
-            config.set_key_value("extruder", new ConfigOptionInt(it->second));
-        else if (is_object)
+
+        const int target = it->second;
+        if (target > 0) {
+            if (own == target)
+                return;
+            config.set_key_value("extruder", new ConfigOptionInt(target));
+        } else if (is_object) {
+            // The filament is gone: fall back to the default one.
+            if (!has_key || own == 0 || own == 1)
+                return; // already the default
             config.set_key_value("extruder", new ConfigOptionInt(1));
-        else
-            config.erase("extruder"); // fall back to the object filament
+        } else {
+            if (own == 0)
+                return; // already inheriting from the object
+            config.erase("extruder");
+        }
         changed = true;
     };
 
@@ -478,15 +498,19 @@ bool VirtualFilamentState::apply_base_extruder_map(Model &model, const std::map<
     return changed;
 }
 
-bool VirtualFilamentState::apply_painted_state_map(Model &model, const EnforcerBlockerStateMap &state_map)
+bool VirtualFilamentState::apply_painted_state_map(Model &model, const EnforcerBlockerStateMap &state_map,
+                                                   const ModelObject *skip_object)
 {
     bool changed = false;
-    for (ModelObject *object : model.objects)
+    for (ModelObject *object : model.objects) {
+        if (object == skip_object)
+            continue;
         for (ModelVolume *volume : object->volumes)
             if (!volume->mmu_segmentation_facets.empty()) {
                 volume->mmu_segmentation_facets.remap_enforcer_block_types(*volume, EnforcerBlockerType::ExtruderMax, state_map);
                 changed = true;
             }
+    }
     return changed;
 }
 
@@ -524,6 +548,73 @@ std::vector<unsigned int> VirtualFilamentState::painted_virtual_states(const Mod
                     states.push_back(state);
             }
     return states;
+}
+
+std::vector<VirtualFilamentStateIssue> VirtualFilamentState::validate(const Model &model) const
+{
+    std::vector<VirtualFilamentStateIssue> issues;
+
+    const int total        = int(total_filaments());
+    const int max_paintable = int(EnforcerBlockerType::ExtruderMax);
+
+    auto check_base = [&issues, total](const ModelConfig &config, int object_index, int volume_index) {
+        if (!config.has("extruder"))
+            return;
+        const int filament_id = config.extruder();
+        if (filament_id <= 0 || filament_id <= total)
+            return; // 0 = inherit, everything within the list is fine
+        VirtualFilamentStateIssue issue;
+        issue.kind         = VirtualFilamentStateIssue::Kind::BaseExtruderOutOfRange;
+        issue.object_index = object_index;
+        issue.volume_index = volume_index;
+        issue.filament_id  = filament_id;
+        issues.push_back(issue);
+    };
+
+    for (size_t object_index = 0; object_index < model.objects.size(); ++object_index) {
+        const ModelObject *object = model.objects[object_index];
+        check_base(object->config, int(object_index), -1);
+        for (size_t volume_index = 0; volume_index < object->volumes.size(); ++volume_index) {
+            const ModelVolume *volume = object->volumes[volume_index];
+            check_base(volume->config, int(object_index), int(volume_index));
+            if (volume->mmu_segmentation_facets.empty())
+                continue;
+            // Only the *painted* states are checked: get_extruders() also appends the base filament,
+            // which is validated above and may legitimately be a virtual id above ExtruderMax.
+            const std::vector<bool> &used_states = volume->mmu_segmentation_facets.get_data().used_states;
+            for (size_t state = size_t(EnforcerBlockerType::NONE) + 1; state < used_states.size(); ++state) {
+                if (!used_states[state])
+                    continue;
+                // Two different problems: the state references a filament that is gone (stale paint)
+                // or it is a valid filament id that simply cannot be stored in a facet state.
+                VirtualFilamentStateIssue::Kind kind;
+                if (int(state) > total)
+                    kind = VirtualFilamentStateIssue::Kind::PaintedStateOutOfRange;
+                else if (int(state) > max_paintable)
+                    kind = VirtualFilamentStateIssue::Kind::PaintedStateNotPaintable;
+                else
+                    continue;
+                VirtualFilamentStateIssue issue;
+                issue.kind         = kind;
+                issue.object_index = int(object_index);
+                issue.volume_index = int(volume_index);
+                issue.filament_id  = int(state);
+                issues.push_back(issue);
+            }
+        }
+        for (const auto &layer_range : object->layer_config_ranges)
+            check_base(layer_range.second, int(object_index), -2);
+    }
+
+    for (size_t index = 0; index < m_rows.size(); ++index) {
+        if (fits_definition(m_rows[index].definition, m_num_physical))
+            continue;
+        VirtualFilamentStateIssue issue;
+        issue.kind        = VirtualFilamentStateIssue::Kind::RowComponentOutOfRange;
+        issue.filament_id = int(m_rows[index].definition.component_a);
+        issues.push_back(issue);
+    }
+    return issues;
 }
 
 std::vector<int> VirtualFilamentState::base_extruder_refs(const Model &model)

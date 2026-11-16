@@ -31,6 +31,22 @@ struct VirtualFilamentTransition
     std::map<int, int> base_extruder_map;    // 1-based old filament id -> new id, 0 = filament gone
 };
 
+// Orca: one broken invariant of the scene / state pair, reported by VirtualFilamentState::validate().
+struct VirtualFilamentStateIssue
+{
+    enum class Kind {
+        BaseExtruderOutOfRange,   // an object / volume / layer range references a filament that does not exist
+        PaintedStateOutOfRange,   // a painted state references a filament that does not exist
+        PaintedStateNotPaintable, // a painted state is a valid filament id but does not fit into a facet state
+        RowComponentOutOfRange,   // a Color Mixing row references a physical filament the printer does not have
+    };
+
+    Kind kind         = Kind::BaseExtruderOutOfRange;
+    int  object_index = -1;
+    int  volume_index = -1; // -1 = the object itself, -2 = a layer height range
+    int  filament_id  = 0;
+};
+
 // Orca: pure state machine behind the Color Mixing section of the sidebar (Humble Object pattern).
 // No wxWidgets and no GUI headers here: only standard containers and libslic3r data structures, so
 // every rule (numbering, invalid row pruning, base filament remapping after a physical filament was
@@ -106,11 +122,16 @@ public:
     VirtualFilamentTransition on_rows_pruned();
 
     // ---- scene synchronisation (libslic3r Model only) -------------------
-    // Applies an id map to the base filament of every object, volume and layer range. Objects fall
-    // back to filament 1 when their id is gone, volumes and layer ranges inherit again.
+    // Applies an id map to the base filament of every object, volume and layer range. Missing keys
+    // resolve like ModelVolume::extruder_id(): an object without a key uses filament 1, while volumes
+    // and layer ranges inherit from the object (and are left key-less). Objects fall back to
+    // filament 1 when their filament is gone; volumes and layer ranges inherit again.
     static bool apply_base_extruder_map(Model &model, const std::map<int, int> &id_map);
-    // Applies a painted state map to all painted facets of the scene.
-    static bool apply_painted_state_map(Model &model, const EnforcerBlockerStateMap &state_map);
+    // Applies a painted state map to all painted facets of the scene. `skip_object` is used by the
+    // painting gizmo: the selected object paints through its live triangle selectors, so its facets
+    // must not be touched here (they are written back from the selectors afterwards).
+    static bool apply_painted_state_map(Model &model, const EnforcerBlockerStateMap &state_map,
+                                        const ModelObject *skip_object = nullptr);
 
     static EnforcerBlockerStateMap identity_painted_state_map();
     // Painted counterpart of a `base_extruder_map`: painted state ids use the same numbering, so a
@@ -123,6 +144,11 @@ public:
     static std::vector<unsigned int> painted_virtual_states(const Model &model, size_t physical_count);
     // Base filament ids referenced by the objects / volumes / layer ranges of `model`.
     static std::vector<int> base_extruder_refs(const Model &model);
+
+    // Orca: positive validation of the scene / state pair. An empty result means every reference of
+    // the scene points at an existing filament and every row fits the current physical count, so
+    // tests can assert the invariant after any operation instead of hunting symptoms.
+    std::vector<VirtualFilamentStateIssue> validate(const Model &model) const;
 
 private:
     MixedFilamentManager make_manager() const;

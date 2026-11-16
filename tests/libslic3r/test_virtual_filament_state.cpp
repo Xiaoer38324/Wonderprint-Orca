@@ -291,6 +291,114 @@ TEST_CASE("Painted states follow the base filament map", "[VirtualFilament]")
     REQUIRE(int(state_map[3]) == 3); // physical filaments are not touched
 }
 
+TEST_CASE("Scene validation reports every dangling filament reference", "[VirtualFilament]")
+{
+    VirtualFilamentState state = make_state(4); // total = 6 filaments
+
+    SECTION("A legal scene has no issues")
+    {
+        Model model;
+        ModelObject *object = model.add_object();
+        set_extruder(object->config, 6);
+        ModelVolume *part = object->add_volume(make_cube(10., 10., 10.), ModelVolumeType::MODEL_PART, false);
+        set_extruder(part->config, 5);
+        REQUIRE(state.validate(model).empty());
+    }
+
+    SECTION("Object, volume and layer range references are checked")
+    {
+        Model model;
+        ModelObject *object = model.add_object();
+        set_extruder(object->config, 7); // one past the last filament
+        ModelVolume *part = object->add_volume(make_cube(10., 10., 10.), ModelVolumeType::MODEL_PART, false);
+        set_extruder(part->config, 8);
+        ModelConfig layer_range_config;
+        set_extruder(layer_range_config, 9);
+        object->layer_config_ranges[std::make_pair(coordf_t(0.0), coordf_t(1.0))] = layer_range_config;
+
+        const std::vector<VirtualFilamentStateIssue> issues = state.validate(model);
+        REQUIRE(issues.size() == 3);
+        REQUIRE(issues[0].kind == VirtualFilamentStateIssue::Kind::BaseExtruderOutOfRange);
+        REQUIRE(issues[0].volume_index == -1); // the object itself
+        REQUIRE(issues[1].volume_index == 0);  // the model part
+        REQUIRE(issues[2].volume_index == -2); // the layer height range
+    }
+
+    SECTION("A Color Mixing row that does not fit the physical filaments is checked")
+    {
+        Model model; // nothing else to check
+        VirtualFilamentState broken;
+        broken.set_num_physical(3);
+        broken.on_row_added(make_mixed(2, 5)); // 5 is not a physical filament
+
+        const std::vector<VirtualFilamentStateIssue> issues = broken.validate(model);
+        REQUIRE(issues.size() == 1);
+        REQUIRE(issues.front().kind == VirtualFilamentStateIssue::Kind::RowComponentOutOfRange);
+    }
+}
+
+// The Color Mixing deletions renumber base filaments (a different operation than the painting
+// tool's paint-only "remap filaments", which never touches the base filament at all).
+TEST_CASE("A base filament map follows the implicit default filament", "[VirtualFilament]")
+{
+    // Freshly imported objects often have no "extruder" key at all; the effective filament is 1.
+    Model model;
+    ModelObject *object = model.add_object();
+    ModelVolume *part = object->add_volume(make_cube(10., 10., 10.), ModelVolumeType::MODEL_PART, false);
+    ModelVolume *inherit = object->add_volume(make_cube(5., 5., 5.), ModelVolumeType::PARAMETER_MODIFIER, false);
+    set_extruder(inherit->config, 0); // explicit "inherit"
+    object->layer_config_ranges[std::make_pair(coordf_t(0.0), coordf_t(1.0))] = ModelConfig{};
+
+    REQUIRE_FALSE(object->config.has("extruder"));
+    REQUIRE(part->extruder_id() == 1);
+
+    // 1 -> 5 must materialize the object key. Without it the painted facets move to 5 but the base
+    // filament stays at the implicit 1, so erasing the painting would silently go back to F1.
+    std::map<int, int> id_map;
+    id_map[1] = 5;
+    REQUIRE(VirtualFilamentState::apply_base_extruder_map(model, id_map));
+
+    REQUIRE(object->config.extruder() == 5);
+    REQUIRE(part->extruder_id() == 5);
+    REQUIRE_FALSE(part->config.has("extruder"));      // still inherits from the object
+    REQUIRE(inherit->config.extruder() == 0);         // explicit "inherit" is preserved
+    REQUIRE(inherit->extruder_id() == 5);             // ... and now follows the remapped object
+    REQUIRE_FALSE(object->layer_config_ranges.begin()->second.has("extruder"));
+
+    // A map that does not touch filament 1 must not materialize anything.
+    Model untouched;
+    ModelObject *plain = untouched.add_object();
+    std::map<int, int> other_map;
+    other_map[3] = 4;
+    REQUIRE_FALSE(VirtualFilamentState::apply_base_extruder_map(untouched, other_map));
+    REQUIRE_FALSE(plain->config.has("extruder"));
+}
+
+TEST_CASE("Scene validation separates stale and unpaintable painted states", "[VirtualFilament]")
+{
+    // A cube painted with state 3.
+    Model model;
+    ModelObject *object = model.add_object();
+    ModelVolume *part = object->add_volume(make_cube(10., 10., 10.), ModelVolumeType::MODEL_PART, false);
+    EnforcerBlockerStateMap paint = VirtualFilamentState::identity_painted_state_map();
+    paint[0] = EnforcerBlockerType(3);
+    part->mmu_segmentation_facets.remap_enforcer_block_types(*part, EnforcerBlockerType::ExtruderMax, paint);
+    REQUIRE_FALSE(part->mmu_segmentation_facets.empty());
+
+    // 6 filaments: the painted state 3 exists and is paintable.
+    VirtualFilamentState state = make_state(4); // total = 6
+    REQUIRE(state.validate(model).empty());
+
+    // 2 filaments: the painted state 3 no longer exists -> stale paint (not "unpaintable").
+    VirtualFilamentState shrunk;
+    shrunk.set_num_physical(2);
+    const std::vector<VirtualFilamentStateIssue> stale = shrunk.validate(model);
+    REQUIRE(stale.size() == 1);
+    REQUIRE(stale.front().kind == VirtualFilamentStateIssue::Kind::PaintedStateOutOfRange);
+    REQUIRE(stale.front().filament_id == 3);
+    REQUIRE(stale.front().volume_index == 0);
+}
+
 TEST_CASE("Compatibility flags follow the filament types", "[VirtualFilament]")
 {
     VirtualFilamentState state = make_state(4);

@@ -13,6 +13,7 @@
 #include "slic3r/GUI/GUI.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Model.hpp"
+#include "libslic3r/FilamentRemapPlan.hpp"
 #include "slic3r/Utils/UndoRedo.hpp"
 
 
@@ -1307,81 +1308,99 @@ void GLGizmoMmuSegmentation::render_filament_remap_ui(float window_width, float 
     }
 }
 
+// Orca: human readable text for a rejected remap. The plan itself stays free of GUI code and i18n,
+// so the widget layer owns the wording. GUI::format() already returns an UTF-8 std::string.
+static std::string filament_remap_issue_text(const FilamentRemapIssue &issue)
+{
+    switch (issue.kind) {
+    case FilamentRemapIssue::Kind::NoFilaments:
+        return GUI::format(_L("There are no filaments to remap."));
+    case FilamentRemapIssue::Kind::SourceOutOfRange:
+        return GUI::format(_L("Filament %1% cannot be remapped: it is not part of the current filament list."), issue.source);
+    case FilamentRemapIssue::Kind::TargetOutOfRange:
+        return GUI::format(_L("Filament %1% cannot be mapped to filament %2%: that filament does not exist."), issue.source,
+                           issue.target);
+    case FilamentRemapIssue::Kind::TargetNotPaintable:
+        return GUI::format(_L("Filament %1% is painted on the model and cannot be mapped to filament %2%: the painting tool "
+                              "supports at most %3% filaments."),
+                           issue.source, issue.target, int(EnforcerBlockerType::ExtruderMax));
+    }
+    return GUI::format(_L("The filament remap is not valid."));
+}
+
+static void show_notification_filament_remap_aborted(const std::string &message)
+{
+    wxGetApp().plater()->get_notification_manager()->push_notification(
+        NotificationType::CustomNotification, NotificationManager::NotificationLevel::ErrorNotificationLevel, message);
+}
+
 void GLGizmoMmuSegmentation::remap_filament_assignments()
 {
     if (m_extruder_remap.empty())
         return;
 
-    constexpr size_t MAX_EBT = (size_t)EnforcerBlockerType::ExtruderMax;
-    EnforcerBlockerStateMap state_map;
+    // Orca: validate the whole request before touching the scene (positive validation). The plan
+    // owns every decision, and it is a pure *painting* operation: it never changes the base filament
+    // of an object / volume / layer range, so "erase all painting" always returns to the original
+    // base filament.
+    std::vector<int> assignments(m_extruder_remap.size(), 0);
+    for (size_t index = 0; index < m_extruder_remap.size(); ++index)
+        assignments[index] = int(m_extruder_remap[index]) + 1; // 1-based filament ids
 
-    // identity mapping by default
-    for (size_t i = 0; i <= MAX_EBT; ++i)
-        state_map[i] = static_cast<EnforcerBlockerType>(i);
+    // The palette holds the physical filaments followed by the enabled virtual rows; that is the
+    // exact numbering the plan (and the state machine) uses. Take the total from the manager so a
+    // stale palette cannot make the plan validate against the wrong range.
+    const size_t num_physical    = wxGetApp().plater()->get_extruders_colors().size();
+    const size_t total_filaments = wxGetApp().preset_bundle != nullptr
+                                       ? wxGetApp().preset_bundle->mixed_filaments.total_filaments(num_physical)
+                                       : m_extruders_colors.size();
+    const FilamentRemapPlan plan = FilamentRemapPlan::build(assignments, num_physical, total_filaments);
 
-    size_t n_extr = std::min<size_t>(m_extruder_remap.size(), m_extruders_colors.size());
-    bool   any_change = false;
-    for (size_t src = 0; src < n_extr; ++src) {
-        const size_t dst = m_extruder_remap[src];
-        if (dst >= m_extruders_colors.size() || dst == src)
-            continue;
+    // Every exit path leaves the panel in the identity state: a rejected mapping must never stay in
+    // the combo boxes (clicking Remap again would fail the same way) and a successful one is applied.
+    auto reset_remap_table = [this]() {
+        for (size_t index = 0; index < m_extruder_remap.size(); ++index)
+            m_extruder_remap[index] = index;
+    };
 
-        const unsigned int src_state = static_cast<unsigned int>(src) + 1;
-        const unsigned int dst_state = static_cast<unsigned int>(dst) + 1;
-        state_map[src_state] = static_cast<EnforcerBlockerType>(dst_state);
-        if (src_state == 1)
-            state_map[0] = static_cast<EnforcerBlockerType>(dst_state);
-        any_change = true;
+    if (!plan.valid()) {
+        show_notification_filament_remap_aborted(filament_remap_issue_text(plan.issues().front()));
+        reset_remap_table();
+        return;
     }
-    if (!any_change)
+
+    reset_remap_table();
+    if (!plan.any_change())
         return;
 
-    Plater::TakeSnapshot snapshot(wxGetApp().plater(),
-                                  "Remap filament assignments",
-                                  UndoRedo::SnapshotType::GizmoAction);
+    ModelObject *mo = m_c->selection_info()->model_object();
+    if (mo == nullptr)
+        return;
 
-    bool updated = false;
+    Plater::TakeSnapshot snapshot(wxGetApp().plater(), "Remap filament assignments", UndoRedo::SnapshotType::GizmoAction);
+
+    // Orca: paint only, and only on the object being edited - "remove all painting" resets this
+    // object's selectors, so the remap must not paint anything that the erase button cannot undo.
+    // The selected object paints through its live triangle selectors; they are written back into the
+    // facets by update_model_object() below. Each volume uses its own base filament to decide whether
+    // its unpainted facets are covered too.
     int idx = -1;
-    ModelObject* mo = m_c->selection_info()->model_object();
-    if (!mo) return;
-
-    for (ModelVolume* mv : mo->volumes) {
-        if (!mv->is_model_part()) continue;
+    for (ModelVolume *mv : mo->volumes) {
+        if (!mv->is_model_part())
+            continue;
         ++idx;
-        TriangleSelectorGUI* ts = m_triangle_selectors[idx].get();
-        if (!ts) continue;
-
-        // Remap painted triangles (including the default/unpainted state 0).
-        ts->remap_triangle_state(state_map);
+        TriangleSelectorGUI *ts = m_triangle_selectors[idx].get();
+        if (ts == nullptr)
+            continue;
+        ts->remap_triangle_state(plan.painted_state_map_for(mv->extruder_id()));
         ts->request_update_render_data(true);
-
-        // Remap the base volume extruder as well, otherwise unpainted areas
-        // keep the old filament (e.g. 1) after 1 -> 5 and the old entry never
-        // disappears from the remap list.
-        const int base_id = (mv->extruder_id() > 0) ? mv->extruder_id() : mo->config.extruder();
-        if (base_id > 0 && size_t(base_id) <= m_extruder_remap.size()) {
-            const size_t dest_idx = m_extruder_remap[size_t(base_id - 1)];
-            const int    new_id   = int(dest_idx) + 1;
-            if (new_id != base_id) {
-                const ConfigOption* vol_opt = mv->config.option("extruder");
-                if (vol_opt != nullptr && vol_opt->getInt() != 0)
-                    mv->config.set("extruder", new_id);
-                else
-                    mo->config.set("extruder", new_id);
-                if (idx < (int)m_volumes_extruder_idxs.size())
-                    m_volumes_extruder_idxs[idx] = new_id;
-            }
-        }
-        updated = true;
     }
 
-    if (updated) {
-        update_model_object();
-        m_parent.set_as_dirty();
-        
-        // ORCA: Refresh used filaments cache
-        this->update_used_filaments();
-    }
+    update_model_object();
+    m_parent.set_as_dirty();
+
+    // ORCA: Refresh used filaments cache
+    this->update_used_filaments();
 }
 
 } // namespace Slic3r
