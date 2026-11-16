@@ -22580,7 +22580,7 @@ msgid "Preview renderer type"
 msgstr "Peržiūros pateikimo tipas"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo peržiūrai."
+msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo peržiūrai.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

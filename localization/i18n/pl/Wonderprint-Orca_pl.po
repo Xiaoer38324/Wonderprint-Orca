@@ -21829,7 +21829,7 @@ msgid "Preview renderer type"
 msgstr "Podgląd typu modułu renderującego"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Wybierz moduł renderujący używany do podglądu pokrojonego kodu G."
+msgstr "Wybierz moduł renderujący używany do podglądu pokrojonego kodu G.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

@@ -23016,7 +23016,7 @@ msgstr "Vorschau des Renderertyps"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Wählen Sie den Renderer aus, der für die geschnittene G-Code-Vorschau "
-"verwendet wird."
+"verwendet wird.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

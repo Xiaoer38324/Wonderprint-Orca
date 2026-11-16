@@ -23228,7 +23228,7 @@ msgstr "Type de rendu d'aperçu"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Sélectionnez le moteur de rendu utilisé pour l'aperçu du G-code "
-"découpé."
+"découpé.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

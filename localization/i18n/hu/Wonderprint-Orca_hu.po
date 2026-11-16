@@ -22713,7 +22713,7 @@ msgid "Preview renderer type"
 msgstr "Megjelenítőtípus előnézete"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt megjelenítőt."
+msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt megjelenítőt.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

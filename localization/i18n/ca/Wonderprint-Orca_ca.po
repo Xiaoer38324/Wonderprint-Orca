@@ -22911,7 +22911,7 @@ msgstr "Vista prèvia del tipus de renderitzador"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Seleccioneu el renderitzador utilitzat per a la previsualització del "
-"codi G en rodanxes."
+"codi G en rodanxes.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

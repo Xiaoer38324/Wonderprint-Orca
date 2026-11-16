@@ -21231,7 +21231,7 @@ msgid "Preview renderer type"
 msgstr "미리보기 렌더러 유형"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선택합니다."
+msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선택합니다.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

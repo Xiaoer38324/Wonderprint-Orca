@@ -22238,7 +22238,7 @@ msgid "Preview renderer type"
 msgstr "Náhled typu rendereru"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Vyberte vykreslovací modul použitý pro náhled rozděleného G-kódu."
+msgstr "Vyberte vykreslovací modul použitý pro náhled rozděleného G-kódu.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

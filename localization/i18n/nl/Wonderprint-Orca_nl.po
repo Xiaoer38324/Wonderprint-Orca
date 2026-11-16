@@ -22567,7 +22567,7 @@ msgstr "Type voorvertoning van renderer"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Selecteer de renderer die wordt gebruikt voor het gesneden "
-"G-codevoorbeeld."
+"G-codevoorbeeld.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

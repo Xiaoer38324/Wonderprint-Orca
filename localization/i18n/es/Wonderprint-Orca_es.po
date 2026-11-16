@@ -23012,7 +23012,7 @@ msgstr "Tipo de renderizador de vista previa"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Seleccione el renderizador utilizado para la vista previa del código G "
-"cortado."
+"cortado.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

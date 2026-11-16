@@ -21772,7 +21772,7 @@ msgstr "Тип засобу попереднього перегляду"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Виберіть рендерер, який використовується для попереднього перегляду "
-"нарізаного G-коду."
+"нарізаного G-коду.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

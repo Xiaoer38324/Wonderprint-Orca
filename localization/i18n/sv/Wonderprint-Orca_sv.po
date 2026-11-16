@@ -22355,7 +22355,7 @@ msgstr "Förhandsgranska renderingstyp"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Välj renderaren som används för förhandsgranskningen av den skivade "
-"G-koden."
+"G-koden.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

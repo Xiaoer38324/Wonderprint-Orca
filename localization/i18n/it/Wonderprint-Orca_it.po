@@ -23050,7 +23050,7 @@ msgstr "Anteprima del tipo di renderer"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Seleziona il renderer utilizzato per l'anteprima del codice G "
-"affettata."
+"affettata.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

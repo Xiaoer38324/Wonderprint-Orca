@@ -22126,7 +22126,7 @@ msgid "Preview renderer type"
 msgstr "Xem trước loại trình kết xuất"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Chọn trình kết xuất được sử dụng để xem trước mã G được cắt lát."
+msgstr "Chọn trình kết xuất được sử dụng để xem trước mã G được cắt lát.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "

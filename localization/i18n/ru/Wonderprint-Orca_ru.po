@@ -23446,7 +23446,7 @@ msgstr "Тип средства предварительного просмот�
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Выберите средство визуализации, используемое для предварительного "
-"просмотра фрагментов G-кода."
+"просмотра фрагментов G-кода.\n"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
