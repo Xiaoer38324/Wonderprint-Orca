@@ -197,8 +197,11 @@ public:
     // Orca: drop virtual filaments that reference physical filaments the current printer
     // does not provide (e.g. after switching to a printer with fewer extruders).
     void prune_invalid_filament_mixes(size_t physical_count = 0);
-    // Orca: keep painted virtual-filament states aligned when the physical filament count changes.
-    void remap_mixed_painted_states(size_t old_physical_count, size_t new_physical_count);
+    // Orca: push the pure VirtualFilamentState (ratios, display text, compatibility, project
+    // definitions) into the sidebar: this is the only place that reads the state back into wx.
+    void apply_state_to_ui();
+    // Orca: apply_state_to_ui() plus a rebuild of the Color Mixing rows.
+    void refresh_sidebar_from_state();
     // Orca: a mixed filament whose components are not the same material type is invalid.
     void update_filament_mix_compatibility();
     bool has_incompatible_painted_filament_mix() const;

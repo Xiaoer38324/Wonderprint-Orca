@@ -306,6 +306,8 @@ set(lisbslic3r_sources
     MixedFilament.cpp
     MixedFilament.hpp
     MixedFilamentConfigRemap.hpp
+    VirtualFilamentState.cpp
+    VirtualFilamentState.hpp
     filament_mixer.cpp
     filament_mixer.h
     filament_mixer_model.h

@@ -2523,10 +2523,15 @@ void ModelVolume::remap_extruder_ids(size_t extruder_count, const EnforcerBlocke
 
 void ModelVolume::update_extruder_count_when_delete_filament(size_t extruder_count, size_t filament_id, int replace_filament_id)
 {
+    (void)extruder_count; // kept for API compatibility, see the ExtruderMax clamp below
     std::vector<int> used_extruders = get_extruders();
     for (int extruder_id : used_extruders) {
         if (extruder_id >= filament_id) {
-            mmu_segmentation_facets.set_enforcer_block_type_limit(*this, (EnforcerBlockerType)(extruder_count), (EnforcerBlockerType)(filament_id), (EnforcerBlockerType)(replace_filament_id));
+            // Orca: virtual Color Mixing filaments are painted as states *above* the physical
+            // filament count. Clamping to `extruder_count` here would erase all of them (the
+            // TriangleSelector even asserts on it), so only the physical shift is applied and the
+            // virtual states are renumbered/removed by the Color Mixing state machine afterwards.
+            mmu_segmentation_facets.set_enforcer_block_type_limit(*this, EnforcerBlockerType::ExtruderMax, (EnforcerBlockerType)(filament_id), (EnforcerBlockerType)(replace_filament_id));
             break;
         }
     }

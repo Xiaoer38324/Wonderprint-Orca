@@ -57,6 +57,7 @@
 #include "libslic3r/libslic3r.h"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/MixedFilament.hpp"
+#include "libslic3r/VirtualFilamentState.hpp"
 #include "libslic3r/Format/STL.hpp"
 #include "libslic3r/Format/DRC.hpp"
 #include "libslic3r/Format/STEP.hpp"
@@ -490,6 +491,9 @@ struct Sidebar::priv
         bool            incompatible = false;
     };
     std::vector<FilamentMixEntry> m_filament_mix_entries;
+    // Orca: the Color Mixing rows are owned by a pure state machine (no wx types). The entry
+    // vector above is only a view of it and is rebuilt by Sidebar::apply_state_to_ui().
+    VirtualFilamentState          vf_state;
     std::vector<wxPanel*>         m_filament_mix_row_panels;
     bool                          m_filament_mix_loaded = false;
     std::string                   m_filament_mix_definitions_loaded;
@@ -3170,32 +3174,16 @@ void Sidebar::jump_to_option(size_t selected)
 //    wxGetApp().mainframe->select_tab();
 }
 
-// Orca: objects/volumes may use a virtual Color Mixing filament as their base extruder. These
-// helpers (defined further down, next to the other Color Mixing remap helpers) keep those
-// references valid when the virtual filaments are removed or renumbered.
-static void               remap_mixed_base_extruders(const std::map<int, int> &id_map);
-static void               refresh_base_filament_column(size_t num_physical);
-static std::map<int, int> mixed_base_id_map_after_count_change(const std::vector<MixedFilament> &old_rows,
-                                                               size_t old_physical, size_t new_physical);
-static std::map<int, int> mixed_base_id_map_after_physical_delete(const std::vector<MixedFilament> &old_rows,
-                                                                  size_t new_physical, unsigned int deleted_physical);
+// Orca: refresh the object list "Fila." column after the base filament ids of the scene changed.
+static void refresh_base_filament_column(size_t num_physical);
 
 // BBS. Move logic from Plater::on_extruders_change() to Sidebar::on_filament_count_change().
 void Sidebar::on_filament_count_change(size_t num_filaments)
 {
     auto& choices = combos_filament();
-    const size_t old_filament_count = choices.size();
 
     if (num_filaments == choices.size())
         return;
-
-    // Orca: Color Mixing rows are renumbered when the physical count changes and rows that no
-    // longer fit are pruned below. Remember them now so the base filament references of the
-    // objects/volumes can follow the new numbering.
-    std::vector<MixedFilament> old_mixed_rows;
-    old_mixed_rows.reserve(p->m_filament_mix_entries.size());
-    for (const auto& entry : p->m_filament_mix_entries)
-        old_mixed_rows.push_back(entry.mixed);
 
     if (choices.size() == 1 || num_filaments == 1)
         choices[0]->GetDropDown().Invalidate();
@@ -3241,20 +3229,18 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     if (!p->m_filament_mix_entries.empty())
         rebuild_filament_mix_rows();
 
-    // Orca: the virtual painted state ids are derived from the physical filament count
-    // (physical + mix_index + 1). Remap them before any normalization clamps them away.
-    remap_mixed_painted_states(old_filament_count, num_filaments);
+    // Orca: the new filament count is authoritative here. The state drops the rows that no longer
+    // fit the printer (this is the path taken when switching printers) and reports one old -> new
+    // map for the virtual ids. Painted facets and base filaments share that numbering, so the same
+    // map is applied to both (this also covers the painted states of pruned rows).
+    const VirtualFilamentTransition transition = p->vf_state.on_physical_count_changed(num_filaments);
+    VirtualFilamentState::apply_painted_state_map(
+        wxGetApp().model(), VirtualFilamentState::painted_state_map_from_id_map(transition.base_extruder_map));
+    VirtualFilamentState::apply_base_extruder_map(wxGetApp().model(), transition.base_extruder_map);
 
-    // Orca: the new filament count is authoritative here; drop virtual filaments that no
-    // longer fit the printer (this is the path taken when switching printers).
-    prune_invalid_filament_mixes(num_filaments);
-    update_filament_mix_compatibility();
+    apply_state_to_ui();
     rebuild_filament_mix_rows();
     update_filament_mix_add_button();
-
-    // Orca: renumber the base filament references of the objects/volumes too: pruned rows fall back
-    // to the default filament, the surviving ones pick up their new virtual ids.
-    remap_mixed_base_extruders(mixed_base_id_map_after_count_change(old_mixed_rows, old_filament_count, num_filaments));
     refresh_base_filament_column(num_filaments);
 }
 
@@ -3328,63 +3314,6 @@ void Sidebar::add_filament() {
     add_custom_filament(new_col);
 }
 
-// Orca: helpers for deleting a physical filament referenced by virtual mixed filaments.
-static bool mixed_uses_physical_filament(const MixedFilament &mixed, unsigned int filament_id)
-{
-    if (mixed.component_a == filament_id || mixed.component_b == filament_id)
-        return true;
-    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
-        if (id == filament_id)
-            return true;
-    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
-    if (!pattern.empty()) {
-        for (const std::string &group : MixedFilamentManager::split_pattern_groups(pattern)) {
-            for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, 64)) {
-                if (MixedFilamentManager::physical_filament_from_token(token, mixed, 64) == filament_id)
-                    return true;
-            }
-        }
-    }
-    return false;
-}
-
-static void shift_mixed_physical_ids(MixedFilament &mixed, unsigned int deleted_id){
-    if (mixed.component_a > deleted_id)
-        --mixed.component_a;
-    if (mixed.component_b > deleted_id)
-        --mixed.component_b;
-
-    std::vector<unsigned int> ids =
-        MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64);
-    for (unsigned int &id : ids)
-        if (id > deleted_id)
-            --id;
-    mixed.gradient_component_ids = MixedFilamentManager::encode_gradient_component_ids(ids);
-}
-
-static bool mixed_fits_physical_filaments(const MixedFilament &mixed, size_t physical_count)
-{
-    if (physical_count < 2)
-        return false;
-    if (mixed.component_a < 1 || mixed.component_a > physical_count ||
-        mixed.component_b < 1 || mixed.component_b > physical_count)
-        return false;
-    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
-        if (id < 1 || id > physical_count)
-            return false;
-    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
-    if (!pattern.empty()) {
-        for (const std::string &group : MixedFilamentManager::split_pattern_groups(pattern)) {
-            for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, physical_count)) {
-                const unsigned int id = MixedFilamentManager::physical_filament_from_token(token, mixed, physical_count);
-                if (id < 1 || id > physical_count)
-                    return false;
-            }
-        }
-    }
-    return true;
-}
-
 void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     if (is_new_project_in_gcode3mf()) { return; }
     if (p->combos_filament.size() <= 1) return;
@@ -3400,23 +3329,16 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     if (filament_id > filament_count)
         return;
 
-    // Orca: remember the Color Mixing rows before this change, so the base filament references of
-    // the objects/volumes can follow the new numbering below.
-    std::vector<MixedFilament> old_mixed_rows;
-    old_mixed_rows.reserve(p->m_filament_mix_entries.size());
-    for (const auto& entry : p->m_filament_mix_entries)
-        old_mixed_rows.push_back(entry.mixed);
-
     // Orca: a physical filament may be referenced by virtual mixed filaments. Warn the user
     // and delete those virtual filaments together with the physical one.
     const unsigned int deleted_physical = unsigned(filament_id) + 1;
     std::vector<size_t> dependent_entries;
-    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index) {
-        if (mixed_uses_physical_filament(p->m_filament_mix_entries[index].mixed, deleted_physical))
+    for (size_t index = 0; index < p->vf_state.row_count(); ++index) {
+        if (p->vf_state.uses_physical_filament(index, deleted_physical))
             dependent_entries.push_back(index);
     }
     if (!dependent_entries.empty()) {
-        const int first_virtual = int(p->combos_filament.size()) + 1;
+        const int first_virtual = int(p->vf_state.num_physical()) + 1;
         wxString list;
         for (size_t index : dependent_entries) {
             if (!list.empty())
@@ -3429,14 +3351,7 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
                           _L("Delete filament"), wxICON_WARNING | wxOK | wxCANCEL);
         if (dlg.ShowModal() != wxID_OK)
             return;
-
-        std::sort(dependent_entries.begin(), dependent_entries.end(), std::greater<size_t>());
-        for (size_t index : dependent_entries)
-            p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
     }
-    // Remaining virtual filaments that referenced filaments after the deleted one shift down.
-    for (priv::FilamentMixEntry& entry : p->m_filament_mix_entries)
-        shift_mixed_physical_ids(entry.mixed, deleted_physical);
 
     if (wxGetApp().preset_bundle->is_the_only_edited_filament(filament_id) || (filament_id == 0)) {
         wxGetApp().get_tab(Preset::TYPE_FILAMENT)->select_preset(wxGetApp().preset_bundle->filament_presets[0], false, "", true);
@@ -3451,10 +3366,14 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     wxGetApp().plater()->on_filaments_delete(filament_count, filament_id, replace_filament_id > (int)filament_id ? (replace_filament_id - 1) : replace_filament_id);
 
     // Orca: the physical filaments above have already been renumbered (every id above the deleted
-    // one moved down by one, including the virtual ids). The virtual rows whose components
-    // contained the deleted filament are gone and the remaining rows moved, so renumber the base
-    // filament references of the objects/volumes again, now relative to that intermediate state.
-    remap_mixed_base_extruders(mixed_base_id_map_after_physical_delete(old_mixed_rows, filament_count, deleted_physical));
+    // one moved down by one, including the virtual ids). The state drops the rows that used the
+    // deleted filament and returns the map for that intermediate numbering. The painted facets use
+    // the very same numbering, so the map has to be applied to both.
+    const VirtualFilamentTransition transition =
+        p->vf_state.on_physical_filament_deleted(deleted_physical, filament_count);
+    VirtualFilamentState::apply_painted_state_map(
+        wxGetApp().model(), VirtualFilamentState::painted_state_map_from_id_map(transition.base_extruder_map));
+    VirtualFilamentState::apply_base_extruder_map(wxGetApp().model(), transition.base_extruder_map);
 
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
     wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
@@ -3558,119 +3477,6 @@ std::vector<std::string> current_filament_types()
     return types;
 }
 
-std::string filament_type_family(std::string type)
-{
-    std::transform(type.begin(), type.end(), type.begin(), [](unsigned char c) { return char(std::toupper(c)); });
-    if (const size_t pos = type.find('-'); pos != std::string::npos)
-        type.resize(pos);
-    if (type == "PCTG")
-        type = "PETG";
-    return type;
-}
-
-std::vector<unsigned int> mixed_referenced_filaments(const MixedFilament& mixed, size_t physical_count)
-{
-    std::vector<unsigned int> ids;
-    const auto push = [&ids, physical_count](unsigned int id) {
-        if (id >= 1 && id <= physical_count && std::find(ids.begin(), ids.end(), id) == ids.end())
-            ids.push_back(id);
-    };
-
-    // Cycle/pattern rows encode the participating filaments entirely in the pattern.
-    // component_a/component_b are defaults ("1"/"2" tokens) and must not be added
-    // separately, otherwise a pattern like "23456" would pull in filament 1.
-    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
-    if (!pattern.empty()) {
-        for (const std::string& group : MixedFilamentManager::split_pattern_groups(pattern))
-            for (const std::string& token : MixedFilamentManager::split_pattern_group_to_tokens(group, physical_count))
-                push(MixedFilamentManager::physical_filament_from_token(token, mixed, physical_count));
-        return ids;
-    }
-
-    push(mixed.component_a);
-    push(mixed.component_b);
-    for (unsigned int id : MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 64))
-        push(id);
-    return ids;
-}
-
-std::string mixed_display_pattern(const MixedFilament& mixed)
-{
-    // Orca: show the composition instead of the layer sequence, e.g. "F1*23%+F2*77%".
-    if (mixed.gradient_enabled || mixed.ui_mode == 3)
-        return "F" + std::to_string(mixed.component_a) + "->F" + std::to_string(mixed.component_b);
-
-    std::vector<unsigned int> ids;
-    std::vector<double>      weights;
-
-    const std::string normalized = MixedFilamentManager::normalize_manual_pattern(mixed.manual_pattern);
-    if (!normalized.empty()) {
-        for (const std::string &group : MixedFilamentManager::split_pattern_groups(normalized)) {
-            for (const std::string &token : MixedFilamentManager::split_pattern_group_to_tokens(group, 64)) {
-                const unsigned int id = MixedFilamentManager::physical_filament_from_token(token, mixed, 64);
-                if (id < 1)
-                    continue;
-                auto it = std::find(ids.begin(), ids.end(), id);
-                if (it == ids.end()) {
-                    ids.push_back(id);
-                    weights.push_back(1.0);
-                } else {
-                    weights[size_t(it - ids.begin())] += 1.0;
-                }
-            }
-        }
-    } else {
-        ids = MixedFilamentManager::decode_gradient_component_ids(mixed.gradient_component_ids, 0);
-        if (ids.size() < 2) {
-            ids = {mixed.component_a, mixed.component_b};
-        }
-
-        std::string token;
-        for (char c : mixed.gradient_component_weights) {
-            if (c >= '0' && c <= '9') {
-                token.push_back(c);
-            } else if (!token.empty()) {
-                weights.push_back(double(std::max(1, std::atoi(token.c_str()))));
-                token.clear();
-            }
-        }
-        if (!token.empty())
-            weights.push_back(double(std::max(1, std::atoi(token.c_str()))));
-
-        if (weights.size() != ids.size()) {
-            weights.assign(ids.size(), 1.0);
-            if (ids.size() == 2 && mixed.mix_b_percent > 0) {
-                weights[0] = double(100 - std::clamp(mixed.mix_b_percent, 0, 100));
-                weights[1] = double(std::clamp(mixed.mix_b_percent, 0, 100));
-            }
-        }
-    }
-
-    if (ids.size() < 2)
-        return {};
-
-    double total = 0.0;
-    for (double w : weights)
-        total += std::max(0.0, w);
-    if (total <= 0.0)
-        return {};
-
-    std::vector<int> percentages(ids.size(), 0);
-    int sum = 0;
-    for (size_t i = 0; i < ids.size(); ++i) {
-        percentages[i] = int(std::lround(100.0 * std::max(0.0, weights[i]) / total));
-        sum += percentages[i];
-    }
-    percentages.back() += 100 - sum;
-
-    std::string out;
-    for (size_t i = 0; i < ids.size(); ++i) {
-        if (i > 0)
-            out += "+";
-        out += "F" + std::to_string(ids[i]) + "*" + std::to_string(percentages[i]) + "%";
-    }
-    return out;
-}
 // Vertical two-colour ramp for a gradient mixed filament, with the 1-based
 // filament number drawn on top (same style as get_extruder_color_icon).
 static wxBitmap* get_vertical_gradient_filament_icon(const std::string& top_hex,
@@ -3735,71 +3541,6 @@ wxColour mixed_entry_colour(const MixedFilament& mixed, const std::vector<std::s
 
 } // namespace
 
-// Wonder: add one entry under the "Color Mixing" bar (the dialog already computed the row).
-// Orca: a virtual filament change invalidates the current G-code; mark the project dirty so
-// the user is asked to re-slice / save.
-// Orca: Color Mixing needs at least two physical filaments. Keep the "+" button disabled and
-// explain why in its tooltip otherwise.
-// Orca: after switching printers the physical filament count may shrink; drop virtual
-// filaments that reference filaments the new printer does not have.
-// Orca: virtual painted states are encoded as physical_count + mix_index + 1. When the
-// physical count changes (printer switch, add/delete), shift them so the painting survives.
-// Removes the painted state of a deleted virtual filament and shifts every later
-// virtual state down by one, so painted states keep matching the rebuilt rows.
-static void remap_mixed_painted_after_removal(size_t num_physical, size_t removed_index)
-{
-    const size_t removed_state = num_physical + removed_index + 1;
-    EnforcerBlockerStateMap state_map;
-    for (size_t state = 0; state < state_map.size(); ++state) {
-        if (state == removed_state)
-            state_map[state] = EnforcerBlockerType(0); // unpainted
-        else if (state > removed_state)
-            state_map[state] = EnforcerBlockerType(state - 1);
-        else
-            state_map[state] = EnforcerBlockerType(state);
-    }
-
-    for (ModelObject* object : wxGetApp().model().objects) {
-        for (ModelVolume* volume : object->volumes) {
-            if (!volume->mmu_segmentation_facets.empty())
-                volume->remap_extruder_ids(size_t(EnforcerBlockerType::ExtruderMax), state_map);
-        }
-    }
-}
-
-// Orca: an object or a volume may use a virtual Color Mixing filament as its *base* extruder (the
-// "Fila." column of the object list). Whenever the Color Mixing rows are removed or renumbered
-// those references have to follow, otherwise the object list and the preview keep showing a
-// filament that no longer exists.
-//   id_map: 1-based old filament id -> new filament id, 0 meaning "the filament is gone".
-static void remap_mixed_base_extruders(const std::map<int, int> &id_map)
-{
-    if (id_map.empty())
-        return;
-
-    auto remap = [&id_map](ModelConfig &config, bool is_object) {
-        if (!config.has("extruder"))
-            return;
-        const auto it = id_map.find(config.extruder());
-        if (it == id_map.end())
-            return;
-        if (it->second > 0)
-            config.set_key_value("extruder", new ConfigOptionInt(it->second));
-        else if (is_object)
-            config.set_key_value("extruder", new ConfigOptionInt(1));
-        else
-            config.erase("extruder"); // fall back to the object filament
-    };
-
-    for (ModelObject *object : wxGetApp().model().objects) {
-        remap(object->config, true);
-        for (ModelVolume *volume : object->volumes)
-            remap(volume->config, false);
-        for (auto &layer_range : object->layer_config_ranges)
-            remap(layer_range.second, false);
-    }
-}
-
 // Orca: refresh the object list "Fila." column so remapped base filaments are visible immediately.
 static void refresh_base_filament_column(size_t num_physical)
 {
@@ -3808,153 +3549,20 @@ static void refresh_base_filament_column(size_t num_physical)
             obj_list->update_objects_list_filament_column(num_physical);
 }
 
-// Orca: id map for removing one Color Mixing row. Virtual ids are physical_count + index + 1, so
-// the removed id goes to `replacement` (0 = default filament) and the later rows move one down.
-static std::map<int, int> mixed_base_id_map_after_removal(size_t num_physical, size_t row_count,
-                                                          size_t removed_index, int replacement)
-{
-    std::map<int, int> id_map;
-    const bool         has_replacement = replacement > 0 && size_t(replacement) <= num_physical;
-    for (size_t index = 0; index < row_count; ++index) {
-        const int old_id = int(num_physical + index + 1);
-        if (index == removed_index) {
-            id_map[old_id] = has_replacement ? replacement : 0;
-        } else {
-            const size_t new_index = index > removed_index ? index - 1 : index;
-            id_map[old_id] = int(num_physical + new_index + 1);
-        }
-    }
-    return id_map;
-}
-
-// Orca: id map for the physical count change path (printer switch, filament add/delete). Rows keep
-// their relative order and the ones that no longer fit the new physical count are dropped by
-// prune_invalid_filament_mixes(), so the mapping uses the very same predicate.
-static std::map<int, int> mixed_base_id_map_after_count_change(const std::vector<MixedFilament> &old_rows,
-                                                               size_t                            old_physical,
-                                                               size_t                            new_physical)
-{
-    std::map<int, int> id_map;
-    size_t             new_index = 0;
-    for (size_t old_index = 0; old_index < old_rows.size(); ++old_index) {
-        const int old_id = int(old_physical + old_index + 1);
-        if (mixed_fits_physical_filaments(old_rows[old_index], new_physical))
-            id_map[old_id] = int(new_physical + new_index++ + 1);
-        else
-            id_map[old_id] = 0; // row is pruned: the reference falls back to the default filament
-    }
-    return id_map;
-}
-
-// Orca: id map for deleting a physical filament. The object list has already shifted every id above
-// the deleted one by one (virtual ids included), so the current virtual ids are
-// new_physical + index + 1. Rows whose components use the deleted filament are removed with it.
-static std::map<int, int> mixed_base_id_map_after_physical_delete(const std::vector<MixedFilament> &old_rows,
-                                                                  size_t                            new_physical,
-                                                                  unsigned int                      deleted_physical)
-{
-    std::map<int, int> id_map;
-    size_t             new_index = 0;
-    for (size_t old_index = 0; old_index < old_rows.size(); ++old_index) {
-        const int old_id = int(new_physical + old_index + 1);
-        if (!mixed_uses_physical_filament(old_rows[old_index], deleted_physical))
-            id_map[old_id] = int(new_physical + new_index++ + 1);
-        else
-            id_map[old_id] = 0; // row deleted together with the physical filament
-    }
-    return id_map;
-}
-
-void Sidebar::remap_mixed_painted_states(size_t old_physical_count, size_t new_physical_count)
-{
-    if (old_physical_count == new_physical_count || p->m_filament_mix_entries.empty())
-        return;
-
-    EnforcerBlockerStateMap state_map;
-    for (size_t state = 0; state < state_map.size(); ++state)
-        state_map[state] = EnforcerBlockerType(state);
-
-    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index) {
-        const size_t old_state = old_physical_count + index + 1;
-        const size_t new_state = new_physical_count + index + 1;
-        if (old_state > 0 && old_state < state_map.size() && new_state > 0 && new_state < state_map.size())
-            state_map[old_state] = EnforcerBlockerType(new_state);
-    }
-
-    for (ModelObject* object : wxGetApp().model().objects) {
-        for (ModelVolume* volume : object->volumes) {
-            if (!volume->mmu_segmentation_facets.empty())
-                volume->mmu_segmentation_facets.remap_enforcer_block_types(*volume, EnforcerBlockerType::ExtruderMax, state_map);
-        }
-    }
-}
-
 void Sidebar::update_filament_mix_compatibility()
 {
-    const std::vector<std::string> types = current_filament_types();
-    for (priv::FilamentMixEntry& entry : p->m_filament_mix_entries) {
-        bool incompatible = false;
-        bool type_checked  = false;
-
-        // Prefer the printer's current per-slot types: this also sees unsaved filament type
-        // edits, unlike the preset-based helper.
-        if (types.size() >= 2) {
-            std::string family;
-            for (unsigned int id : mixed_referenced_filaments(entry.mixed, types.size())) {
-                const std::string& type = types[id - 1];
-                if (type.empty())
-                    continue;
-                type_checked = true;
-                const std::string candidate = filament_type_family(type);
-                if (family.empty())
-                    family = candidate;
-                else if (candidate != family) {
-                    incompatible = true;
-                    break;
-                }
-            }
-        }
-
-        if (!type_checked)
-            incompatible = !is_filament_compatible(entry.mixed);
-
-        entry.incompatible = incompatible;
-    }
-
-    // Refresh the Slice button state immediately (it is blocked while a painted incompatible
-    // mixed filament exists).
-    if (wxGetApp().mainframe != nullptr)
-        wxGetApp().mainframe->update_slice_print_status(MainFrame::SlicePrintEventType::eEventSliceUpdate, true, false);
+    // The rule itself lives in the pure state machine. Refreshing the whole view (instead of only
+    // copying the flags into the existing rows) also covers rows that were added or removed since
+    // the last refresh, which would otherwise keep a stale `incompatible` flag.
+    apply_state_to_ui();
 }
 
-bool Sidebar::has_incompatible_painted_filament_mix() const
+// Orca: the printer's filament types with a full_config() fallback for slots whose preset lookup
+// returned nothing.
+static std::vector<std::string> mixed_types_with_fallback()
 {
-    size_t physical_count = p->combos_filament.size();
-    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
-    if (preset_bundle != nullptr && !preset_bundle->filament_presets.empty())
-        physical_count = preset_bundle->filament_presets.size();
-    if (physical_count == 0 || p->m_filament_mix_entries.empty())
-        return false;
-
-    // Collect the virtual painted states actually used by the model.
-    std::vector<unsigned int> painted_states;
-    for (const ModelObject* object : wxGetApp().model().objects) {
-        for (const ModelVolume* volume : object->volumes) {
-            for (int filament : volume->get_extruders()) {
-                const unsigned int state = unsigned(std::max(0, filament));
-                if (state > physical_count &&
-                    std::find(painted_states.begin(), painted_states.end(), state) == painted_states.end())
-                    painted_states.push_back(state);
-            }
-        }
-    }
-    if (painted_states.empty())
-        return false;
-
-    // Filament types of the current printer; full_config() is a fallback for slots whose
-    // preset lookup returned nothing.
     std::vector<std::string> types = current_filament_types();
-    if (preset_bundle != nullptr) {
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle) {
         const DynamicPrintConfig full = preset_bundle->full_config();
         const auto* full_types = full.option<ConfigOptionStrings>("filament_type");
         if (full_types != nullptr) {
@@ -3965,26 +3573,48 @@ bool Sidebar::has_incompatible_painted_filament_mix() const
                     types[i] = full_types->values[i];
         }
     }
+    return types;
+}
 
-    for (unsigned int state : painted_states) {
-        const size_t index = size_t(state) - physical_count - 1;
-        if (index >= p->m_filament_mix_entries.size())
+// Orca: true when one of the Color Mixing rows referenced by the painted virtual states mixes
+// incompatible material types.
+static bool mixed_row_mixes_incompatible_types(const VirtualFilamentState& state, int row_index,
+                                               const std::vector<std::string>& types)
+{
+    if (row_index < 0 || state.row(size_t(row_index)) == nullptr)
+        return false;
+    if (state.row(size_t(row_index))->incompatible)
+        return true;
+
+    std::string family;
+    for (unsigned int id : state.referenced_filaments(size_t(row_index))) {
+        if (id == 0 || id > types.size() || types[id - 1].empty())
             continue;
-        const priv::FilamentMixEntry& entry = p->m_filament_mix_entries[index];
-        if (entry.incompatible)
+        const std::string candidate = VirtualFilamentState::type_family(types[id - 1]);
+        if (family.empty())
+            family = candidate;
+        else if (candidate != family)
             return true;
-
-        std::string family;
-        for (unsigned int id : mixed_referenced_filaments(entry.mixed, physical_count)) {
-            if (id == 0 || id > types.size() || types[id - 1].empty())
-                continue;
-            const std::string candidate = filament_type_family(types[id - 1]);
-            if (family.empty())
-                family = candidate;
-            else if (candidate != family)
-                return true;
-        }
     }
+    return false;
+}
+
+bool Sidebar::has_incompatible_painted_filament_mix() const
+{
+    size_t physical_count = p->vf_state.num_physical();
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle; preset_bundle != nullptr && !preset_bundle->filament_presets.empty())
+        physical_count = preset_bundle->filament_presets.size();
+    if (physical_count == 0 || p->vf_state.empty())
+        return false;
+
+    const std::vector<unsigned int> painted_states = VirtualFilamentState::painted_virtual_states(wxGetApp().model(), physical_count);
+    if (painted_states.empty())
+        return false;
+
+    const std::vector<std::string> types = mixed_types_with_fallback();
+    for (unsigned int state : painted_states)
+        if (mixed_row_mixes_incompatible_types(p->vf_state, p->vf_state.index_of_virtual_id(int(state)), types))
+            return true;
     return false;
 }
 
@@ -3998,49 +3628,21 @@ bool Sidebar::has_incompatible_painted_filament_mix_on_plate(int plate_index)
     if (objects.empty())
         return false;
 
-    size_t physical_count = p->combos_filament.size();
-    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
-    if (preset_bundle != nullptr && !preset_bundle->filament_presets.empty())
+    size_t physical_count = p->vf_state.num_physical();
+    if (PresetBundle* preset_bundle = wxGetApp().preset_bundle; preset_bundle != nullptr && !preset_bundle->filament_presets.empty())
         physical_count = preset_bundle->filament_presets.size();
-    if (physical_count == 0 || p->m_filament_mix_entries.empty())
+    if (physical_count == 0 || p->vf_state.empty())
         return false;
 
-    std::vector<std::string> types = current_filament_types();
-    if (preset_bundle != nullptr) {
-        const DynamicPrintConfig full = preset_bundle->full_config();
-        const auto* full_types = full.option<ConfigOptionStrings>("filament_type");
-        if (full_types != nullptr) {
-            if (types.size() < full_types->values.size())
-                types.resize(full_types->values.size());
-            for (size_t i = 0; i < types.size() && i < full_types->values.size(); ++i)
-                if (types[i].empty())
-                    types[i] = full_types->values[i];
-        }
-    }
-
+    const std::vector<std::string> types = mixed_types_with_fallback();
     for (const ModelObject* object : objects) {
         for (const ModelVolume* volume : object->volumes) {
             for (int filament : volume->get_extruders()) {
                 const unsigned int state = unsigned(std::max(0, filament));
                 if (state <= physical_count)
                     continue;
-                const size_t index = size_t(state) - physical_count - 1;
-                if (index >= p->m_filament_mix_entries.size())
-                    continue;
-                const priv::FilamentMixEntry& entry = p->m_filament_mix_entries[index];
-                if (entry.incompatible)
+                if (mixed_row_mixes_incompatible_types(p->vf_state, p->vf_state.index_of_virtual_id(int(state)), types))
                     return true;
-
-                std::string family;
-                for (unsigned int id : mixed_referenced_filaments(entry.mixed, physical_count)) {
-                    if (id == 0 || id > types.size() || types[id - 1].empty())
-                        continue;
-                    const std::string candidate = filament_type_family(types[id - 1]);
-                    if (family.empty())
-                        family = candidate;
-                    else if (candidate != family)
-                        return true;
-                }
             }
         }
     }
@@ -4063,24 +3665,31 @@ void Sidebar::prune_invalid_filament_mixes(size_t physical_count)
         if (physical_count == 0)
             physical_count = p->combos_filament.size();
     }
-    if (physical_count == 0 || p->m_filament_mix_entries.empty())
+    if (physical_count == 0)
         return;
 
-    std::vector<size_t> invalid;
-    for (size_t index = 0; index < p->m_filament_mix_entries.size(); ++index)
-        if (!mixed_fits_physical_filaments(p->m_filament_mix_entries[index].mixed, physical_count))
-            invalid.push_back(index);
-    if (invalid.empty())
+    // The pure state owns both steps. The caller's count is authoritative: when it really differs
+    // from the state the rows are renumbered (and the painted states follow), otherwise only the
+    // rows that stopped fitting are dropped. The latter is idempotent, so calling this again after
+    // on_filament_count_change() cannot renumber (or reset) a surviving row a second time.
+    if (p->vf_state.num_physical() == 0)
+        p->vf_state.set_num_physical(physical_count);
+
+    VirtualFilamentTransition transition;
+    if (p->vf_state.num_physical() != physical_count)
+        transition = p->vf_state.on_physical_count_changed(physical_count);
+    else
+        transition = p->vf_state.on_rows_pruned();
+    if (!transition.rows_changed)
         return;
 
-    std::sort(invalid.begin(), invalid.end(), std::greater<size_t>());
-    for (size_t index : invalid)
-        p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
+    VirtualFilamentState::apply_painted_state_map(
+        wxGetApp().model(), VirtualFilamentState::painted_state_map_from_id_map(transition.base_extruder_map));
+    VirtualFilamentState::apply_base_extruder_map(wxGetApp().model(), transition.base_extruder_map);
 
-    sync_color_mix_store();
-    save_filament_mix_configs();
-    // Rebuild immediately: leaving the old row panels while the entry vector shrank makes the
-    // stale row un-clickable and a later add appears to "replace" it.
+    apply_state_to_ui();
+    // Rebuild immediately: leaving the old row panels while the row list shrank makes the stale
+    // row un-clickable and a later add appears to "replace" it.
     rebuild_filament_mix_rows();
 }
 
@@ -4135,16 +3744,11 @@ void Sidebar::add_filament_mix(const MixedFilament& mixed)
     if (mixed.component_a == 0 || mixed.component_b == 0)
         return;
 
-    const std::vector<std::string> colours = current_filament_colours();
-    priv::FilamentMixEntry entry;
-    entry.mixed  = mixed;
-    entry.colour = mixed_entry_colour(entry.mixed, colours);
-    entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
-    p->m_filament_mix_entries.push_back(entry);
+    // Pure state first: it validates nothing here (the dialog already did), it only owns the data.
+    p->vf_state.set_num_physical(p->combos_filament.size());
+    p->vf_state.on_row_added(mixed);
 
-    sync_color_mix_store();
-    save_filament_mix_configs();
-    rebuild_filament_mix_rows();
+    refresh_sidebar_from_state();
     mark_filament_mix_changed();
 
     // Orca: after adding a virtual filament, reveal the Color Mixing section automatically so
@@ -4162,18 +3766,15 @@ void Sidebar::add_filament_mix(const MixedFilament& mixed)
 // Wonder: edit an existing entry (used by "Edit" in the "..." menu and by clicking the colour square).
 void Sidebar::edit_filament_mix(size_t index)
 {
-    if (index >= p->m_filament_mix_entries.size())
+    if (index >= p->vf_state.row_count())
         return;
 
     try {
-        MixedFilamentDialog dlg(wxGetApp().mainframe, current_filament_colours(), p->m_filament_mix_entries[index].mixed);
+        MixedFilamentDialog dlg(wxGetApp().mainframe, current_filament_colours(), p->vf_state.row(index)->definition);
         if (dlg.ShowModal() == wxID_OK) {
-            priv::FilamentMixEntry& entry = p->m_filament_mix_entries[index];
-            entry.mixed  = dlg.GetResult();
-            entry.colour = mixed_entry_colour(entry.mixed, current_filament_colours());
-            entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
-            sync_color_mix_store();
-            save_filament_mix_configs();
+            p->vf_state.set_num_physical(p->combos_filament.size());
+            p->vf_state.on_row_edited(index, dlg.GetResult());
+            apply_state_to_ui();
             mark_filament_mix_changed();
         }
     } catch (const std::exception& e) {
@@ -4188,7 +3789,7 @@ void Sidebar::edit_filament_mix(size_t index)
 // then remove the virtual entry from the project.
 void Sidebar::replace_filament_mix(size_t index, int target_filament)
 {
-    if (index >= p->m_filament_mix_entries.size())
+    if (index >= p->vf_state.row_count())
         return;
 
     const int physical = int(p->combos_filament.size());
@@ -4197,33 +3798,15 @@ void Sidebar::replace_filament_mix(size_t index, int target_filament)
 
     wxGetApp().plater()->take_snapshot("Delete And Replaced With");
 
-    const int virtual_state = physical + int(index) + 1; // 1-based painted state of this mix
+    // Orca: one transition describes the whole change. Painted facets and base filaments share the
+    // virtual id numbering, so the very same map is applied to both: the removed state is repainted
+    // with the replacement filament, the later virtual ids move one down with the rows.
+    const VirtualFilamentTransition transition = p->vf_state.on_row_removed(index, target_filament);
+    VirtualFilamentState::apply_painted_state_map(
+        wxGetApp().model(), VirtualFilamentState::painted_state_map_from_id_map(transition.base_extruder_map));
+    VirtualFilamentState::apply_base_extruder_map(wxGetApp().model(), transition.base_extruder_map);
 
-    EnforcerBlockerStateMap state_map;
-    for (size_t state = 0; state < state_map.size(); ++state)
-        state_map[state] = EnforcerBlockerType(state);
-    if (virtual_state > 0 && virtual_state < int(state_map.size()))
-        state_map[size_t(virtual_state)] = EnforcerBlockerType(target_filament);
-    // After removing the entry, the remaining virtual states shift down by one; keep the
-    // palette indices of the other mixed filaments valid.
-    for (int state = virtual_state + 1; state < int(state_map.size()); ++state)
-        state_map[size_t(state)] = EnforcerBlockerType(state - 1);
-
-    for (ModelObject* object : wxGetApp().model().objects) {
-        for (ModelVolume* volume : object->volumes) {
-            if (!volume->mmu_segmentation_facets.empty())
-                volume->mmu_segmentation_facets.remap_enforcer_block_types(*volume, EnforcerBlockerType::ExtruderMax, state_map);
-        }
-    }
-
-    // Orca: objects/volumes that use this virtual filament as their base filament switch to the
-    // replacement filament, the later virtual base ids shift down together with the rows.
-    remap_mixed_base_extruders(mixed_base_id_map_after_removal(
-        size_t(physical), p->m_filament_mix_entries.size(), index, target_filament));
-
-    p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
     sync_color_mix_store();
-    save_filament_mix_configs();
     rebuild_filament_mix_rows();
     mark_filament_mix_changed();
     refresh_base_filament_column(size_t(physical));
@@ -4239,6 +3822,7 @@ void Sidebar::save_filament_mix_configs()
 
 void Sidebar::reset_filament_mix_state()
 {
+    p->vf_state.clear();
     p->m_filament_mix_entries.clear();
     p->m_filament_mix_loaded = false;
     p->m_filament_mix_definitions_loaded.clear();
@@ -4249,43 +3833,51 @@ void Sidebar::reset_filament_mix_state()
     }
 }
 
+// Orca: push the pure state into the wx world. This is the *only* place that reads the state back:
+//   1) derived data (ratios, display text, compatibility),
+//   2) the presets / project definitions (single source of truth for palette and slicing),
+//   3) the wx row view (colour square + label) that rebuild_filament_mix_rows() renders.
+void Sidebar::apply_state_to_ui()
+{
+    PresetBundle*                  preset_bundle = wxGetApp().preset_bundle;
+    const std::vector<std::string> colours       = current_filament_colours();
+
+    p->vf_state.normalize(colours);
+    p->vf_state.update_compatibility(current_filament_types(),
+                                     [](const MixedFilament& mixed) { return is_filament_compatible(mixed); });
+    // Do not publish before the project definitions were loaded into the state, otherwise an empty
+    // state would wipe the Color Mixing rows of a project that is still being opened.
+    if (preset_bundle != nullptr && (p->m_filament_mix_loaded || !p->vf_state.empty()))
+        p->vf_state.publish(*preset_bundle, colours);
+
+    p->m_filament_mix_entries.clear();
+    p->m_filament_mix_entries.reserve(p->vf_state.row_count());
+    for (size_t index = 0; index < p->vf_state.row_count(); ++index) {
+        const VirtualFilamentRow* row = p->vf_state.row(index);
+        priv::FilamentMixEntry    entry;
+        entry.mixed        = row->definition;
+        entry.incompatible = row->incompatible;
+        entry.colour       = mixed_entry_colour(row->definition, colours);
+        entry.text         = wxString::FromUTF8(p->vf_state.display_text(index).c_str());
+        p->m_filament_mix_entries.push_back(entry);
+    }
+
+    if (wxGetApp().mainframe != nullptr)
+        wxGetApp().mainframe->update_slice_print_status(MainFrame::SlicePrintEventType::eEventSliceUpdate, true, false);
+}
+
+void Sidebar::refresh_sidebar_from_state()
+{
+    apply_state_to_ui();
+    rebuild_filament_mix_rows();
+    update_filament_mix_add_button();
+}
+
 // Orca: publish the sidebar rows to PresetBundle::mixed_filaments (the single source of truth
 // for the ported UI, the painting palette and the slicing pipeline).
 void Sidebar::sync_color_mix_store()
 {
-    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
-    if (preset_bundle == nullptr)
-        return;
-
-    MixedFilamentManager manager;
-    manager.mixed_filaments().reserve(p->m_filament_mix_entries.size());
-    for (const priv::FilamentMixEntry& entry : p->m_filament_mix_entries) {
-        MixedFilament mixed = entry.mixed;
-        mixed.custom        = true;
-        mixed.enabled       = true;
-        mixed.deleted       = false;
-        manager.mixed_filaments().push_back(std::move(mixed));
-    }
-    const std::vector<std::string> colours = current_filament_colours();
-    // Orca: same authoritative cadence as PrintApply::load_mixed_filaments(). The dialog only
-    // stores the blend percentage; the manager derives the integer cycle from it here
-    // (minority = 1 layer, majority = round(major/minor), e.g. 23%/77% -> 1:3 -> "3444").
-    manager.apply_gradient_settings(0, 0.04f, 0.16f, false);
-    manager.refresh_display_colors(colours);
-
-    // Reflect the normalized ratios back into the sidebar rows, so the pattern text matches
-    // what will actually be sliced.
-    for (size_t i = 0; i < p->m_filament_mix_entries.size() && i < manager.mixed_filaments().size(); ++i) {
-        priv::FilamentMixEntry& entry = p->m_filament_mix_entries[i];
-        entry.mixed  = manager.mixed_filaments()[i];
-        entry.colour = mixed_entry_colour(entry.mixed, colours);
-        entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
-    }
-
-    preset_bundle->mixed_filaments = manager;
-    update_filament_mix_compatibility();
-    if (ConfigOptionString* definitions = preset_bundle->project_config.option<ConfigOptionString>("mixed_filament_definitions", true))
-        definitions->value = preset_bundle->mixed_filaments.serialize_custom_entries();
+    apply_state_to_ui();
 }
 
 void Sidebar::load_filament_mix_configs()
@@ -4311,32 +3903,10 @@ void Sidebar::load_filament_mix_configs()
         return;
     p->m_filament_mix_loaded = true;
     p->m_filament_mix_definitions_loaded = current_definitions;
-    p->m_filament_mix_entries.clear();
 
-    // Orca: prefer the Color Mixing definitions stored in the project (3MF), then fall back
-    // to the definitions saved in the app config.
-    const std::vector<std::string> colours = current_filament_colours();
-    std::vector<MixedFilament>     rows;
-    if (!current_definitions.empty()) {
-        MixedFilamentManager manager;
-        manager.load_custom_entries(current_definitions, colours);
-        for (const MixedFilament& mixed : manager.mixed_filaments())
-            if (mixed.enabled && !mixed.deleted)
-                rows.push_back(mixed);
-    }
-    if (rows.empty()) {
-        // Project scope only: a project without mixed definitions must open with no rows.
-    }
-
-    for (const MixedFilament& mixed : rows) {
-        if (mixed.component_a == 0 || mixed.component_b == 0)
-            continue;
-        priv::FilamentMixEntry entry;
-        entry.mixed  = mixed;
-        entry.colour = mixed_entry_colour(entry.mixed, colours);
-        entry.text   = wxString::FromUTF8(mixed_display_pattern(entry.mixed).c_str());
-        p->m_filament_mix_entries.push_back(entry);
-    }
+    // Orca: the rows belong to the project (3MF). A project without definitions opens with no rows.
+    p->vf_state.set_num_physical(p->combos_filament.size());
+    p->vf_state.load_definitions(current_definitions, current_filament_colours());
 
     sync_color_mix_store();
 
@@ -4366,8 +3936,9 @@ void Sidebar::rebuild_filament_mix_rows()
     p->m_sizer_filament_mix->Add(left_column, 1, wxEXPAND);
     p->m_sizer_filament_mix->Add(right_column, 1, wxEXPAND);
 
-    // numbers continue after the filament numbers (1..N filaments, then N+1.. for the mixes)
-    const int first_number = int(p->combos_filament.size()) + 1;
+    // numbers continue after the filament numbers (1..N filaments, then N+1.. for the mixes);
+    // the numbering itself belongs to the pure state
+    const int first_number = int(p->vf_state.num_physical()) + 1;
 
     for (size_t i = 0; i < p->m_filament_mix_entries.size(); ++i) {
         const priv::FilamentMixEntry& entry = p->m_filament_mix_entries[i];
@@ -4443,20 +4014,17 @@ void Sidebar::rebuild_filament_mix_rows()
             } else if (evt.GetId() == wxID_DELETE) {
                 // remove the entry only after the menu event has been fully processed
                 CallAfter([this, i]() {
-                    if (i >= p->m_filament_mix_entries.size())
+                    if (i >= p->vf_state.row_count())
                         return;
-                    // Painted virtual states are numbered physical_count + index + 1.
-                    // Deleting this row invalidates its state and shifts later ones.
+                    // Deleting this row unpaints its painted state and shifts the later virtual ids
+                    // down; base filaments and painted facets share the numbering, so one map is
+                    // applied to both.
                     const size_t physical_count = p->combos_filament.size();
-                    remap_mixed_painted_after_removal(physical_count, i);
-                    // Orca: objects/volumes that use this virtual filament as their base filament
-                    // have to fall back to the default filament, and the later virtual base ids
-                    // shift down together with the rows.
-                    remap_mixed_base_extruders(mixed_base_id_map_after_removal(
-                        physical_count, p->m_filament_mix_entries.size(), i, 0));
-                    p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + i);
+                    const VirtualFilamentTransition transition = p->vf_state.on_row_removed(i);
+                    VirtualFilamentState::apply_painted_state_map(
+                        wxGetApp().model(), VirtualFilamentState::painted_state_map_from_id_map(transition.base_extruder_map));
+                    VirtualFilamentState::apply_base_extruder_map(wxGetApp().model(), transition.base_extruder_map);
                     sync_color_mix_store();
-                    save_filament_mix_configs();
                     rebuild_filament_mix_rows();
                     mark_filament_mix_changed();
                     refresh_base_filament_column(physical_count);
