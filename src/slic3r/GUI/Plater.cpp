@@ -3170,6 +3170,16 @@ void Sidebar::jump_to_option(size_t selected)
 //    wxGetApp().mainframe->select_tab();
 }
 
+// Orca: objects/volumes may use a virtual Color Mixing filament as their base extruder. These
+// helpers (defined further down, next to the other Color Mixing remap helpers) keep those
+// references valid when the virtual filaments are removed or renumbered.
+static void               remap_mixed_base_extruders(const std::map<int, int> &id_map);
+static void               refresh_base_filament_column(size_t num_physical);
+static std::map<int, int> mixed_base_id_map_after_count_change(const std::vector<MixedFilament> &old_rows,
+                                                               size_t old_physical, size_t new_physical);
+static std::map<int, int> mixed_base_id_map_after_physical_delete(const std::vector<MixedFilament> &old_rows,
+                                                                  size_t new_physical, unsigned int deleted_physical);
+
 // BBS. Move logic from Plater::on_extruders_change() to Sidebar::on_filament_count_change().
 void Sidebar::on_filament_count_change(size_t num_filaments)
 {
@@ -3178,6 +3188,14 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
 
     if (num_filaments == choices.size())
         return;
+
+    // Orca: Color Mixing rows are renumbered when the physical count changes and rows that no
+    // longer fit are pruned below. Remember them now so the base filament references of the
+    // objects/volumes can follow the new numbering.
+    std::vector<MixedFilament> old_mixed_rows;
+    old_mixed_rows.reserve(p->m_filament_mix_entries.size());
+    for (const auto& entry : p->m_filament_mix_entries)
+        old_mixed_rows.push_back(entry.mixed);
 
     if (choices.size() == 1 || num_filaments == 1)
         choices[0]->GetDropDown().Invalidate();
@@ -3233,6 +3251,11 @@ void Sidebar::on_filament_count_change(size_t num_filaments)
     update_filament_mix_compatibility();
     rebuild_filament_mix_rows();
     update_filament_mix_add_button();
+
+    // Orca: renumber the base filament references of the objects/volumes too: pruned rows fall back
+    // to the default filament, the surviving ones pick up their new virtual ids.
+    remap_mixed_base_extruders(mixed_base_id_map_after_count_change(old_mixed_rows, old_filament_count, num_filaments));
+    refresh_base_filament_column(num_filaments);
 }
 
 void Sidebar::on_filaments_delete(size_t filament_id)
@@ -3377,6 +3400,13 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     if (filament_id > filament_count)
         return;
 
+    // Orca: remember the Color Mixing rows before this change, so the base filament references of
+    // the objects/volumes can follow the new numbering below.
+    std::vector<MixedFilament> old_mixed_rows;
+    old_mixed_rows.reserve(p->m_filament_mix_entries.size());
+    for (const auto& entry : p->m_filament_mix_entries)
+        old_mixed_rows.push_back(entry.mixed);
+
     // Orca: a physical filament may be referenced by virtual mixed filaments. Warn the user
     // and delete those virtual filaments together with the physical one.
     const unsigned int deleted_physical = unsigned(filament_id) + 1;
@@ -3419,6 +3449,13 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     wxGetApp().preset_bundle->update_num_filaments(filament_id);
     wxGetApp().plater()->get_partplate_list().on_filament_deleted(filament_count, filament_id);
     wxGetApp().plater()->on_filaments_delete(filament_count, filament_id, replace_filament_id > (int)filament_id ? (replace_filament_id - 1) : replace_filament_id);
+
+    // Orca: the physical filaments above have already been renumbered (every id above the deleted
+    // one moved down by one, including the virtual ids). The virtual rows whose components
+    // contained the deleted filament are gone and the remaining rows moved, so renumber the base
+    // filament references of the objects/volumes again, now relative to that intermediate state.
+    remap_mixed_base_extruders(mixed_base_id_map_after_physical_delete(old_mixed_rows, filament_count, deleted_physical));
+
     wxGetApp().get_tab(Preset::TYPE_PRINT)->update();
     wxGetApp().preset_bundle->export_selections(*wxGetApp().app_config);
 
@@ -3426,6 +3463,7 @@ void Sidebar::delete_filament(size_t filament_id, int replace_filament_id) {
     sync_color_mix_store();
     rebuild_filament_mix_rows();
     update_filament_mix_add_button();
+    refresh_base_filament_column(filament_count);
 
     wxGetApp().plater()->update();
 }
@@ -3727,6 +3765,104 @@ static void remap_mixed_painted_after_removal(size_t num_physical, size_t remove
                 volume->remap_extruder_ids(size_t(EnforcerBlockerType::ExtruderMax), state_map);
         }
     }
+}
+
+// Orca: an object or a volume may use a virtual Color Mixing filament as its *base* extruder (the
+// "Fila." column of the object list). Whenever the Color Mixing rows are removed or renumbered
+// those references have to follow, otherwise the object list and the preview keep showing a
+// filament that no longer exists.
+//   id_map: 1-based old filament id -> new filament id, 0 meaning "the filament is gone".
+static void remap_mixed_base_extruders(const std::map<int, int> &id_map)
+{
+    if (id_map.empty())
+        return;
+
+    auto remap = [&id_map](ModelConfig &config, bool is_object) {
+        if (!config.has("extruder"))
+            return;
+        const auto it = id_map.find(config.extruder());
+        if (it == id_map.end())
+            return;
+        if (it->second > 0)
+            config.set_key_value("extruder", new ConfigOptionInt(it->second));
+        else if (is_object)
+            config.set_key_value("extruder", new ConfigOptionInt(1));
+        else
+            config.erase("extruder"); // fall back to the object filament
+    };
+
+    for (ModelObject *object : wxGetApp().model().objects) {
+        remap(object->config, true);
+        for (ModelVolume *volume : object->volumes)
+            remap(volume->config, false);
+        for (auto &layer_range : object->layer_config_ranges)
+            remap(layer_range.second, false);
+    }
+}
+
+// Orca: refresh the object list "Fila." column so remapped base filaments are visible immediately.
+static void refresh_base_filament_column(size_t num_physical)
+{
+    if (Plater *plater = wxGetApp().plater())
+        if (ObjectList *obj_list = plater->sidebar().obj_list())
+            obj_list->update_objects_list_filament_column(num_physical);
+}
+
+// Orca: id map for removing one Color Mixing row. Virtual ids are physical_count + index + 1, so
+// the removed id goes to `replacement` (0 = default filament) and the later rows move one down.
+static std::map<int, int> mixed_base_id_map_after_removal(size_t num_physical, size_t row_count,
+                                                          size_t removed_index, int replacement)
+{
+    std::map<int, int> id_map;
+    const bool         has_replacement = replacement > 0 && size_t(replacement) <= num_physical;
+    for (size_t index = 0; index < row_count; ++index) {
+        const int old_id = int(num_physical + index + 1);
+        if (index == removed_index) {
+            id_map[old_id] = has_replacement ? replacement : 0;
+        } else {
+            const size_t new_index = index > removed_index ? index - 1 : index;
+            id_map[old_id] = int(num_physical + new_index + 1);
+        }
+    }
+    return id_map;
+}
+
+// Orca: id map for the physical count change path (printer switch, filament add/delete). Rows keep
+// their relative order and the ones that no longer fit the new physical count are dropped by
+// prune_invalid_filament_mixes(), so the mapping uses the very same predicate.
+static std::map<int, int> mixed_base_id_map_after_count_change(const std::vector<MixedFilament> &old_rows,
+                                                               size_t                            old_physical,
+                                                               size_t                            new_physical)
+{
+    std::map<int, int> id_map;
+    size_t             new_index = 0;
+    for (size_t old_index = 0; old_index < old_rows.size(); ++old_index) {
+        const int old_id = int(old_physical + old_index + 1);
+        if (mixed_fits_physical_filaments(old_rows[old_index], new_physical))
+            id_map[old_id] = int(new_physical + new_index++ + 1);
+        else
+            id_map[old_id] = 0; // row is pruned: the reference falls back to the default filament
+    }
+    return id_map;
+}
+
+// Orca: id map for deleting a physical filament. The object list has already shifted every id above
+// the deleted one by one (virtual ids included), so the current virtual ids are
+// new_physical + index + 1. Rows whose components use the deleted filament are removed with it.
+static std::map<int, int> mixed_base_id_map_after_physical_delete(const std::vector<MixedFilament> &old_rows,
+                                                                  size_t                            new_physical,
+                                                                  unsigned int                      deleted_physical)
+{
+    std::map<int, int> id_map;
+    size_t             new_index = 0;
+    for (size_t old_index = 0; old_index < old_rows.size(); ++old_index) {
+        const int old_id = int(new_physical + old_index + 1);
+        if (!mixed_uses_physical_filament(old_rows[old_index], deleted_physical))
+            id_map[old_id] = int(new_physical + new_index++ + 1);
+        else
+            id_map[old_id] = 0; // row deleted together with the physical filament
+    }
+    return id_map;
 }
 
 void Sidebar::remap_mixed_painted_states(size_t old_physical_count, size_t new_physical_count)
@@ -4080,11 +4216,17 @@ void Sidebar::replace_filament_mix(size_t index, int target_filament)
         }
     }
 
+    // Orca: objects/volumes that use this virtual filament as their base filament switch to the
+    // replacement filament, the later virtual base ids shift down together with the rows.
+    remap_mixed_base_extruders(mixed_base_id_map_after_removal(
+        size_t(physical), p->m_filament_mix_entries.size(), index, target_filament));
+
     p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + index);
     sync_color_mix_store();
     save_filament_mix_configs();
     rebuild_filament_mix_rows();
     mark_filament_mix_changed();
+    refresh_base_filament_column(size_t(physical));
     wxGetApp().plater()->update();
 }
 
@@ -4305,12 +4447,19 @@ void Sidebar::rebuild_filament_mix_rows()
                         return;
                     // Painted virtual states are numbered physical_count + index + 1.
                     // Deleting this row invalidates its state and shifts later ones.
-                    remap_mixed_painted_after_removal(p->combos_filament.size(), i);
+                    const size_t physical_count = p->combos_filament.size();
+                    remap_mixed_painted_after_removal(physical_count, i);
+                    // Orca: objects/volumes that use this virtual filament as their base filament
+                    // have to fall back to the default filament, and the later virtual base ids
+                    // shift down together with the rows.
+                    remap_mixed_base_extruders(mixed_base_id_map_after_removal(
+                        physical_count, p->m_filament_mix_entries.size(), i, 0));
                     p->m_filament_mix_entries.erase(p->m_filament_mix_entries.begin() + i);
                     sync_color_mix_store();
                     save_filament_mix_configs();
                     rebuild_filament_mix_rows();
                     mark_filament_mix_changed();
+                    refresh_base_filament_column(physical_count);
                 });
             } else if (evt.GetId() > wxID_HIGHEST + 3000 &&
                        evt.GetId() <= wxID_HIGHEST + 3000 + int(p->combos_filament.size())) {
