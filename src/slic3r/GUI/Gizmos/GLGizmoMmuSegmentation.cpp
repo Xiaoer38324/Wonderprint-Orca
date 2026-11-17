@@ -19,6 +19,8 @@
 
 #include <GL/glew.h>
 
+#include <algorithm>
+
 namespace Slic3r::GUI {
 
 static inline void show_notification_extruders_limit_exceeded()
@@ -60,7 +62,19 @@ bool GLGizmoMmuSegmentation::on_is_activable() const
     return !selection.is_empty() && (selection.is_single_full_instance() || selection.is_any_volume()) && wxGetApp().filaments_cnt() > 1;
 }
 
-static std::vector<int> get_extruder_id_for_volumes(const ModelObject &model_object)
+// Orca: the filament a volume prints with where it is not painted over: its own base extruder, else
+// the object's, else the first filament. The painting tool must resolve it exactly like the slicer
+// does, otherwise a filament change on the object leaves the panel showing the previous colour.
+static int resolve_base_extruder(const ModelObject &model_object, const ModelVolume &model_volume)
+{
+    const int extruder = model_volume.extruder_id();
+    if (extruder > 0)
+        return extruder;
+    const int object_extruder = model_object.config.has("extruder") ? model_object.config.opt_int("extruder") : 1;
+    return object_extruder > 0 ? object_extruder : 1;
+}
+
+static std::vector<int> get_base_extruder_for_volumes(const ModelObject &model_object)
 {
     std::vector<int> extruders_idx;
     extruders_idx.reserve(model_object.volumes.size());
@@ -68,7 +82,7 @@ static std::vector<int> get_extruder_id_for_volumes(const ModelObject &model_obj
         if (!model_volume->is_model_part())
             continue;
 
-        extruders_idx.emplace_back(model_volume->extruder_id());
+        extruders_idx.emplace_back(resolve_base_extruder(model_object, *model_volume));
     }
 
     return extruders_idx;
@@ -101,6 +115,35 @@ void GLGizmoMmuSegmentation::init_extruders_data()
     m_extruder_remap.resize(m_extruders_colors.size());
     for (size_t i = 0; i < m_extruder_remap.size(); ++i)
         m_extruder_remap[i] = i;
+}
+
+// Orca: re-read the palette and report what changed. The palette is derived state: the colour of a
+// virtual filament is recomputed from the physical ones, and that recomputation happens *after* the
+// scene reload in some flows (the sidebar republishes the mixed filaments from a CallAfter). A check
+// that only looks at the filament count therefore keeps stale swatches around until the painting
+// panel is reopened, which is exactly the reported bug.
+GLGizmoMmuSegmentation::PaletteChange GLGizmoMmuSegmentation::refresh_extruders_palette()
+{
+    const std::vector<ColorRGBA> palette = make_extruders_palette();
+    if (palette == m_extruders_colors)
+        return PaletteChange::None;
+
+    const bool count_changed = palette.size() != m_extruders_colors.size();
+    if (count_changed && int(palette.size()) > int(GLGizmoMmuSegmentation::EXTRUDERS_LIMIT))
+        show_notification_extruders_limit_exceeded();
+
+    m_extruders_colors = palette;
+    if (m_selected_extruder_idx >= m_extruders_colors.size())
+        m_selected_extruder_idx = 0;
+    if (count_changed) {
+        // Keep the remap table in sync with the palette, otherwise render_filament_remap_ui() would
+        // index past its end after filaments were added or removed.
+        m_extruder_remap.resize(m_extruders_colors.size());
+        for (size_t index = 0; index < m_extruder_remap.size(); ++index)
+            m_extruder_remap[index] = index;
+    }
+
+    return count_changed ? PaletteChange::FilamentCount : PaletteChange::Colours;
 }
 
 bool GLGizmoMmuSegmentation::on_init()
@@ -191,22 +234,27 @@ void GLGizmoMmuSegmentation::data_changed(bool is_serializing)
         return;
 
     ModelObject* model_object = m_c->selection_info()->model_object();
-    // Orca: the palette contains the real filaments plus the Color Mixing virtual filaments.
-    const std::vector<ColorRGBA> palette = make_extruders_palette();
-    int prev_extruders_count = int(m_extruders_colors.size());
-    if (prev_extruders_count != int(palette.size())) {
-        if (int(palette.size()) > int(GLGizmoMmuSegmentation::EXTRUDERS_LIMIT))
-            show_notification_extruders_limit_exceeded();
-
-        this->init_extruders_data();
+    // Orca: refresh the palette before anything else so the swatches and the painted triangles use
+    // the current colours (see refresh_extruders_palette() for why this cannot be count based only).
+    switch (this->refresh_extruders_palette()) {
+    case PaletteChange::FilamentCount:
         // Reinitialize triangle selectors because of change of extruder count need also change the size of GLIndexedVertexArray
         this->init_model_triangle_selectors();
-    } else if (palette != m_extruders_colors) {
-        this->init_extruders_data();
+        this->update_used_filaments();
+        return;
+    case PaletteChange::Colours:
         this->update_triangle_selectors_colors();
+        this->update_used_filaments();
+        break;
+    case PaletteChange::None:
+        break;
     }
-    else if (model_object != nullptr && get_extruder_id_for_volumes(*model_object) != m_volumes_extruder_idxs) {
+
+    if (model_object != nullptr && get_base_extruder_for_volumes(*model_object) != m_volumes_extruder_idxs) {
         this->init_model_triangle_selectors();
+        // ORCA: the remap panel lists the filaments the object actually uses, so it has to follow a
+        // base filament change too (changing the filament of an object/list item lands here).
+        this->update_used_filaments();
     }
 }
 
@@ -351,6 +399,33 @@ void GLGizmoMmuSegmentation::show_tooltip_information(float caption_max, float x
 void GLGizmoMmuSegmentation::on_render_input_window(float x, float y, float bottom_limit)
 {
     if (!m_c->selection_info()->model_object()) return;
+
+    // Orca: the palette (physical filament colours + the display colour of the enabled virtual
+    // filaments) is derived state. Several flows republish it *after* the scene reload - the sidebar
+    // refreshes the mixed filaments from a CallAfter, and picking a filament for an object only
+    // queues a scene reload. Re-reading it here (a handful of colours) keeps the swatches and the
+    // painted triangle colours correct on every path instead of relying on event ordering, which is
+    // what left stale colours in the remap panel until the painting panel was reopened.
+    switch (this->refresh_extruders_palette()) {
+    case PaletteChange::FilamentCount:
+        this->init_model_triangle_selectors();
+        this->update_used_filaments();
+        break;
+    case PaletteChange::Colours:
+        this->update_triangle_selectors_colors();
+        this->update_used_filaments();
+        break;
+    case PaletteChange::None:
+        break;
+    }
+
+    if (const ModelObject* model_object = m_c->selection_info()->model_object();
+        model_object != nullptr && get_base_extruder_for_volumes(*model_object) != m_volumes_extruder_idxs) {
+        // The object was assigned another filament: its unpainted facets change colour, so both the
+        // painted triangle colours and the list of filaments the remap panel offers must follow.
+        this->init_model_triangle_selectors();
+        this->update_used_filaments();
+    }
 
     const float approx_height = m_imgui->scaled(22.0f);
     y = std::min(y, bottom_limit - approx_height);
@@ -845,7 +920,12 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
         if (!mv->is_model_part())
             continue;
 
-        int extruder_idx = (mv->extruder_id() > 0) ? mv->extruder_id() - 1 : 0;
+        // Resolve the base filament like the slicer does (volume → object → first filament), so an
+        // object level filament change is reflected by the colour of the unpainted facets.
+        const int base_extruder = resolve_base_extruder(*mo, *mv);
+        // A base filament can point past the palette (e.g. a deleted virtual filament that survived
+        // in an old project); never index the palette out of bounds.
+        int extruder_idx = std::clamp(base_extruder - 1, 0, int(m_extruders_colors.size()) - 1);
         std::vector<ColorRGBA> ebt_colors;
         ebt_colors.push_back(m_extruders_colors[size_t(extruder_idx)]);
         ebt_colors.insert(ebt_colors.end(), m_extruders_colors.begin(), m_extruders_colors.end());
@@ -858,16 +938,19 @@ void GLGizmoMmuSegmentation::init_model_triangle_selectors()
         m_triangle_selectors.back()->deserialize(mv->mmu_segmentation_facets.get_data(), false, max_ebt);
         m_triangle_selectors.back()->request_update_render_data();
         m_triangle_selectors.back()->set_wireframe_needed(true);
-        m_volumes_extruder_idxs.push_back(mv->extruder_id());
+        m_volumes_extruder_idxs.push_back(base_extruder);
     }
 }
 
 void GLGizmoMmuSegmentation::update_triangle_selectors_colors()
 {
-    for (int i = 0; i < m_triangle_selectors.size(); i++) {
+    if (m_extruders_colors.empty())
+        return;
+    for (int i = 0; i < m_triangle_selectors.size() && i < m_volumes_extruder_idxs.size(); i++) {
         TriangleSelectorPatch* selector = dynamic_cast<TriangleSelectorPatch*>(m_triangle_selectors[i].get());
         int extruder_idx = m_volumes_extruder_idxs[i];
-        int extruder_color_idx = std::max(0, extruder_idx - 1);
+        // Clamp: the base filament may point past the palette (deleted virtual filament).
+        int extruder_color_idx = std::clamp(extruder_idx - 1, 0, int(m_extruders_colors.size()) - 1);
         std::vector<ColorRGBA> ebt_colors;
         ebt_colors.push_back(m_extruders_colors[extruder_color_idx]);
         ebt_colors.insert(ebt_colors.end(), m_extruders_colors.begin(), m_extruders_colors.end());
@@ -881,8 +964,7 @@ void GLGizmoMmuSegmentation::update_from_model_object(bool first_update)
 
     // Extruder colors need to be reloaded before calling init_model_triangle_selectors to render painted triangles
     // using colors from loaded 3MF and not from printer profile in Slicer.
-    if (m_extruders_colors != make_extruders_palette())
-        this->init_extruders_data();
+    this->refresh_extruders_palette();
 
     this->init_model_triangle_selectors();
 
@@ -1105,18 +1187,12 @@ void GLGizmoMmuSegmentation::update_used_filaments()
     // A volume without any segmentation data uses its base extruder. This also
     // covers a fully unpainted object.
     if (m_used_filaments.empty() || has_unpainted) {
-        const int object_extruder = mo->config.has("extruder") ? mo->config.opt_int("extruder") : 1;
         for (const ModelVolume *mv : mo->volumes) {
             if (!mv->is_model_part())
                 continue;
             if (!mv->mmu_segmentation_facets.empty() && !has_unpainted)
                 continue;
-            int base_extruder = mv->extruder_id();
-            if (base_extruder <= 0)
-                base_extruder = object_extruder;
-            if (base_extruder <= 0)
-                base_extruder = 1;
-            const int idx = base_extruder - 1;
+            const int idx = resolve_base_extruder(*mo, *mv) - 1;
             if (idx >= 0 && idx < int(m_extruders_colors.size()))
                 m_used_filaments.insert(size_t(idx));
         }

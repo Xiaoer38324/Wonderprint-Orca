@@ -139,6 +139,18 @@ private:
     // BBS
     void update_triangle_selectors_colors();
     void init_extruders_data();
+
+    // Orca: the filament palette is derived state (physical filament colours plus the display colour
+    // of the enabled virtual filaments), so it has to be re-read whenever the world may have changed.
+    // It is not enough to compare the filament count: a colour change keeps the count and a virtual
+    // filament changes its colour after the physical ones were republished.
+    enum class PaletteChange
+    {
+        None,
+        Colours,      // same filaments, new colours
+        FilamentCount // filaments were added or removed
+    };
+    PaletteChange refresh_extruders_palette();
     
     // Filament remapping methods
     void remap_filament_assignments();
