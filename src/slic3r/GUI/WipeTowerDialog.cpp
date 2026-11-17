@@ -366,33 +366,35 @@ wxString WipingDialog::BuildTextObjStr(bool multi_language)
 WipingDialog::WipingDialog(wxWindow* parent, const int max_flush_volume) :
     wxDialog(parent, wxID_ANY, _(L("Flushing volumes for filament change")),
     wxDefaultPosition, wxDefaultSize,
-    wxDEFAULT_DIALOG_STYLE ),
+    wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX),
     m_max_flush_volume(max_flush_volume)
 {
     wxBoxSizer* main_sizer = new wxBoxSizer(wxVERTICAL);
     this->SetSizer(main_sizer);
     this->SetBackgroundColour(*wxWHITE);
-    auto filament_count= wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour")->values.size();
-    wxSize extra_size = { FromDIP(100),FromDIP(235) };
-    if (filament_count <= 2)
-        extra_size.y += FromDIP(16) * 3 + FromDIP(32);
-    else if (filament_count == 3)
-        extra_size.y += FromDIP(16) * 3;
-    else if (4 <= filament_count && filament_count <= 8)
-        extra_size.y += FromDIP(16) * 2;
-    else
-        extra_size.y += FromDIP(16);
+    const size_t filament_count = wxGetApp().preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour")->values.size();
 
-    wxSize max_scroll_size = { FromDIP(1000),FromDIP(500) };
-    wxSize estimate_size = { (int)(filament_count + 1) * FromDIP(60),(int)(filament_count + 1) * FromDIP(30)+FromDIP(2)};
-    wxSize scroll_size ={ std::min(max_scroll_size.x,estimate_size.x),std::min(max_scroll_size.y,estimate_size.y) };
-    wxSize applied_size = scroll_size + extra_size;
+    // Orca: the flushing matrix has (filament_count + 1) x (filament_count + 1) cells, so a fixed
+    // window either wastes space for two filaments or clips the matrix for many of them. Derive the
+    // window size from the table (like the reference implementation does) and cap it to the usable
+    // screen area; the table scrolls when even that is not enough, and the dialog is resizable.
+    // The cell size mirrors the cell metrics of resources/web/flush/WipingDialog.html.
+    const wxSize cell_size   = { FromDIP(46), FromDIP(31) };
+    // Tip panel, toolbar, labels and the buttons below the table.
+    const wxSize chrome_size = { FromDIP(64), FromDIP(250) };
+    const wxSize content_size = { int(filament_count + 1) * cell_size.x + chrome_size.x,
+                                  int(filament_count + 1) * cell_size.y + chrome_size.y };
 
-    wxSize scaled_screen_size = wxGetDisplaySize();
-    double scale_factor = wxDisplay().GetScaleFactor();
-    scaled_screen_size = { (int)(scaled_screen_size.x / scale_factor),(int)(scaled_screen_size.y / scale_factor) };
+    const int display_idx = parent != nullptr ? wxDisplay::GetFromWindow(parent) : wxNOT_FOUND;
+    const wxDisplay display(display_idx == wxNOT_FOUND ? 0u : unsigned(display_idx));
+    const double scale_factor = display.GetScaleFactor() > 0.0 ? display.GetScaleFactor() : 1.0;
+    // GetClientArea() is in physical pixels, the FromDIP() values above are in DIP: convert.
+    const wxRect work_area = display.GetClientArea();
+    const wxSize usable_size = { int(work_area.width / scale_factor * 0.95), int(work_area.height / scale_factor * 0.90) };
+    const wxSize min_size = { FromDIP(520), FromDIP(360) };
+    const wxSize applied_size = { std::clamp(content_size.x, min_size.x, std::max(usable_size.x, min_size.x)),
+                                  std::clamp(content_size.y, min_size.y, std::max(usable_size.y, min_size.y)) };
 
-    applied_size = { std::min(applied_size.x,scaled_screen_size.x),std::min(applied_size.y,scaled_screen_size.y) };
     m_webview = wxWebView::New(this, wxID_ANY,
         wxEmptyString,
         wxDefaultPosition,
@@ -416,7 +418,10 @@ WipingDialog::WipingDialog(wxWindow* parent, const int max_flush_volume) :
     }
 
     main_sizer->SetSizeHints(this);
-    main_sizer->Fit(this);
+    // SetSizeHints() pins the minimum size to the web view's current size; allow shrinking the
+    // dialog further (the table scrolls) after the initial size was clamped to the screen.
+    SetMinSize(min_size);
+    Fit();
     CenterOnParent();
     wxGetApp().UpdateDlgDarkUI(this);
 
