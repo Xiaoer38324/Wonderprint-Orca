@@ -5,8 +5,11 @@
 #include "MaterialType.hpp"
 #include "I18N.hpp"
 #include "format.hpp"
+#include "LocalesUtils.hpp"
 
 #include "GCode/Thumbnails.hpp"
+#include <cmath>
+#include <cstdio>
 #include <set>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/replace.hpp>
@@ -574,6 +577,149 @@ std::string get_nozzle_volume_type_string(NozzleVolumeType nozzle_volume_type)
         return "";
     }
     return s_keys_names_NozzleVolumeType[nozzle_volume_type];
+}
+
+// -----------------------------------------------------------------------------
+// Multi nozzle diameter ("multi-diameter") support.
+// -----------------------------------------------------------------------------
+
+bool has_authoritative_per_slot_nozzle_diameters(bool handle_hotend_as_extruder, const std::vector<int> &slot_counts, const std::vector<double> &slot_diameters)
+{
+    if (slot_diameters.empty())
+        return false;
+    if (handle_hotend_as_extruder)
+        return true;
+    int expected_slot_count = 0;
+    for (int count : slot_counts)
+        expected_slot_count += std::max(count, 0);
+    return expected_slot_count > 0 && int(slot_diameters.size()) == expected_slot_count;
+}
+
+bool multi_nozzle_diameter_mode_enabled(const ConfigOptionResolver &config)
+{
+    const ConfigOptionBool *mode = config.option<ConfigOptionBool>("multi_nozzle_diameter_mode");
+    return mode != nullptr && mode->value;
+}
+
+std::string printer_nozzle_diameter_mode_tag(const ConfigBase &config)
+{
+    if (const ConfigOptionString *mode = config.option<ConfigOptionString>("printer_nozzle_diameter_mode"); mode != nullptr)
+        return mode->value;
+    return {};
+}
+
+static bool handle_hotend_as_extruder_enabled(const ConfigBase &config)
+{
+    const ConfigOptionBool *opt = config.option<ConfigOptionBool>("handle_hotend_as_extruder");
+    return opt != nullptr && opt->value;
+}
+
+const std::vector<double> *configured_nozzle_diameters(const ConfigBase &config)
+{
+    const ConfigOptionFloats *slot_diameters = config.option<ConfigOptionFloats>("extruder_nozzle_diameter");
+    const ConfigOptionInts   *slot_counts    = config.option<ConfigOptionInts>("extruder_nozzle_count");
+    if (slot_diameters != nullptr && slot_counts != nullptr &&
+        has_authoritative_per_slot_nozzle_diameters(handle_hotend_as_extruder_enabled(config), slot_counts->values, slot_diameters->values))
+        return &slot_diameters->values;
+    // Old profiles only carry one diameter per extruder; that list is still the machine's nozzle list.
+    if (const ConfigOptionFloats *per_extruder = config.option<ConfigOptionFloats>("nozzle_diameter"); per_extruder != nullptr && ! per_extruder->values.empty())
+        return &per_extruder->values;
+    return nullptr;
+}
+
+bool has_multiple_configured_nozzle_diameters(const ConfigBase &config)
+{
+    if (! multi_nozzle_diameter_mode_enabled(config))
+        return false;
+    const std::vector<double> *diameters = configured_nozzle_diameters(config);
+    if (diameters == nullptr)
+        return false;
+    double first = 0.;
+    for (double diameter : *diameters) {
+        if (diameter <= EPSILON)
+            continue;
+        if (first <= EPSILON)
+            first = diameter;
+        else if (std::abs(diameter - first) > EPSILON)
+            return true;
+    }
+    return false;
+}
+
+double primary_nozzle_diameter(const ConfigBase &config)
+{
+    // Classic profiles carry the nozzle diameter as the printer variant number, e.g. "0.4".
+    if (const ConfigOptionString *variant = config.option<ConfigOptionString>("printer_variant"); variant != nullptr) {
+        const double parsed = string_to_double_decimal_point(variant->value);
+        if (parsed > EPSILON)
+            return parsed;
+    }
+    if (const std::vector<double> *diameters = configured_nozzle_diameters(config); diameters != nullptr && ! diameters->empty())
+        return diameters->front();
+    return 0.;
+}
+
+double layer_grid_nozzle_diameter(const ConfigBase &config)
+{
+    const double primary = primary_nozzle_diameter(config);
+    if (! multi_nozzle_diameter_mode_enabled(config) || primary <= EPSILON)
+        return primary;
+    // The grid is pinned to the 0.2 mm nozzle even when the rack does not carry one, so swapping a coarse
+    // nozzle never renumbers the band layout of the whole print.
+    return std::min(primary, 0.2);
+}
+
+int layer_grid_subdivision(const ConfigBase &config)
+{
+    const double primary = primary_nozzle_diameter(config);
+    const double anchor  = layer_grid_nozzle_diameter(config);
+    if (primary <= EPSILON || anchor <= EPSILON)
+        return 1;
+    // A non-integer ratio would leave band sizes that do not divide the grid.
+    return std::max(1, int(primary / anchor + 0.5));
+}
+
+float nozzle_diameter_for_filament(const ConfigBase &config, unsigned int filament_id)
+{
+    const ConfigOptionStrings *diameter_map = config.option<ConfigOptionStrings>("filament_diameter_map");
+    if (filament_id != 0 && diameter_map != nullptr && filament_id - 1 < diameter_map->values.size()) {
+        const std::string &selected = diameter_map->values[filament_id - 1];
+        // A slot may advertise the list of diameters it is available with; that is not a selection.
+        if (! selected.empty() && selected.find(';') == std::string::npos) {
+            const double diameter = string_to_double_decimal_point(selected);
+            if (diameter > EPSILON)
+                return float(diameter);
+        }
+    }
+
+    // One nozzle per extruder: the filament map decides which extruder prints the filament, and that
+    // extruder's nozzle diameter is the one to use. Without a valid mapping fall back to the filament index
+    // itself (historic behaviour); get_at() clamps to the first nozzle, which is what a single extruder
+    // machine with several filaments needs.
+    unsigned int extruder_index = filament_id == 0 ? 0 : filament_id - 1;
+    if (filament_id != 0) {
+        if (const ConfigOptionInts *filament_map = config.option<ConfigOptionInts>("filament_map"); filament_map != nullptr &&
+            filament_id - 1 < filament_map->values.size()) {
+            const int extruder_id = filament_map->values[filament_id - 1];
+            if (extruder_id > 0)
+                extruder_index = unsigned(extruder_id - 1);
+        }
+    }
+    const ConfigOptionFloats *nozzles = config.option<ConfigOptionFloats>("nozzle_diameter");
+    return nozzles != nullptr ? float(nozzles->get_at(extruder_index)) : 0.f;
+}
+
+std::string format_nozzle_diameter_to_str(double diameter, int precision)
+{
+    char buffer[32];
+    std::snprintf(buffer, sizeof(buffer), "%.*f", precision, diameter);
+    std::string text(buffer);
+    // Trim the trailing zeros, so "0.40" and "0.4" compare and serialize the same way.
+    const size_t dot = text.find('.');
+    if (dot != std::string::npos)
+        while (text.size() > dot + 2 && text.back() == '0')
+            text.pop_back();
+    return text;
 }
 
 std::vector<std::map<int, int>> get_extruder_ams_count(const std::vector<std::string>& strs)
@@ -2835,6 +2981,13 @@ void PrintConfigDef::init_fff_params()
     def->set_default_value(new ConfigOptionStrings());
     def->cli = ConfigOptionDef::nocli;
 
+    // Multi nozzle diameter support: the nozzle each filament is printed with. Empty means "not selected";
+    // a value containing ';' is the list of diameters the filament is available with, not a selection.
+    def = this->add("filament_diameter_map", coStrings);
+    def->label = L("Filament selected nozzle diameters");
+    def->tooltip = L("Per-filament explicitly selected nozzle diameter. Empty means not selected.");
+    def->set_default_value(new ConfigOptionStrings());
+
     def = this->add("filament_vendor", coStrings);
     def->label = L("Vendor");
     def->tooltip = L("Vendor of filament. For show only.");
@@ -5076,6 +5229,62 @@ void PrintConfigDef::init_fff_params()
     def->label = "Print's extruder variant";
     def->tooltip = "Print's extruder variant.";
     def->set_default_value(new ConfigOptionStrings { "Direct Drive Standard" });
+    def->cli = ConfigOptionDef::nocli;
+
+    // -------------------------------------------------------------------------
+    // Multi nozzle diameter ("multi-diameter") machine options.
+    // -------------------------------------------------------------------------
+    def = this->add("multi_nozzle_diameter_mode", coBool);
+    def->label = L("Multi nozzle diameter mode");
+    def->tooltip = L("Allow the machine to carry nozzles of different diameters. Every filament then selects the "
+                     "nozzle it is printed with, and the print is sliced on the layer grid of the smallest nozzle: "
+                     "each nozzle merges the grid layers it covers into one thicker extrusion.");
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionBool{ false });
+
+    def = this->add("handle_hotend_as_extruder", coBool);
+    // internal use only, don't need translation
+    def->label = "Handle hotend as extruder";
+    def->tooltip = "Treat every hotend as its own extruder.";
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionBool{ false });
+
+    def = this->add("extruder_nozzle_count", coInts);
+    // internal use only, don't need translation
+    def->label = "Nozzle count per extruder";
+    def->tooltip = "Number of nozzles each extruder carries.";
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionInts{ 1 });
+
+    def = this->add("extruder_nozzle_diameter", coFloats);
+    // internal use only, don't need translation
+    def->label = "Nozzle diameters";
+    def->tooltip = "Per-slot nozzle diameter, flat list in physical nozzle order. Falls back to nozzle_diameter "
+                   "when not provided.";
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionFloats{ 0.4 });
+
+    def = this->add("extruder_nozzle_slot", coInts);
+    // internal use only, don't need translation
+    def->label = "Nozzle slots";
+    def->tooltip = "Physical slot index for each installed nozzle, so a nozzle keeps its slot even when some "
+                   "slots are empty. Falls back to dense ordering when not provided.";
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionInts{ });
+
+    def = this->add_nullable("extruder_max_nozzle_count", coInts);
+    // internal use only, don't need translation
+    def->label = "Max nozzle count";
+    def->tooltip = "Maximum number of nozzles the machine can carry, as reported by the machine definition.";
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionIntsNullable{ 1 });
+
+    def = this->add("printer_nozzle_diameter_mode", coString);
+    // internal use only, don't need translation
+    def->label = "Printer nozzle diameter mode";
+    def->tooltip = "Machine side tag of the nozzle diameter mode.";
+    def->mode = comDevelop;
+    def->set_default_value(new ConfigOptionString{ "" });
     def->cli = ConfigOptionDef::nocli;
 
     /*def = this->add("filament_extruder_id", coInts);
@@ -8177,6 +8386,14 @@ void DynamicPrintConfig::normalize_fdm(int used_filaments)
         }
         */
     }
+
+    // Multi nozzle diameter ("multi-diameter"): with the mode off the machine is treated as offering a single
+    // nozzle diameter, so a per-filament selection left over from a project sliced with the mode on must not
+    // leak into this slice. The rack data (extruder_nozzle_*) is machine capability and is kept.
+    if (! multi_nozzle_diameter_mode_enabled(*this)) {
+        if (ConfigOptionStrings *map = this->option<ConfigOptionStrings>("filament_diameter_map", false); map != nullptr)
+            map->values.clear();
+    }
 }
 
 //BBS:divide normalize_fdm to 2 steps and call them one by one in Print::Apply
@@ -9183,6 +9400,25 @@ DynamicPrintConfig::get_filament_type() const
     return std::string();
 }
 
+// Custom multi-extruder profiles only declare "Direct Drive Standard" as their supported variant. Selecting
+// a different nozzle volume type (High Flow) must not make the per-variant lookup fail: fall back to the
+// first declared variant of that extruder. The nozzle volume type is a nozzle property and does not change
+// the per-variant printer / filament tables, so the standard variant values are the safe interpretation.
+static int first_variant_index_for_extruder(const DynamicPrintConfig &config, const std::string &id_name,
+                                            int extruder_id, const std::string &variant_name)
+{
+    const auto *variants = dynamic_cast<const ConfigOptionStrings *>(config.option(variant_name));
+    if (variants == nullptr || variants->values.empty())
+        return 0;
+    const auto *ids = id_name.empty() ? nullptr : dynamic_cast<const ConfigOptionInts *>(config.option(id_name));
+    if (ids == nullptr)
+        return 0;
+    for (size_t i = 0; i < variants->values.size() && i < ids->values.size(); ++i)
+        if (ids->values[i] == extruder_id)
+            return int(i);
+    return 0;
+}
+
 void DynamicPrintConfig::update_values_to_printer_extruders(DynamicPrintConfig& printer_config, std::set<std::string>& key_set, std::string id_name, std::string variant_name, unsigned int stride, unsigned int extruder_id)
 {
     int extruder_count;
@@ -9220,9 +9456,9 @@ void DynamicPrintConfig::update_values_to_printer_extruders(DynamicPrintConfig& 
             variant_index[0] = get_index_for_extruder(extruder_id, effective_id_name, extruder_type, nozzle_volume_type, effective_variant_name);
 
             if (variant_index[0] < 0) {
-                BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(", Line %1%: could not found extruder_type %2%, nozzle_volume_type %3%, for filament")
-                    % __LINE__ % s_keys_names_ExtruderType[extruder_type] % s_keys_names_NozzleVolumeType[nozzle_volume_type];
-                assert(false);
+                variant_index[0] = first_variant_index_for_extruder(*this, effective_id_name, int(extruder_id), effective_variant_name) * int(stride);
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(", Line %1%: could not found extruder_type %2%, nozzle_volume_type %3%, for filament; falling back to variant index %4%")
+                    % __LINE__ % s_keys_names_ExtruderType[extruder_type] % s_keys_names_NozzleVolumeType[nozzle_volume_type] % variant_index[0];
             }
 
             extruder_count = 1;
@@ -9238,12 +9474,9 @@ void DynamicPrintConfig::update_values_to_printer_extruders(DynamicPrintConfig& 
                 //variant index
                 variant_index[e_index] = get_index_for_extruder(e_index+1, effective_id_name, extruder_type, nozzle_volume_type, effective_variant_name);
                 if (variant_index[e_index] < 0) {
-                    BOOST_LOG_TRIVIAL(error) << __FUNCTION__ << boost::format(", Line %1%: could not found extruder_type %2%, nozzle_volume_type %3%, extruder_index %4%")
-                        %__LINE__ %s_keys_names_ExtruderType[extruder_type] % s_keys_names_NozzleVolumeType[nozzle_volume_type] % (e_index+1);
-                    assert(false);
-                    //for some updates happens in a invalid state(caused by popup window)
-                    //we need to avoid crash
-                    variant_index[e_index] = 0;
+                    variant_index[e_index] = first_variant_index_for_extruder(*this, effective_id_name, e_index + 1, effective_variant_name) * int(stride);
+                    BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(", Line %1%: could not found extruder_type %2%, nozzle_volume_type %3%, extruder_index %4%; falling back to variant index %5%")
+                        %__LINE__ %s_keys_names_ExtruderType[extruder_type] % s_keys_names_NozzleVolumeType[nozzle_volume_type] % (e_index+1) % variant_index[e_index];
                 }
             }
         }
@@ -9374,13 +9607,24 @@ void DynamicPrintConfig::update_values_to_printer_extruders_for_multiple_filamen
     if ((extruder_count > 1) || different_extruder)
     {
         BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(", Line %1%:  extruder_count=%2%, different_extruder=%3%")%__LINE__ %extruder_count %different_extruder;
-        std::vector<int> filament_maps =  printer_config.option<ConfigOptionInts>("filament_map")->values;
+        const ConfigOptionInts *filament_map_opt = printer_config.option<ConfigOptionInts>("filament_map");
+        if (filament_map_opt == nullptr) {
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": filament_map is missing from the printer config";
+            return;
+        }
+        std::vector<int> filament_maps = filament_map_opt->values;
         size_t filament_count = filament_maps.size();
         //apply process settings
         //auto opt_nozzle_diameters = this->option<ConfigOptionFloats>("nozzle_diameter");
         //int extruder_count = opt_nozzle_diameters->size();
         auto opt_extruder_type = dynamic_cast<const ConfigOptionEnumsGeneric*>(printer_config.option("extruder_type"));
         auto opt_nozzle_volume_type = dynamic_cast<const ConfigOptionEnumsGeneric*>(printer_config.option("nozzle_volume_type"));
+        if (opt_extruder_type == nullptr || opt_nozzle_volume_type == nullptr) {
+            // nozzle_volume_type is a project option in this fork; a config loaded without it must not
+            // dereference a null option when the extruder/variant remap runs.
+            BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << ": extruder_type/nozzle_volume_type is missing from the printer config";
+            return;
+        }
         auto opt_ids = id_name.empty()? nullptr: dynamic_cast<const ConfigOptionInts*>(this->option(id_name));
         std::vector<int> variant_index;
 
@@ -9388,8 +9632,16 @@ void DynamicPrintConfig::update_values_to_printer_extruders_for_multiple_filamen
 
         for (int f_index = 0; f_index < filament_count; f_index++)
         {
-            ExtruderType extruder_type = (ExtruderType)(opt_extruder_type->get_at(filament_maps[f_index] - 1));
-            NozzleVolumeType nozzle_volume_type = (NozzleVolumeType)(opt_nozzle_volume_type->get_at(filament_maps[f_index] - 1));
+            const int extruder_index = filament_maps[f_index] - 1;
+            if (extruder_index < 0 || extruder_index >= int(opt_extruder_type->values.size()) ||
+                extruder_index >= int(opt_nozzle_volume_type->values.size())) {
+                BOOST_LOG_TRIVIAL(warning) << __FUNCTION__ << boost::format(", Line %1%: filament %2% maps to invalid extruder %3%")
+                    %__LINE__ %(f_index + 1) %filament_maps[f_index];
+                variant_index[f_index] = 0;
+                continue;
+            }
+            ExtruderType extruder_type = (ExtruderType)(opt_extruder_type->get_at(extruder_index));
+            NozzleVolumeType nozzle_volume_type = (NozzleVolumeType)(opt_nozzle_volume_type->get_at(extruder_index));
 
             //variant index
             variant_index[f_index] = get_index_for_extruder(f_index+1, id_name, extruder_type, nozzle_volume_type, variant_name);

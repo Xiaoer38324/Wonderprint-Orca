@@ -7,6 +7,7 @@
 #include "SurfaceCollection.hpp"
 #include "ExtrusionEntityCollection.hpp"
 #include "BoundingBox.hpp"
+#include "AdaptiveLayerMerge.hpp"
 namespace Slic3r {
 
 class ExPolygon;
@@ -61,6 +62,10 @@ public:
     // BBS: Unspecified fill polygons, used for interecting when we don't want the infill/perimeter overlap
     ExPolygons                  fill_no_overlap_expolygons;
 
+    // Multi-diameter adaptive layer height (runtime only, recomputed with every make_perimeters, never serialized).
+    // Bands are a global grid per nozzle diameter, so a region holds at most one patch on a given layer.
+    std::vector<AdaptiveMergePatch> adaptive_merge_patches;
+
     // collection of expolygons representing the bridged areas (thus not
     // needing support material)
 //    Polygons                    bridged;
@@ -83,7 +88,14 @@ public:
     void    slices_to_fill_surfaces_clipped();
     void    prepare_fill_surfaces();
     //BBS
-    void    make_perimeters(const SurfaceCollection &slices, const LayerRegionPtrs &compatible_regions, SurfaceCollection* fill_surfaces, ExPolygons* fill_no_overlap);
+    // Multi-diameter adaptive layer height: the optional arguments let the same routine generate one band of
+    // merged grid layers instead of a single grid layer. `perimeter_layer_height` is the height of the whole
+    // band (0 = this->layer()->height), the overrides replace the neighbor geometry the band is clipped
+    // against and `fill_only` regenerates the fill surfaces only (the walls are discarded).
+    void    make_perimeters(const SurfaceCollection &slices, const LayerRegionPtrs &compatible_regions, SurfaceCollection* fill_surfaces, ExPolygons* fill_no_overlap,
+                            double perimeter_layer_height = 0., bool clear_outputs = true,
+                            const ExPolygons *lower_slices_override = nullptr, const ExPolygons *upper_slices_override = nullptr,
+                            bool fill_only = false, bool starts_at_object_base = false);
     void    process_external_surfaces(const Layer *lower_layer, const Polygons *lower_layer_covered);
     double  infill_area_threshold() const;
     // Trim surfaces by trimming polygons. Used by the elephant foot compensation at the 1st layer.
@@ -207,6 +219,28 @@ public:
 
     // Is there any valid extrusion assigned to this LayerRegion?
     virtual bool            has_extrusions() const { for (auto layerm : m_regions) if (layerm->has_extrusions()) return true; return false; }
+
+    // Multi-diameter adaptive layer height: the height this layer really prints with. A layer that carries
+    // the top of a merged band prints the whole band height, everything below it prints nothing.
+    virtual coordf_t        effective_print_height() const {
+        coordf_t h = this->height;
+        for (const LayerRegion *layerm : m_regions)
+            for (const AdaptiveMergePatch &patch : layerm->adaptive_merge_patches)
+                if (patch.group_top && patch.merged_height > h)
+                    h = patch.merged_height;
+        return h;
+    }
+
+    // True for a layer that was swallowed by an adaptive merge band: it kept its geometry but no extrusion
+    // was assigned to it.
+    bool                    is_adaptive_merged_out() const {
+        if (m_regions.empty() || this->has_extrusions())
+            return false;
+        for (const LayerRegion *layerm : m_regions)
+            if (! layerm->adaptive_merge_patches.empty())
+                return true;
+        return false;
+    }
 
     //BBS
     void simplify_wall_extrusion_path() { for (auto layerm : m_regions) layerm->simplify_wall_extrusion_entity();}

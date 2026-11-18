@@ -293,6 +293,13 @@ std::string VirtualFilamentState::type_family(std::string filament_type)
 void VirtualFilamentState::update_compatibility(const std::vector<std::string> &filament_types,
                                                 const std::function<bool(const MixedFilament &)> &fallback)
 {
+    update_compatibility(filament_types, std::vector<double>(), fallback);
+}
+
+void VirtualFilamentState::update_compatibility(const std::vector<std::string> &filament_types,
+                                                const std::vector<double> &filament_nozzle_diameters,
+                                                const std::function<bool(const MixedFilament &)> &fallback)
+{
     for (VirtualFilamentRow &row : m_rows) {
         bool incompatible = false;
         bool type_checked = false;
@@ -318,6 +325,10 @@ void VirtualFilamentState::update_compatibility(const std::vector<std::string> &
 
         if (!type_checked && fallback)
             incompatible = !fallback(row.definition);
+
+        // A mixed row's components must be printed through nozzles of the same diameter.
+        if (mixed_filament_mixes_nozzle_diameters(row.definition, filament_nozzle_diameters))
+            incompatible = true;
 
         row.incompatible = incompatible;
     }

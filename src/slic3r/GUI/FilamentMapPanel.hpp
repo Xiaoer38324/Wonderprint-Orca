@@ -5,6 +5,7 @@
 #include "GUI.hpp"
 #include "DragDropPanel.hpp"
 #include "Widgets/SwitchButton.hpp"
+#include "Widgets/ComboBox.hpp"
 
 namespace Slic3r { namespace GUI {
 
@@ -22,6 +23,7 @@ public:
 
 private:
     void           OnSwitchFilament(wxCommandEvent &);
+
     DragDropPanel *m_left_panel;
     DragDropPanel *m_right_panel;
 

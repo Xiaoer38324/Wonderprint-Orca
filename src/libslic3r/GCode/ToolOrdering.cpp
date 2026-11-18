@@ -675,6 +675,15 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
         // What extruders are required to print this object layer?
         for (const LayerRegion *layerm : layer->regions()) {
             const PrintRegion &region = layerm->region();
+            // A multi-diameter adaptive merge may swallow the object's physical first layers: their
+            // material is printed on the top layer of the first band, which is the layer that really
+            // touches the bed. Treat that band top as a first layer so the brim / skirt and the object
+            // extruder map see the filaments that are actually printed at bed contact.
+            const bool starts_at_object_base = std::any_of(
+                layerm->adaptive_merge_patches.begin(), layerm->adaptive_merge_patches.end(),
+                [](const AdaptiveMergePatch &patch) {
+                    return patch.group_top && patch.bottom_idx == 0 && ! patch.area().empty();
+                });
 
             if (! layerm->perimeters.entities.empty()) {
                 if (m_print_config_ptr) { // in this case print->config().print_sequence != PrintSequence::ByObject (see ToolOrdering constructors)
@@ -686,7 +695,7 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
                 }
 
                 layer_tools.extruders.emplace_back((extruder_override == 0) ? region.config().wall_filament.value : extruder_override);
-                if (layerCount == 0)
+                if (layerCount == 0 || starts_at_object_base)
                     firstLayerExtruders.emplace_back((extruder_override == 0) ? region.config().wall_filament.value : extruder_override);
 
                 layer_tools.has_object = true;
@@ -814,9 +823,14 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
     }
 
     //FIXME this is a hack to get the ball rolling.
-    for (LayerTools &lt : m_layer_tools)
-        lt.has_wipe_tower |= (lt.has_object && (config.timelapse_type == TimelapseType::tlSmooth || lt.wipe_tower_partitions > 0))
-            || lt.print_z < object_bottom_z + EPSILON;
+    for (LayerTools &lt : m_layer_tools) {
+        const bool tower_needed = config.timelapse_type == TimelapseType::tlSmooth || lt.wipe_tower_partitions > 0;
+        // Below the object bottom sit raft layers and, with multi-diameter adaptive merging, grid layers
+        // swallowed by the first band. They only carry the tower down to the bed when a tower is needed at
+        // all; wipe_tower_partitions was propagated downwards above, so any tool change higher up reaches
+        // them.
+        lt.has_wipe_tower |= (lt.has_object || lt.has_support || lt.print_z < object_bottom_z + EPSILON) && tower_needed;
+    }
 
     // Test for a raft, insert additional wipe tower layer to fill in the raft separation gap.
     for (size_t i = 0; i + 1 < m_layer_tools.size(); ++ i) {
@@ -861,22 +875,42 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
     // and maybe other problems. We will therefore go through layer_tools and detect and fix this.
     // So, if there is a non-object layer starting with different extruder than the last one ended with (or containing more than one extruder),
     // we'll mark it with has_wipe tower.
-    for (unsigned int i=0; i+1<m_layer_tools.size(); ++i) {
-        LayerTools& lt = m_layer_tools[i];
-        LayerTools& lt_next = m_layer_tools[i+1];
-        if (lt.extruders.empty() || lt_next.extruders.empty())
-            break;
-        if (!lt_next.has_wipe_tower && (lt_next.extruders.front() != lt.extruders.back() || lt_next.extruders.size() > 1))
-            lt_next.has_wipe_tower = true;
-        // We should also check that the next wipe tower layer is no further than max_layer_height:
-        unsigned int j = i+1;
-        double last_wipe_tower_print_z = lt_next.print_z;
-        while (++j < m_layer_tools.size()-1 && !m_layer_tools[j].has_wipe_tower)
-            if (m_layer_tools[j+1].print_z - last_wipe_tower_print_z > max_layer_height + EPSILON) {
-                if (!config.enable_wrapping_detection)
-                    m_layer_tools[j].has_wipe_tower = true;
-                last_wipe_tower_print_z = m_layer_tools[j].print_z;
-            }
+    const bool multi_diameter = m_print_full_config != nullptr && multi_nozzle_diameter_mode_enabled(*m_print_full_config);
+    if (multi_diameter) {
+        // A multi-diameter adaptive band swallows the grid layers below its top: those LayerTools carry no
+        // extruders. Breaking at the first of them (the generic path below) left every band above it without a
+        // wipe tower layer. Walk only the real printing layers and mark the tower on the band tops; their
+        // wipe_tower_layer_height is then the band height, which is already inside the printable window of
+        // every nozzle in the band, so no virtual intermediate tower layer is inserted.
+        std::vector<size_t> printing_layers;
+        printing_layers.reserve(m_layer_tools.size());
+        for (size_t i = 0; i < m_layer_tools.size(); ++i)
+            if (!m_layer_tools[i].extruders.empty())
+                printing_layers.push_back(i);
+        for (size_t k = 0; k + 1 < printing_layers.size(); ++k) {
+            LayerTools &lt      = m_layer_tools[printing_layers[k]];
+            LayerTools &lt_next = m_layer_tools[printing_layers[k + 1]];
+            if (!lt_next.has_wipe_tower && (lt_next.extruders.front() != lt.extruders.back() || lt_next.extruders.size() > 1))
+                lt_next.has_wipe_tower = true;
+        }
+    } else {
+        for (unsigned int i=0; i+1<m_layer_tools.size(); ++i) {
+            LayerTools& lt = m_layer_tools[i];
+            LayerTools& lt_next = m_layer_tools[i+1];
+            if (lt.extruders.empty() || lt_next.extruders.empty())
+                break;
+            if (!lt_next.has_wipe_tower && (lt_next.extruders.front() != lt.extruders.back() || lt_next.extruders.size() > 1))
+                lt_next.has_wipe_tower = true;
+            // We should also check that the next wipe tower layer is no further than max_layer_height:
+            unsigned int j = i+1;
+            double last_wipe_tower_print_z = lt_next.print_z;
+            while (++j < m_layer_tools.size()-1 && !m_layer_tools[j].has_wipe_tower)
+                if (m_layer_tools[j+1].print_z - last_wipe_tower_print_z > max_layer_height + EPSILON) {
+                    if (!config.enable_wrapping_detection)
+                        m_layer_tools[j].has_wipe_tower = true;
+                    last_wipe_tower_print_z = m_layer_tools[j].print_z;
+                }
+        }
     }
 
     // Calculate the wipe_tower_layer_height values.

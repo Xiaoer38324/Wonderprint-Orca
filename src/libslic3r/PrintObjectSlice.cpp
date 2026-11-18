@@ -835,7 +835,12 @@ void PrintObject::slice()
                                    << " slicing=" << m_slicing_params.layer_height
                                    << " first_layer=" << m_slicing_params.first_object_layer_height;
     }
-    if (m_print != nullptr && m_print->mixed_filament_manager().enabled_count() > 0) {
+    // Orca: the Local-Z gradient prints its sublayer passes on the sliced layer grid, so a stale per-object
+    // layer height must not override the print layer height. In multi nozzle diameter mode the grid layer
+    // height is owned by the nozzle band merge plan (config().layer_height / layer_grid_subdivision), so it
+    // must not be replaced by the authored layer height here.
+    if (m_print != nullptr && m_print->mixed_filament_manager().enabled_count() > 0 &&
+        !m_print->uses_multiple_nozzle_diameters()) {
         const MixedFilamentManager &mixed_mgr = m_print->mixed_filament_manager();
         if (mixed_mgr.local_z_gradient_enabled(m_print->config().dithering_local_z_mode.value)) {
             const double configured_layer_height = this->config().layer_height.value;

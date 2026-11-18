@@ -522,6 +522,8 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(AuthorizationType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WipeTowerWallType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PerimeterGeneratorType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PowerLossRecoveryMode)
+// Needed by the multi nozzle configuration UI, which builds a ConfigOptionEnumsGeneric for nozzle_volume_type.
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(NozzleVolumeType)
 
 #undef CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS
 
@@ -1297,6 +1299,9 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInts,                filament_map))
     //((ConfigOptionInts,                filament_extruder_id))
     ((ConfigOptionStrings,             filament_extruder_variant))
+    // Multi nozzle diameter support: per-filament selected nozzle diameter. Empty means "not selected",
+    // a value with a ';' is a list of diameters the filament can be printed with, not a selection.
+    ((ConfigOptionStrings,             filament_diameter_map))
     ((ConfigOptionBool,                support_object_skip_flush))
     ((ConfigOptionEnum<BedTempFormula>, bed_temperature_formula))
     ((ConfigOptionInts,                physical_extruder_map))
@@ -1370,6 +1375,17 @@ PRINT_CONFIG_CLASS_DEFINE(
     ((ConfigOptionInts,                printer_extruder_id))
     ((ConfigOptionInt,                 master_extruder_id))
     ((ConfigOptionStrings,             printer_extruder_variant))
+
+    // Multi nozzle diameter support ("multi-diameter"): the machine may carry nozzles of different
+    // diameters, every filament selects the nozzle it is printed with and the print is sliced on the
+    // grid of the smallest nozzle. See AdaptiveLayerMerge.hpp for the band merging algorithm.
+    ((ConfigOptionBool,                multi_nozzle_diameter_mode))
+    ((ConfigOptionBool,                handle_hotend_as_extruder))
+    ((ConfigOptionInts,                extruder_nozzle_count))
+    ((ConfigOptionFloats,              extruder_nozzle_diameter))
+    ((ConfigOptionInts,                extruder_nozzle_slot))
+    ((ConfigOptionIntsNullable,        extruder_max_nozzle_count))
+    ((ConfigOptionString,              printer_nozzle_diameter_mode))
 
 
     // SoftFever
@@ -2095,6 +2111,35 @@ static void set_flush_volumes_matrix(std::vector<T> &out_matrix, const std::vect
 }
 
 size_t get_extruder_index(const GCodeConfig& config, unsigned int filament_id);
+
+// -----------------------------------------------------------------------------
+// Multi nozzle diameter ("multi-diameter") support.
+// A machine may carry nozzles of different diameters as a flat per-slot list. Every filament then selects
+// the nozzle it is printed with, and the print is sliced on the layer grid of the smallest nozzle; each
+// nozzle merges the grid layers it covers into one thicker extrusion (see AdaptiveLayerMerge.hpp).
+// -----------------------------------------------------------------------------
+
+// True when the per-slot nozzle lists are complete enough to be trusted over the per-extruder
+// nozzle_diameter list.
+bool                     has_authoritative_per_slot_nozzle_diameters(bool handle_hotend_as_extruder, const std::vector<int> &slot_counts, const std::vector<double> &slot_diameters);
+bool                     multi_nozzle_diameter_mode_enabled(const ConfigOptionResolver &config);
+// Diameters installed on the machine: per-slot list when authoritative, otherwise the per-extruder list.
+const std::vector<double>* configured_nozzle_diameters(const ConfigBase &config);
+// True when the mode is enabled and the machine really carries more than one nozzle diameter.
+bool                     has_multiple_configured_nozzle_diameters(const ConfigBase &config);
+// The diameter of the machine's primary nozzle.
+double                   primary_nozzle_diameter(const ConfigBase &config);
+// Diameter of the layer grid the whole print is sliced on. Pinned to the finest (0.2 mm) nozzle when the
+// multi-diameter mode is on, so the band layout does not change when a coarse nozzle is swapped.
+double                   layer_grid_nozzle_diameter(const ConfigBase &config);
+// How many grid layers one primary nozzle layer covers, an integer ratio on purpose: a non-integer ratio
+// would leave band sizes that do not divide the grid.
+int                      layer_grid_subdivision(const ConfigBase &config);
+// Nozzle diameter a filament (1 based; 0 means "the primary nozzle") is printed with.
+float                    nozzle_diameter_for_filament(const ConfigBase &config, unsigned int filament_id);
+std::string              printer_nozzle_diameter_mode_tag(const ConfigBase &config);
+// Canonical text of a nozzle diameter, used for the filament_diameter_map entries.
+std::string              format_nozzle_diameter_to_str(double diameter, int precision = 1);
 
 } // namespace Slic3r
 

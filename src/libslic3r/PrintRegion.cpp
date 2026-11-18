@@ -43,17 +43,23 @@ Flow PrintRegion::flow(const PrintObject &object, FlowRole role, double layer_he
     if (config_width.value == 0)
         config_width = object.config().line_width;
     
-    // Get the configured nozzle_diameter for the extruder associated to the flow role requested.
-    // Here this->extruder(role) - 1 may underflow to MAX_INT, but then the get_at() will follback to zero'th element, so everything is all right.
-    auto nozzle_diameter = float(print_config.nozzle_diameter.get_at(this->extruder(role) - 1));
-    return Flow::new_from_config_width(role, config_width, nozzle_diameter, float(layer_height));
+    // Get the nozzle diameter that this role's filament is actually printed with. In multi-diameter mode the
+    // diameter comes from the filament -> nozzle map instead of the extruder's nozzle_diameter slot.
+    auto nozzle_diameter = nozzle_diameter_for_filament(print_config, this->extruder(role));
+    return Flow::new_from_config_width(
+        role,
+        config_width,
+        float(primary_nozzle_diameter(object.print()->full_print_config())),
+        nozzle_diameter,
+        float(layer_height),
+        multi_nozzle_diameter_mode_enabled(object.print()->full_print_config()));
 }
 
 coordf_t PrintRegion::nozzle_dmr_avg(const PrintConfig &print_config) const
 {
-    return (print_config.nozzle_diameter.get_at(m_config.wall_filament.value    - 1) + 
-            print_config.nozzle_diameter.get_at(m_config.sparse_infill_filament.value       - 1) + 
-            print_config.nozzle_diameter.get_at(m_config.solid_infill_filament.value - 1)) / 3.;
+    return (nozzle_diameter_for_filament(print_config, m_config.wall_filament.value) +
+            nozzle_diameter_for_filament(print_config, m_config.sparse_infill_filament.value) +
+            nozzle_diameter_for_filament(print_config, m_config.solid_infill_filament.value)) / 3.;
 }
 
 coordf_t PrintRegion::bridging_height_avg(const PrintConfig &print_config) const

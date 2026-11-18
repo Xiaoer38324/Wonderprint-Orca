@@ -63,6 +63,7 @@
 #include "Widgets/WebView.hpp"
 #include "DailyTips.hpp"
 #include "FilamentMapDialog.hpp"
+#include "MultiNozzleSettingsDialog.hpp"
 
 #include "DeviceCore/DevManager.h"
 
@@ -2437,7 +2438,7 @@ void MainFrame::update_slice_print_status(SlicePrintEventType event, bool can_sl
             if (NotificationManager* notification_manager = m_plater->get_notification_manager())
                 notification_manager->push_notification(NotificationType::CustomNotification,
                                                         NotificationManager::NotificationLevel::ErrorNotificationLevel,
-                                                        into_u8(_L("Mixed filaments contain incompatible material types. Please correct the mixed filaments settings before slicing.")));
+                                                        into_u8(_L("Mixed filaments contain incompatible material types or nozzle diameters. Please correct the mixed filaments settings before slicing.")));
         }
     } else if (enable_slice) {
         m_incompatible_mix_notified = false;
@@ -3275,6 +3276,13 @@ void MainFrame::init_menubar_as_editor()
             wxGetApp().open_preferences();
         },
         "", nullptr, []() { return true; }, this, 1);
+    append_menu_item(
+        parent_menu, wxID_ANY, _L("Multi nozzle diameter settings..."), "",
+        [this](wxCommandEvent &) {
+            MultiNozzleSettingsDialog dlg(this);
+            dlg.ShowModal();
+        },
+        "", nullptr, []() { return true; }, this, 2);
     //parent_menu->Insert(1, preference_item);
 #endif
     // Help menu
@@ -3293,6 +3301,16 @@ void MainFrame::init_menubar_as_editor()
         [this](wxCommandEvent &) {
             // Orca: Use GUI_App::open_preferences instead of direct call so windows associations are updated on exit
             wxGetApp().open_preferences();
+        },
+        "", nullptr, []() { return true; }, this);
+    // Multi nozzle: the port has no nozzle rack UI of the upstream branch yet, so the rack and the
+    // per filament nozzle selection are edited in a configuration driven dialog.
+    append_menu_item(
+        m_topbar->GetTopMenu(), wxID_ANY, _L("Multi nozzle diameter settings..."),
+        _L("Configure the size and flow type of the nozzle each extruder carries."),
+        [this](wxCommandEvent &) {
+            MultiNozzleSettingsDialog dlg(this);
+            dlg.ShowModal();
         },
         "", nullptr, []() { return true; }, this);
     //m_topbar->AddDropDownMenuItem(preference_item);

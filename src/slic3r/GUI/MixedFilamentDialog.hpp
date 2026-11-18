@@ -136,6 +136,8 @@ private:
     wxTextCtrl*             m_match_hex_input       = nullptr;
     wxPanel*                m_match_hex_wrapper     = nullptr;
     bool                    m_match_hex_error       = false;
+    // One-shot guard so a nozzle diameter mismatch pops the error once instead of on every repaint.
+    bool                    m_nozzle_mismatch_shown = false;
     wxPanel*                m_match_target_swatch   = nullptr;
 
     // Range slider row (inside ratio card, match-mode only)

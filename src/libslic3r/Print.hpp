@@ -452,6 +452,10 @@ public:
     const SlicingParameters&    slicing_parameters() const { return m_slicing_params; }
     // Orca: XYZ shrinkage compensation has introduced the const Vec3d &object_shrinkage_compensation parameter to the function below
     static SlicingParameters    slicing_parameters(const DynamicPrintConfig &full_config, const ModelObject &model_object, float object_max_z, const Vec3d &object_shrinkage_compensation);
+    // BBS multi-diameter: the slicing parameters of this object on the layer grid of the mode it is sliced in.
+    // single_diameter_layering_nozzle is the nozzle the whole plate prints with when it takes the single
+    // diameter fast path, 0 for the fine merge grid.
+    SlicingParameters           compute_slicing_parameters(double single_diameter_layering_nozzle) const;
 
     size_t                      num_printing_regions() const throw() { return m_shared_regions->all_regions.size(); }
     const PrintRegion&          printing_region(size_t idx) const throw() { return *m_shared_regions->all_regions[idx].get(); }
@@ -578,6 +582,9 @@ private:
     void clip_fill_surfaces();
     void discover_horizontal_shells();
     void combine_infill();
+    // BBS multi-diameter adaptive layer height.
+    void compute_adaptive_merge_groups();
+    void combine_adaptive_infill();
     void _generate_support_material();
     std::pair<FillAdaptive::OctreePtr, FillAdaptive::OctreePtr> prepare_adaptive_infill_data(
         const std::vector<std::pair<const Surface*, float>>& surfaces_w_bottom_z) const;
@@ -922,6 +929,10 @@ struct StatisticsByExtruderCount
     }
 };
 
+// BBS multi-diameter adaptive layer height: retype the surfaces resting on a suppressed orphan as bridges.
+// Implemented in PrintObjectMultiDiameter.cpp, called from PrintObject::prepare_infill().
+void type_bridges_over_suppressed_orphans(const LayerPtrs &layers);
+
 enum FilamentTempType {
     HighTemp=0,
     LowTemp,
@@ -997,6 +1008,16 @@ public:
     std::vector<unsigned int> object_extruders() const;
     std::vector<unsigned int> support_material_extruders() const;
     std::vector<unsigned int> extruders(bool conside_custom_gcode = false) const;
+    // Multi nozzle diameter ("multi-diameter") support.
+    // True when this plate prints with more than one nozzle diameter, or with a single diameter that is
+    // coarser than the layer grid anchor, i.e. when the fine layer grid has to be merged back into per
+    // nozzle bands before extruding.
+    bool                uses_multiple_nozzle_diameters() const;
+    // Nozzle diameter the whole plate prints with when it uses a single diameter, 0 while the plate needs the
+    // layer grid merge path. The single diameter fast path slices directly at that nozzle's band height.
+    double              single_diameter_layering_nozzle() const { return m_single_diameter_layering_nozzle; }
+    // Resolves the value above from the filaments the plate actually uses. 0 disables the fast path.
+    double              resolve_single_diameter_layering_nozzle() const;
     double              max_allowed_layer_height() const;
     bool                has_support_material() const;
     // Make sure the background processing has no access to this model_object during this call!
@@ -1193,6 +1214,9 @@ private:
     PrintConfig                             m_config;
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
+    // BBS multi-diameter: single nozzle diameter this plate is sliced with directly, 0 = merge path. See
+    // single_diameter_layering_nozzle().
+    double                                  m_single_diameter_layering_nozzle { 0. };
     MixedFilamentManager                    m_mixed_filament_mgr;
     // Orca: detect Color Mixing definition changes between applies so the painted regions are
     // rebuilt (otherwise stale physical target regions keep producing the old mix).

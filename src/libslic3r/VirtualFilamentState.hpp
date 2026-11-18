@@ -98,6 +98,11 @@ public:
     // slots have no type at all (the caller knows the preset based rule).
     void update_compatibility(const std::vector<std::string> &filament_types,
                               const std::function<bool(const MixedFilament &)> &fallback = {});
+    // Same as above, additionally marking rows illegal when their physical components are printed through
+    // nozzles of different diameters (a mixed extrusion cannot change nozzle size between its components).
+    void update_compatibility(const std::vector<std::string> &filament_types,
+                              const std::vector<double> &filament_nozzle_diameters,
+                              const std::function<bool(const MixedFilament &)> &fallback = {});
 
     static std::string type_family(std::string filament_type);
 

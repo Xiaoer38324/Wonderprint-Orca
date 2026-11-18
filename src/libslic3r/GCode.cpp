@@ -850,8 +850,8 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
                 float new_retract_length = full_config.retraction_length.get_at(new_filament_id);
                 float old_retract_length_toolchange = (old_filament_id != -1) ? full_config.retract_length_toolchange.get_at(old_filament_id) : 0;
                 float new_retract_length_toolchange = full_config.retract_length_toolchange.get_at(new_filament_id);
-                int old_filament_temp = (old_filament_id != -1) ? (gcodegen.on_first_layer()? full_config.nozzle_temperature_initial_layer.get_at(old_filament_id) : full_config.nozzle_temperature.get_at(old_filament_id)) : 210;
-                int new_filament_temp = gcodegen.on_first_layer() ? full_config.nozzle_temperature_initial_layer.get_at(new_filament_id) : full_config.nozzle_temperature.get_at(new_filament_id);
+                int old_filament_temp = (old_filament_id != -1) ? (gcodegen.filament_in_first_layer_phase(old_filament_id)? full_config.nozzle_temperature_initial_layer.get_at(old_filament_id) : full_config.nozzle_temperature.get_at(old_filament_id)) : 210;
+                int new_filament_temp = gcodegen.filament_in_first_layer_phase(new_filament_id) ? full_config.nozzle_temperature_initial_layer.get_at(new_filament_id) : full_config.nozzle_temperature.get_at(new_filament_id);
                 Vec3d nozzle_pos = gcode_writer.get_position();
 
                 float purge_volume = tcr.purge_volume < EPSILON ? 0 : std::max(tcr.purge_volume, g_min_purge_volume);
@@ -1186,7 +1186,7 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         }
 
         if (toolchange_temp_override > 0) {
-            int base_temp = gcodegen.on_first_layer() ? gcodegen.config().nozzle_temperature_initial_layer.get_at(new_extruder_id)
+            int base_temp = gcodegen.filament_in_first_layer_phase(new_extruder_id) ? gcodegen.config().nozzle_temperature_initial_layer.get_at(new_extruder_id)
                                                       : gcodegen.config().nozzle_temperature.get_at(new_extruder_id);
             if (std::abs(tcr.print_z) < EPSILON)
                 base_temp = gcodegen.config().nozzle_temperature_initial_layer.get_at(new_extruder_id);
@@ -1742,10 +1742,33 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
 
     std::vector<std::pair<double, double>> warning_ranges;
 
+    // Layer height the support gaps are rounded to. A multi-diameter plate printing with a single diameter is
+    // sliced at that nozzle's layer height, not the preset's, and its gaps were rounded to that height.
+    const double gap_layer_height = object.print()->single_diameter_layering_nozzle() > EPSILON ?
+        object.slicing_parameters().layer_height : object.config().layer_height.value;
+
     // Pair the object layers with the support layers by z.
     size_t idx_object_layer = 0;
     size_t idx_support_layer = 0;
     const LayerToPrint* last_extrusion_layer = nullptr;
+    size_t last_extrusion_layer_idx = 0;
+    // The object's first band may intentionally leave its physical layers empty until its group top.
+    const bool has_adaptive_first_band = std::any_of(
+        object.layers().begin(), object.layers().end(),
+        [](const Layer *layer) {
+            return std::any_of(layer->regions().begin(), layer->regions().end(),
+                               [](const LayerRegion *region) {
+                                   return std::any_of(
+                                       region->adaptive_merge_patches.begin(),
+                                       region->adaptive_merge_patches.end(),
+                                       [](const AdaptiveMergePatch &patch) {
+                                           return patch.group_top && patch.bottom_idx == 0 &&
+                                                  ! patch.area().empty();
+                                       });
+                               });
+        });
+    // A planned first band intentionally leaves its physical layers empty until group_top.
+    bool initial_extrusion_validated = has_adaptive_first_band;
     while (idx_object_layer < object.layers().size() || idx_support_layer < object.support_layers().size()) {
         LayerToPrint layer_to_print;
         double print_z_min = std::numeric_limits<double>::max();
@@ -1775,11 +1798,33 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
         bool has_extrusions = (layer_to_print.object_layer && layer_to_print.object_layer->has_extrusions())
             || (layer_to_print.support_layer && layer_to_print.support_layer->has_extrusions());
 
-        // Check that there are extrusions on the very first layer. The case with empty
-        // first layer may result in skirt/brim in the air and maybe other issues.
-        if (layers_to_print.size() == 1u) {
-            if (!has_extrusions)
+        // A multi-diameter first band may move the object's first extrusion to its group top. Validate the
+        // first actual extrusion instead of requiring the first physical object layer to emit on its own.
+        if (! initial_extrusion_validated && has_extrusions) {
+            bool reaches_initial_substrate = layer_to_print.support_layer != nullptr &&
+                                             layer_to_print.support_layer->has_extrusions();
+            if (layer_to_print.object_layer != nullptr) {
+                const double object_base_z = object.layers().empty() ? 0. : object.layers().front()->bottom_z();
+                const bool first_band_top = std::any_of(
+                    layer_to_print.object_layer->regions().begin(),
+                    layer_to_print.object_layer->regions().end(),
+                    [](const LayerRegion *region) {
+                        return std::any_of(
+                            region->adaptive_merge_patches.begin(),
+                            region->adaptive_merge_patches.end(),
+                            [](const AdaptiveMergePatch &patch) {
+                                return patch.group_top && patch.bottom_idx == 0 &&
+                                       ! patch.area().empty();
+                            });
+                    });
+                reaches_initial_substrate |=
+                    first_band_top ||
+                    layer_to_print.object_layer->print_z -
+                    layer_to_print.object_layer->effective_print_height() <= object_base_z + EPSILON;
+            }
+            if (! reaches_initial_substrate)
                 throw Slic3r::SlicingError(_(L("One object has an empty first layer and can't be printed. Please Cut the bottom or enable supports.")), object.id().id);
+            initial_extrusion_validated = true;
         }
 
         // In case there are extrusions on this layer, check there is a layer to lay it on.
@@ -1790,8 +1835,8 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
             double bottom_cd = object.config().support_bottom_z_distance == 0. ? top_cd : object.config().support_bottom_z_distance;
             //if (!object.print()->config().independent_support_layer_height)
             { // the actual support gap may be larger than the configured one due to rounding to layer height for organic support, regardless of independent support layer height
-                top_cd    = std::ceil(top_cd / object.config().layer_height) * object.config().layer_height;
-                bottom_cd = std::ceil(bottom_cd / object.config().layer_height) * object.config().layer_height;
+                top_cd    = std::ceil(top_cd / gap_layer_height) * gap_layer_height;
+                bottom_cd = std::ceil(bottom_cd / gap_layer_height) * gap_layer_height;
             }
             double extra_gap = (layer_to_print.support_layer ? bottom_cd : top_cd);
 
@@ -1800,22 +1845,47 @@ std::vector<GCode::LayerToPrint> GCode::collect_layers_to_print(const PrintObjec
                 double raft_gap = object.config().raft_contact_distance.value;
                 //if (!object.print()->config().independent_support_layer_height)
                 {
-                    raft_gap = std::ceil(raft_gap / object.config().layer_height) * object.config().layer_height;
+                    raft_gap = std::ceil(raft_gap / gap_layer_height) * gap_layer_height;
                 }
                 extra_gap = std::max(extra_gap, object.config().raft_contact_distance.value);
             }
+            // BBS multi-diameter adaptive layer height: use the Z span this printed layer actually covers.
+            // On a merge group-top layer the shared core is extruded at N x base height, so the merged-out
+            // layers below carry no extrusions on purpose; effective_print_height() returns the merged span
+            // (== height for ordinary layers) so those merged-out layers are not flagged as a printability gap.
             double maximal_print_z = (last_extrusion_layer ? last_extrusion_layer->print_z() : 0.)
-                + layer_to_print.layer()->height
+                + layer_to_print.layer()->effective_print_height()
                 + std::max(0., extra_gap);
             // Negative support_contact_z is not taken into account, it can result in false positives in cases
 
-            if (has_extrusions && layer_to_print.print_z() > maximal_print_z + 2. * EPSILON)
+            // The Z span above may still be too short when the group-top layer prints something else than the
+            // merged core (a bridge keeps its own layer height, for instance). The layers in between are
+            // nevertheless covered by the merged extrusion of a group-top layer above them, so a gap made up
+            // exclusively of merged-out layers is not a real gap.
+            bool merged_out_in_between = false;
+            if (last_extrusion_layer != nullptr && last_extrusion_layer_idx + 2 <= layers_to_print.size() - 1) {
+                merged_out_in_between = true;
+                for (size_t idx = last_extrusion_layer_idx + 1; idx + 1 < layers_to_print.size(); ++idx) {
+                    const Layer *in_between = layers_to_print[idx].object_layer;
+                    if (in_between == nullptr || ! in_between->is_adaptive_merged_out()) {
+                        merged_out_in_between = false;
+                        break;
+                    }
+                }
+            }
+
+            if (has_extrusions && layer_to_print.print_z() > maximal_print_z + 2. * EPSILON && ! merged_out_in_between)
                 warning_ranges.emplace_back(std::make_pair((last_extrusion_layer ? last_extrusion_layer->print_z() : 0.), layers_to_print.back().print_z()));
         }
         // Remember last layer with extrusions.
-        if (has_extrusions)
+        if (has_extrusions) {
             last_extrusion_layer = &layers_to_print.back();
+            last_extrusion_layer_idx = layers_to_print.size() - 1;
+        }
     }
+
+    if (! initial_extrusion_validated)
+        throw Slic3r::SlicingError(_(L("One object has an empty first layer and can't be printed. Please Cut the bottom or enable supports.")), object.id().id);
 
     if (! warning_ranges.empty()) {
         std::string warning;
@@ -1893,6 +1963,39 @@ std::vector<std::pair<coordf_t, std::vector<GCode::LayerToPrint>>> GCode::collec
     }
 
     return layers_to_print;
+}
+
+// True if the supplied object / support layer is in the first printing phase of its object.
+// The physical first layer is the usual case. With multi-diameter adaptive layer height the object's
+// first band may start at the object's bottom but be emitted at the band's group top, which is a
+// physically higher layer: the layers below it were merged out and carry no extrusions. First layer
+// temperatures, flow, speed and acceleration settings have to follow that emitted layer, otherwise the
+// bed contact band would be printed with the regular layer settings.
+static bool layer_in_first_printing_phase(const Layer &layer)
+{
+    if (layer.id() == 0 && abs(layer.bottom_z()) < EPSILON)
+        return true;
+    for (const LayerRegion *region : layer.regions())
+        if (std::any_of(region->adaptive_merge_patches.begin(), region->adaptive_merge_patches.end(),
+                        [](const AdaptiveMergePatch &patch) {
+                            return patch.group_top && patch.bottom_idx == 0 && ! patch.area().empty();
+                        }))
+            return true;
+    return false;
+}
+
+bool GCode::first_printing_phase() const
+{
+    return m_layer != nullptr && layer_in_first_printing_phase(*m_layer);
+}
+
+bool GCode::filament_in_first_layer_phase(unsigned int filament_id) const
+{
+    // The fork has no mixed-sublayer bookkeeping (that is Bambu only), so every filament printed on the
+    // current layer shares the same layer level answer. The parameter is kept to mirror Bambu's helper
+    // and to allow a per-filament refinement later.
+    (void) filament_id;
+    return this->first_printing_phase();
 }
 
 // free functions called by GCode::do_export()
@@ -4119,6 +4222,304 @@ static inline ExPolygons local_z_compensate_masks(const ExPolygons &src_masks, f
     return compensated;
 }
 
+// Orca: Local-Z x multi nozzle diameter layer bands.
+//
+// The layer bands are finalized in PrintObject::make_perimeters() (PrintObjectMultiDiameter.cpp), i.e.
+// after PrintObjectSlice::build_local_z_plan() planned the sublayer passes on the unmerged slicing grid.
+// A merged band swallows the grid layers below its top: those layers carry no extrusion at all and their
+// material is printed as one thicker extrusion on the band top. The Local-Z split therefore has to follow
+// the material, not the grid: the band is one print unit with one band height, and it is cut into exactly
+// two passes (component B below, component A on the band top), the same way Bambu splits the mixed colour
+// sublayer by the adaptive band height (ToolOrdering::m_mixed_layer_heights / calc_slot_lh).
+namespace {
+
+// Extruder (0 based) that prints one planned pass; -1 when the plan carries no painted mask.
+int local_z_plan_extruder(const SubLayerPlan &plan)
+{
+    for (size_t i = 0; i < plan.painted_masks_by_extruder.size(); ++i)
+        if (!plan.painted_masks_by_extruder[i].empty())
+            return int(i);
+    for (size_t i = 0; i < plan.fixed_painted_masks_by_extruder.size(); ++i)
+        if (!plan.fixed_painted_masks_by_extruder[i].empty())
+            return int(i);
+    return -1;
+}
+
+// Append the passes of one ordinary (unmerged) layer. The pass Z values are left untouched: the planner
+// already stacks them bottom up and clamps their sum to the height of their layer.
+bool append_local_z_interval_passes(const PrintObject &print_object, const LocalZInterval &interval,
+                                    std::vector<LocalZPassSpan> &spans)
+{
+    const std::vector<SubLayerPlan> &plans = print_object.local_z_sublayer_plan();
+    if (interval.sublayer_count <= 1 || interval.first_sublayer_idx >= plans.size())
+        return false;
+
+    const size_t end_idx = std::min(plans.size(), interval.first_sublayer_idx + interval.sublayer_count);
+    bool         appended = false;
+    for (size_t plan_idx = interval.first_sublayer_idx; plan_idx < end_idx; ++plan_idx) {
+        const SubLayerPlan &plan = plans[plan_idx];
+        if (!plan.split_interval || plan.flow_height <= EPSILON)
+            continue;
+        // A pass has to sit inside its own grid layer.
+        if (plan.z_lo < interval.z_lo - 1e-4 || plan.print_z > interval.z_hi + 1e-4)
+            return false;
+        spans.push_back(LocalZPassSpan{ plan_idx, plan.print_z, plan.flow_height });
+        appended = true;
+    }
+    return appended;
+}
+
+// Grid boundaries of the merged band that owns `layer`, measured from the band bottom. A band is a run of
+// slicing grid layers printed as one thicker extrusion by the band top, so those boundaries are the only
+// places where a Local-Z pass may end: a pass ending anywhere else would be shorter than one grid layer
+// and would not correspond to any printed geometry. boundaries[0] is 0 (band bottom), boundaries[N] the
+// band top, so the height of the grid layers [i, j) is boundaries[j] - boundaries[i].
+bool local_z_band_boundaries(const PrintObject &print_object, const Layer &layer, double band_height,
+                             std::vector<double> &boundaries)
+{
+    boundaries.clear();
+
+    // The band top carries the group_top patch. Pick the tallest one, which is what
+    // Layer::effective_print_height() reports as the band height.
+    const AdaptiveMergePatch *band_patch = nullptr;
+    for (const LayerRegion *region : layer.regions())
+        for (const AdaptiveMergePatch &patch : region->adaptive_merge_patches)
+            if (patch.group_top && patch.merged_height > layer.height + EPSILON &&
+                (band_patch == nullptr || patch.merged_height > band_patch->merged_height))
+                band_patch = &patch;
+    if (band_patch == nullptr || band_patch->top_idx < band_patch->bottom_idx + 1 ||
+        band_patch->top_idx >= print_object.layer_count())
+        return false;
+
+    double total = 0.;
+    boundaries.push_back(0.);
+    for (size_t idx = band_patch->bottom_idx; idx <= band_patch->top_idx; ++idx) {
+        const Layer *grid_layer = print_object.get_layer(int(idx));
+        if (grid_layer == nullptr || grid_layer->height <= EPSILON)
+            return false;
+        total += grid_layer->height;
+        boundaries.push_back(total);
+    }
+    if (boundaries.size() < 3 || total <= EPSILON)
+        return false;
+
+    // The merged height was computed from exactly these layers; remove accumulated rounding so the last
+    // boundary lands on the band top.
+    const double scale = band_height / total;
+    for (size_t i = 1; i < boundaries.size(); ++i)
+        boundaries[i] *= scale;
+    boundaries.back() = band_height;
+    return true;
+}
+
+// True when the grid layers [from, to) can be cut into consecutive passes that all sit inside [lo, hi].
+// Layers are packed greedily, which yields the fewest passes; when the thinnest possible group is below
+// lo no other cut can help either.
+bool local_z_share_splittable(const std::vector<double> &boundaries, size_t from, size_t to, double lo, double hi)
+{
+    if (to <= from)
+        return false;
+    size_t i = from;
+    while (i < to) {
+        if (boundaries[i + 1] - boundaries[i] > hi + EPSILON)
+            return false;
+        size_t j = i + 1;
+        while (j < to && boundaries[j + 1] - boundaries[i] <= hi + EPSILON)
+            ++j;
+        if (boundaries[j] - boundaries[i] < lo - EPSILON)
+            return false;
+        i = j;
+    }
+    return true;
+}
+
+// Append one component's share [from, to) as consecutive grid-aligned passes, all printed with the plan
+// `plan_index` (its painted mask is the same for every pass of the share).
+void append_local_z_share_passes(const std::vector<double> &boundaries, size_t from, size_t to, double hi,
+                                 double band_bottom, size_t plan_index, std::vector<LocalZPassSpan> &spans)
+{
+    size_t i = from;
+    while (i < to) {
+        size_t j = i + 1;
+        while (j < to && boundaries[j + 1] - boundaries[i] <= hi + EPSILON)
+            ++j;
+        spans.push_back(LocalZPassSpan{ plan_index, band_bottom + boundaries[j], boundaries[j] - boundaries[i] });
+        i = j;
+    }
+}
+
+// Rebuild the passes of a merged band. Every gradient row painted on the band becomes a run of consecutive
+// grid-aligned passes for component B (band bottom) followed by one for component A (band top), with the
+// A/B ratio the planner requested for the band's top grid layer rescaled to the band height. When one
+// component's share is thicker than the Local-Z height window it is split into several passes of the same
+// component, which print without an extra toolchange; a share that is thinner than the window in every
+// possible cut keeps the band single-coloured instead.
+bool build_local_z_band_passes(const PrintObject &print_object, const Layer &layer, const LocalZInterval &interval,
+                               std::vector<LocalZPassSpan> &spans)
+{
+    const std::vector<SubLayerPlan> &plans = print_object.local_z_sublayer_plan();
+    if (interval.sublayer_count < 2 || interval.first_sublayer_idx >= plans.size())
+        return false;
+
+    const double band_top    = layer.print_z;
+    const double band_height = layer.effective_print_height();
+    if (band_height <= layer.height + EPSILON)
+        return false;
+
+    std::vector<double> boundaries;
+    if (! local_z_band_boundaries(print_object, layer, band_height, boundaries))
+        return false;
+
+    const PrintConfig &print_config = print_object.print()->config();
+    const double       config_lo    = std::max<double>(0.01, print_config.mixed_filament_height_lower_bound.value);
+    const double       config_hi    = std::max<double>(config_lo, print_config.mixed_filament_height_upper_bound.value);
+
+    // The printable window of one component is the intersection of the user's Local-Z bounds and what its
+    // own nozzle can extrude. A pass taller than 0.7 D or thinner than 0.2 D cannot be laid down, so a band
+    // whose grid boundaries do not offer a split inside both windows keeps a single resolved colour.
+    auto nozzle_bounds = [&print_config, config_lo, config_hi](int extruder_idx, double &lo, double &hi) {
+        const AdaptiveLayerHeightRange range = adaptive_layer_height_range(
+            double(nozzle_diameter_for_filament(print_config, unsigned(extruder_idx) + 1)));
+        lo = std::max(config_lo, range.min_height);
+        hi = std::max(lo, std::min(config_hi, range.max_height));
+    };
+
+    const size_t end_idx = std::min(plans.size(), interval.first_sublayer_idx + interval.sublayer_count);
+
+    // Group the planned passes by gradient row. Rows are painted on disjoint XY areas, so their passes may
+    // share a Z and still be printed one after another.
+    std::map<int, std::vector<size_t>> rows;
+    for (size_t plan_idx = interval.first_sublayer_idx; plan_idx < end_idx; ++plan_idx)
+        if (plans[plan_idx].split_interval)
+            rows[plans[plan_idx].dependency_group].push_back(plan_idx);
+
+    std::vector<LocalZPassSpan> band_spans;
+    for (auto &row : rows) {
+        std::vector<size_t> &row_plans = row.second;
+        if (row_plans.size() < 2)
+            continue;
+        std::sort(row_plans.begin(), row_plans.end(), [&plans](size_t lhs, size_t rhs) {
+            return plans[lhs].dependency_order < plans[rhs].dependency_order;
+        });
+        const SubLayerPlan &bottom_plan     = plans[row_plans.front()];
+        const SubLayerPlan &top_plan        = plans[row_plans.back()];
+        const int           bottom_extruder = local_z_plan_extruder(bottom_plan);
+        const int           top_extruder    = local_z_plan_extruder(top_plan);
+        if (bottom_extruder < 0 || top_extruder < 0)
+            continue;
+
+        const double requested_sum = bottom_plan.flow_height + top_plan.flow_height;
+        if (requested_sum <= EPSILON)
+            continue;
+        const double requested_bottom = band_height * (bottom_plan.flow_height / requested_sum);
+
+        double lo_bottom = 0., hi_bottom = 0., lo_top = 0., hi_top = 0.;
+        nozzle_bounds(bottom_extruder, lo_bottom, hi_bottom);
+        nozzle_bounds(top_extruder, lo_top, hi_top);
+
+        bool   found         = false;
+        size_t best_boundary = 0;
+        double best_distance = std::numeric_limits<double>::max();
+        // Candidate splits are the internal grid boundaries. Each side must be splittable into passes that
+        // fit its own nozzle window; the split closest to the requested ratio wins.
+        const size_t layer_count = boundaries.size() - 1;
+        for (size_t k = 1; k < layer_count; ++k) {
+            if (! local_z_share_splittable(boundaries, 0, k, lo_bottom, hi_bottom) ||
+                ! local_z_share_splittable(boundaries, k, layer_count, lo_top, hi_top))
+                continue;
+            const double distance = std::abs(boundaries[k] - requested_bottom);
+            if (!found || distance < best_distance) {
+                found         = true;
+                best_boundary = k;
+                best_distance = distance;
+            }
+        }
+        if (!found) {
+            BOOST_LOG_TRIVIAL(warning) << "Local-Z: merged band at z=" << band_top
+                                       << " cannot be split inside the Local-Z height windows"
+                                       << " (band=" << band_height << " windows=[" << lo_bottom << ","
+                                       << hi_bottom << "]/[" << lo_top << "," << hi_top
+                                       << "]); keeping a single resolved colour.";
+            continue;
+        }
+
+        const double band_bottom = band_top - band_height;
+        append_local_z_share_passes(boundaries, 0, best_boundary, hi_bottom, band_bottom,
+                                    row_plans.front(), band_spans);
+        append_local_z_share_passes(boundaries, best_boundary, layer_count, hi_top, band_bottom,
+                                    row_plans.back(), band_spans);
+    }
+    if (band_spans.empty())
+        return false;
+
+    // Print bottom up. Rows never overlap in XY, so passes of different rows may share a Z.
+    std::sort(band_spans.begin(), band_spans.end(), [](const LocalZPassSpan &lhs, const LocalZPassSpan &rhs) {
+        if (std::abs(lhs.z_hi - rhs.z_hi) > EPSILON)
+            return lhs.z_hi < rhs.z_hi;
+        return lhs.plan_index < rhs.plan_index;
+    });
+    spans.insert(spans.end(), band_spans.begin(), band_spans.end());
+    return true;
+}
+
+} // namespace
+
+bool resolve_local_z_layer_passes(const Layer &layer, const PrintObject &print_object, std::vector<LocalZPassSpan> &spans)
+{
+    spans.clear();
+
+    const std::vector<LocalZInterval> &intervals = print_object.local_z_intervals();
+    const std::vector<SubLayerPlan>   &plans     = print_object.local_z_sublayer_plan();
+    if (intervals.empty() || plans.empty())
+        return false;
+
+    const size_t          layer_id     = size_t(layer.id());
+    const LocalZInterval *own_interval = nullptr;
+    for (const LocalZInterval &interval : intervals)
+        if (interval.layer_id == layer_id) {
+            own_interval = &interval;
+            break;
+        }
+    if (own_interval == nullptr) {
+        // Defensive fallback for objects with raft/offset layer ids.
+        for (const LocalZInterval &interval : intervals)
+            if (std::abs(interval.z_hi - layer.print_z) <= 1e-4) {
+                own_interval = &interval;
+                break;
+            }
+    }
+    const double band_top           = layer.print_z;
+    const double band_merged_height = layer.effective_print_height();
+    if (band_merged_height <= layer.height + EPSILON) {
+        // Ordinary layer: emit the passes planned for it.
+        if (own_interval == nullptr || !own_interval->has_mixed_paint)
+            return false;
+        return append_local_z_interval_passes(print_object, *own_interval, spans);
+    }
+
+    // Multi nozzle diameter band top: the band swallows the grid layers below it and prints all of their
+    // material as one thicker extrusion here, so the Local-Z passes have to be rebuilt for the band rather
+    // than replayed from the grid layers (a swallowed layer never emits anything of its own).
+    if (own_interval == nullptr || !own_interval->has_mixed_paint)
+        return false;
+    return build_local_z_band_passes(print_object, layer, *own_interval, spans);
+}
+
+void local_z_pass_extruders(const SubLayerPlan &plan, size_t number_of_extruders, std::vector<unsigned int> &out)
+{
+    out.clear();
+    const size_t mask_slots = std::min(number_of_extruders,
+        std::max(plan.painted_masks_by_extruder.size(), plan.fixed_painted_masks_by_extruder.size()));
+    for (size_t extruder_idx = 0; extruder_idx < mask_slots; ++extruder_idx) {
+        const bool has_painted = extruder_idx < plan.painted_masks_by_extruder.size() &&
+                                 !plan.painted_masks_by_extruder[extruder_idx].empty();
+        const bool has_fixed = extruder_idx < plan.fixed_painted_masks_by_extruder.size() &&
+                               !plan.fixed_painted_masks_by_extruder[extruder_idx].empty();
+        if (has_painted || has_fixed)
+            out.push_back(unsigned int(extruder_idx));
+    }
+}
+
 inline std::vector<GCode::ObjectByExtruder::Island>& object_islands_by_extruder(
     std::map<unsigned int, std::vector<GCode::ObjectByExtruder>>  &by_extruder,
     unsigned int                                                   extruder_id,
@@ -4410,7 +4811,10 @@ std::string GCode::generate_skirt(const Print &print,
         unsigned int extruder_id)
 {
     
-    bool first_layer = (layer.id() == 0 && abs(layer.bottom_z()) < EPSILON);
+    // The skirt / draft shield is laid down at the print_z of the first printing phase. With a multi-diameter
+    // adaptive first band that is the band's group top layer, which is also the layer touching the bed, so the
+    // skirt geometry (generated for the bed level) still applies there.
+    bool first_layer = layer_in_first_printing_phase(layer);
     std::string gcode;
     // Extrude skirt at the print_z of the raft layers and normal object layers
     // not at the print_z of the interlaced support material layers.
@@ -4518,12 +4922,27 @@ LayerResult GCode::process_layer(
         // Nothing to extrude.
         return result;
 
+    // Multi-diameter adaptive layer height: a swallowing layer keeps its geometry only as merge markers, the
+    // material is extruded on the band top. Tool ordering may still list a filament for it (first layer
+    // bookkeeping, wipe tower), and emitting a header without geometry would advance m_last_layer_z to a Z
+    // where nothing was printed, which in turn understates the following band top's ;HEIGHT. Nothing can be
+    // lost here: is_adaptive_merged_out() implies the layer has no extrusion of its own.
+    if (object_layer != nullptr && object_layer->is_adaptive_merged_out() &&
+        (support_layer == nullptr || ! support_layer->has_extrusions()))
+        return result;
+
     // Extract 1st object_layer and support_layer of this set of layers with an equal print_z.
     coordf_t             print_z       = layer.print_z;
     //BBS: using layer id to judge whether the layer is first layer is wrong. Because if the normal
     //support is attached above the object, and support layers has independent layer height, then the lowest support
     //interface layer id is 0.
-    bool                 first_layer   = (layer.id() == 0 && abs(layer.bottom_z()) < EPSILON);
+    // Multi-diameter adaptive layer height: the object's first band may be emitted at its group top, which is a
+    // physically higher layer (the layers below were merged out and carry no extrusions). Treat that emitted layer
+    // as the first layer too, so the initial temperatures, acceleration, bed temperature transition and initial
+    // layer flow are applied to the layer that actually touches the bed / starts the object.
+    // Bambu solves this per filament in filament_in_first_layer_phase(); this is the layer level equivalent.
+    const bool           physical_first_layer = (layer.id() == 0 && abs(layer.bottom_z()) < EPSILON);
+    bool                 first_layer   = physical_first_layer || layer_in_first_printing_phase(layer);
     m_writer.set_is_first_layer(first_layer);
     unsigned int         first_extruder_id = layer_tools.extruders.front();
 
@@ -4559,7 +4978,9 @@ LayerResult GCode::process_layer(
     sprintf(buf, print.is_BBL_printer() ? "; Z_HEIGHT: %g\n" : ";Z:%g\n", print_z);
     gcode += buf;
     // export layer height
-    float height = first_layer ? static_cast<float>(print_z) : static_cast<float>(print_z) - m_last_layer_z;
+    // A merged first band top must span from the previous emitted layer (which may be a raft layer), so the
+    // height tag stays print_z - m_last_layer_z there; only the very first printed layer restarts at print_z.
+    float height = physical_first_layer ? static_cast<float>(print_z) : static_cast<float>(print_z) - m_last_layer_z;
     sprintf(buf, ";%s%g\n", GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Height).c_str(), height);
     gcode += buf;
     // update caches
@@ -4811,6 +5232,11 @@ LayerResult GCode::process_layer(
     struct LocalZPassBucket
     {
         const SubLayerPlan *plan { nullptr };
+        // Resolved against the multi nozzle diameter layer band: the Z the pass is emitted at and the
+        // bead height of the pass. The height is the one the geometry was clipped with.
+        size_t              plan_index { 0 };
+        double              z_hi { 0. };
+        double              flow_height { 0. };
         std::vector<ExPolygons> masks_by_extruder;
         std::map<unsigned int, std::vector<ObjectByExtruder>> by_extruder;
     };
@@ -4846,33 +5272,33 @@ LayerResult GCode::process_layer(
                 continue;
 
             const size_t layer_id = size_t(layer_to_print.object_layer->id());
-            const auto  &intervals = print_object->local_z_intervals();
-            const auto  &plans     = print_object->local_z_sublayer_plan();
-            auto         interval_it = std::find_if(intervals.begin(), intervals.end(), [layer_id](const LocalZInterval &interval) {
-                return interval.layer_id == layer_id;
-            });
-            if (interval_it == intervals.end()) {
-                // Defensive fallback for objects with raft/offset layer ids.
-                interval_it = std::find_if(intervals.begin(), intervals.end(), [&layer_to_print](const LocalZInterval &interval) {
-                    return std::abs(interval.z_hi - layer_to_print.object_layer->print_z) <= 1e-4;
-                });
-            }
-            if (interval_it == intervals.end() || !interval_it->has_mixed_paint || interval_it->sublayer_count <= 1 ||
-                interval_it->first_sublayer_idx >= plans.size())
+
+            // Multi nozzle diameter mode: a merged band swallows the slicing grid layers below its top.
+            // Those layers carry no extrusion at all and their material is printed by the band top as one
+            // thicker extrusion, so their Local-Z passes belong to the band top and never to the swallowed
+            // layer itself.
+            if (layer_to_print.object_layer->is_adaptive_merged_out())
                 continue;
+
+            std::vector<LocalZPassSpan> pass_spans;
+            if (!resolve_local_z_layer_passes(*layer_to_print.object_layer, *print_object, pass_spans)) {
+                if (layer_to_print.object_layer->effective_print_height() > layer_to_print.object_layer->height + EPSILON)
+                    BOOST_LOG_TRIVIAL(warning) << "Local-Z: merged band printed on layer " << layer_id
+                                               << " cannot be split into sublayer passes, keeping a single resolved colour.";
+                continue;
+            }
 
             LocalZLayerContext &ctx = local_z_layer_contexts[layer_to_print_idx];
             ctx.enabled             = true;
 
-            const size_t first_idx = interval_it->first_sublayer_idx;
-            const size_t end_idx   = std::min(plans.size(), first_idx + interval_it->sublayer_count);
-            for (size_t plan_idx = first_idx; plan_idx < end_idx; ++plan_idx) {
-                const SubLayerPlan &plan = plans[plan_idx];
-                if (!plan.split_interval)
-                    continue;
-
+            const auto &plans = print_object->local_z_sublayer_plan();
+            for (const LocalZPassSpan &pass_span : pass_spans) {
+                const SubLayerPlan &plan = plans[pass_span.plan_index];
                 LocalZPassBucket bucket;
-                bucket.plan = &plan;
+                bucket.plan        = &plan;
+                bucket.plan_index  = pass_span.plan_index;
+                bucket.z_hi        = pass_span.z_hi;
+                bucket.flow_height = pass_span.flow_height;
                 const size_t mask_slots = std::max(plan.painted_masks_by_extruder.size(), plan.fixed_painted_masks_by_extruder.size());
                 bucket.masks_by_extruder.assign(mask_slots, ExPolygons());
 
@@ -5131,7 +5557,7 @@ LayerResult GCode::process_layer(
                                         continue;
 
                                     auto clipped = clip_extrusion_collection_for_local_z(*extrusions, &pass_masks, nullptr,
-                                                                                         bucket.plan->flow_height);
+                                                                                         bucket.flow_height);
                                     if (!clipped)
                                         continue;
                                     const ExtrusionEntityCollection *clipped_ptr = clipped.get();
@@ -5373,7 +5799,11 @@ LayerResult GCode::process_layer(
         assert(lhs.bucket != nullptr && rhs.bucket != nullptr && lhs.bucket->plan != nullptr && rhs.bucket->plan != nullptr);
         if (lhs.layer_to_print_idx != rhs.layer_to_print_idx)
             return lhs.layer_to_print_idx < rhs.layer_to_print_idx;
-        return lhs.bucket->plan->pass_index < rhs.bucket->plan->pass_index;
+        // Print bottom up. A merged band rebuilds its passes for the band height, so the planned pass order
+        // alone is no longer the Z order; the resolved pass top is.
+        if (std::abs(lhs.bucket->z_hi - rhs.bucket->z_hi) > EPSILON)
+            return lhs.bucket->z_hi < rhs.bucket->z_hi;
+        return lhs.bucket->plan_index < rhs.bucket->plan_index;
     });
 
     if (!local_z_pass_refs.empty()) {
@@ -5391,15 +5821,14 @@ LayerResult GCode::process_layer(
         for (const LocalZPassRef &pass_ref : local_z_pass_refs) {
             assert(pass_ref.bucket != nullptr && pass_ref.bucket->plan != nullptr);
             const SubLayerPlan &pass_plan = *pass_ref.bucket->plan;
-            const double        pass_z    = pass_plan.print_z + m_config.z_offset.value;
-            gcode += format("; local-z pass layer=%1% z=%2% flow=%3%\n", pass_plan.layer_id, pass_z, pass_plan.flow_height);
+            // The Z and the bead height come from the band the pass was resolved against, which may be
+            // higher than the slicing grid layer the pass was planned on.
+            const double pass_z = pass_ref.bucket->z_hi + m_config.z_offset.value;
+            gcode += format("; local-z pass layer=%1% z=%2% flow=%3%\n", pass_plan.layer_id, pass_z, pass_ref.bucket->flow_height);
 
-            std::set<unsigned int> pass_extruders;
-            for (const auto &entry : pass_ref.bucket->by_extruder)
-                pass_extruders.insert(entry.first);
-            for (size_t extruder_idx = 0; extruder_idx < pass_ref.bucket->masks_by_extruder.size(); ++extruder_idx)
-                if (!pass_ref.bucket->masks_by_extruder[extruder_idx].empty())
-                    pass_extruders.insert(unsigned(extruder_idx));
+            // One toolchange per pass: the same helper drives the wipe tower plan, so both stay in sync.
+            std::vector<unsigned int> pass_extruders;
+            local_z_pass_extruders(pass_plan, pass_ref.bucket->masks_by_extruder.size(), pass_extruders);
 
             for (unsigned int extruder_id : pass_extruders) {
                 auto objects_it = pass_ref.bucket->by_extruder.find(extruder_id);
@@ -6584,7 +7013,7 @@ bool GCode::_needSAFC(const ExtrusionPath &path)
     };
 
     return std::any_of(std::begin(supported_patterns), std::end(supported_patterns), [&](const InfillPattern pattern) {
-        return (this->on_first_layer() && this->config().bottom_surface_pattern == pattern) ||
+        return (this->first_printing_phase() && this->config().bottom_surface_pattern == pattern) ||
                (path.role() == erSolidInfill && this->config().internal_solid_infill_pattern == pattern) ||
                (path.role() == erTopSolidInfill && this->config().top_surface_pattern == pattern);
     });
@@ -6690,7 +7119,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
     // adjust acceleration
     if (m_config.default_acceleration.value > 0) {
         double acceleration;
-        if (this->on_first_layer() && m_config.initial_layer_acceleration.value > 0) {
+        if (this->first_printing_phase() && m_config.initial_layer_acceleration.value > 0) {
             acceleration = m_config.initial_layer_acceleration.value;
 #if 0
         } else if (this->object_layer_over_raft() && m_config.first_layer_acceleration_over_raft.value > 0) {
@@ -6716,7 +7145,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
 
     // adjust X Y jerk
     if (m_config.default_jerk.value > 0) {
-        if (this->on_first_layer() && m_config.initial_layer_jerk.value > 0) {
+        if (this->first_printing_phase() && m_config.initial_layer_jerk.value > 0) {
             jerk = m_config.initial_layer_jerk.value;
         } else if (m_config.outer_wall_jerk.value > 0 && is_external_perimeter(path.role())) {
              jerk = m_config.outer_wall_jerk.value;
@@ -6776,7 +7205,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
         }
 
         // Additionally, adjust the value if we are on the first layer (except for brims and skirts)
-        if (this->on_first_layer() && (path.role() != erBrim && path.role() != erSkirt)) {
+        if (this->first_printing_phase() && (path.role() != erBrim && path.role() != erSkirt)) {
             _mm3_per_mm *= m_config.first_layer_flow_ratio;
         }
     }
@@ -6834,7 +7263,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
 
     if (speed == 0)
         speed = filament_max_volumetric_speed / _mm3_per_mm;
-    if (this->on_first_layer()) {
+    if (this->first_printing_phase()) {
         //BBS: for solid infill of first layer, speed can be higher as long as
         //wall lines have be attached
         if (path.role() != erBottomSurface)
@@ -6914,7 +7343,7 @@ std::string GCode::_extrude(const ExtrusionPath &path, std::string description, 
     bool variable_speed = false;
     std::vector<ProcessedPoint> new_points {};
 
-    if (m_config.enable_overhang_speed && !this->on_first_layer() &&
+    if (m_config.enable_overhang_speed && !this->first_printing_phase() &&
         (is_bridge(path.role()) || is_perimeter(path.role())) && !z_contoured) {
             bool is_external = is_external_perimeter(path.role());
             double ref_speed   = is_external ? m_config.get_abs_value("outer_wall_speed") : m_config.get_abs_value("inner_wall_speed");
@@ -7575,7 +8004,7 @@ std::string GCode::travel_to(const Point& point, ExtrusionRole role, std::string
     double jerk_to_set = 0.0;
     unsigned int acceleration_to_set = 0;
     
-    if (this->on_first_layer()) {
+    if (this->first_printing_phase()) {
         if (m_config.default_acceleration.value > 0 && m_config.initial_layer_acceleration.value > 0) {
             acceleration_to_set = (unsigned int) floor(m_config.initial_layer_acceleration.value + 0.5);
         }
@@ -7866,7 +8295,7 @@ std::string GCode::retract(bool toolchange, bool is_last_retraction, LiftType li
         (the extruder might be already retracted fully or partially). We call these
         methods even if we performed wipe, since this will ensure the entire retraction
         length is honored in case wipe path was too short.  */
-    if ((!this->on_first_layer()  || this->config().bottom_surface_pattern != InfillPattern::ipHilbertCurve) &&
+    if ((!this->first_printing_phase()  || this->config().bottom_surface_pattern != InfillPattern::ipHilbertCurve) &&
 	    (role != erTopSolidInfill || this->config().top_surface_pattern    != InfillPattern::ipHilbertCurve))
         gcode += toolchange ? m_writer.retract_for_toolchange() : m_writer.retract();
 
@@ -7990,7 +8419,7 @@ std::string GCode::set_extruder(unsigned int new_filament_id, double print_z, bo
     // BBS
     float new_retract_length = m_config.retraction_length.get_at(new_filament_id);
     float new_retract_length_toolchange = m_config.retract_length_toolchange.get_at(new_filament_id);
-    int new_filament_temp = this->on_first_layer() ? m_config.nozzle_temperature_initial_layer.get_at(new_filament_id) : m_config.nozzle_temperature.get_at(new_filament_id);
+    int new_filament_temp = this->filament_in_first_layer_phase(new_filament_id) ? m_config.nozzle_temperature_initial_layer.get_at(new_filament_id) : m_config.nozzle_temperature.get_at(new_filament_id);
     // BBS: if print_z == 0 use first layer temperature
     if (abs(print_z) < EPSILON)
         new_filament_temp = m_config.nozzle_temperature_initial_layer.get_at(new_filament_id);
@@ -8017,7 +8446,7 @@ std::string GCode::set_extruder(unsigned int new_filament_id, double print_z, bo
 
         old_retract_length = m_config.retraction_length.get_at(old_filament_id);
         old_retract_length_toolchange = m_config.retract_length_toolchange.get_at(old_filament_id);
-        old_filament_temp = this->on_first_layer()? m_config.nozzle_temperature_initial_layer.get_at(old_filament_id) : m_config.nozzle_temperature.get_at(old_filament_id);
+        old_filament_temp = this->filament_in_first_layer_phase(old_filament_id)? m_config.nozzle_temperature_initial_layer.get_at(old_filament_id) : m_config.nozzle_temperature.get_at(old_filament_id);
 
         //During the filament change, the extruder will extrude an extra length of grab_length for the corresponding detection, so the purge can reduce this length.
         float grab_purge_volume = m_config.grab_length.get_at(new_extruder_id) * 2.4;
@@ -8192,8 +8621,8 @@ std::string GCode::set_extruder(unsigned int new_filament_id, double print_z, bo
 
     // Set the temperature if the wipe tower didn't (not needed for non-single extruder MM)
     if (m_config.single_extruder_multi_material && !m_config.enable_prime_tower) {
-        int temp = (m_layer_index <= 0 ? m_config.nozzle_temperature_initial_layer.get_at(new_filament_id) :
-                                         m_config.nozzle_temperature.get_at(new_filament_id));
+        int temp = (this->filament_in_first_layer_phase(new_filament_id) ? m_config.nozzle_temperature_initial_layer.get_at(new_filament_id) :
+                                                                           m_config.nozzle_temperature.get_at(new_filament_id));
 
         gcode += m_writer.set_temperature(temp, false);
     }

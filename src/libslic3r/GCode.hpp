@@ -39,10 +39,35 @@ namespace Slic3r {
 
 // Forward declarations.
 class GCode;
+class PrintObject;
 
 namespace CustomGCode{ struct Item; }
 struct PrintInstance;
 class ConstPrintObjectPtrsAdaptor;
+struct LocalZInterval;
+struct SubLayerPlan;
+
+// Orca: one Local-Z sublayer pass of a printed layer, resolved against the multi nozzle diameter layer
+// band that owns it. z_hi is the Z the pass is emitted at (the top of its bead), flow_height the height
+// of the bead itself.
+struct LocalZPassSpan
+{
+    size_t plan_index { 0 };
+    double z_hi { 0. };
+    double flow_height { 0. };
+};
+
+// Orca: collect the Local-Z sublayer passes that have to be emitted together with `layer`.
+// In multi nozzle diameter mode a merged band swallows the slicing grid layers below its top: those
+// layers carry no extrusion at all, their material is printed on the band top as one thicker extrusion,
+// so the band is split into two passes inside the band height (component B below, component A on top)
+// instead of replaying the fine grid layers. Returns false when the layer has to keep a single (resolved)
+// colour instead of sublayer passes.
+bool resolve_local_z_layer_passes(const Layer &layer, const PrintObject &print_object, std::vector<LocalZPassSpan> &spans);
+
+// Orca: extruders that one planned Local-Z pass prints with, ascending and filtered to
+// `number_of_extruders`. G-code emission and wipe tower planning both use this so they stay in sync.
+void local_z_pass_extruders(const SubLayerPlan &plan, size_t number_of_extruders, std::vector<unsigned int> &out);
 
 class OozePrevention {
 public:
@@ -654,9 +679,22 @@ private:
     void print_machine_envelope(GCodeOutputStream& file, Print& print);
     void _print_first_layer_bed_temperature(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
     void _print_first_layer_extruder_temperatures(GCodeOutputStream &file, Print &print, const std::string &gcode, unsigned int first_printing_extruder_id, bool wait);
-    // On the first printing layer. This flag triggers first layer speeds.
+    // On the physical first printing layer. This flag triggers first layer speeds.
     //BBS
+    // Kept for reference: the first layer dependent decisions now go through
+    // filament_in_first_layer_phase() / first_printing_phase() below, which also cover a merged
+    // multi-diameter first band whose first extrusion is emitted at a higher layer.
     bool    on_first_layer() const { return m_layer != nullptr && m_layer->id() == 0 && abs(m_layer->bottom_z()) < EPSILON; }
+    // On the first printing phase of the current layer's object. A multi-diameter adaptive layer merge
+    // may swallow the object's physical first layers: the first extrusion is then emitted at the group
+    // top of the first band, which is physically a higher layer. Temperature / filament change logic
+    // keyed on "first layer" has to follow that emitted layer. Mirrors Bambu's helper of the same name;
+    // the fork has no mixed-sublayer bookkeeping, so the answer is layer based and the filament id is
+    // only kept to stay source compatible with Bambu and to allow a per-filament refinement later.
+    bool    filament_in_first_layer_phase(unsigned int filament_id) const;
+    // Layer based variant of the above, for the places which only look at the current layer and
+    // do not need a filament id (per path flow / speed / acceleration).
+    bool    first_printing_phase() const;
     int layer_id() const {
         if (m_layer == nullptr)
             return -1;

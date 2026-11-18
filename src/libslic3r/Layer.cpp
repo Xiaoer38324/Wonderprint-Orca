@@ -6,6 +6,8 @@
 #include "SVG.hpp"
 #include "BoundingBox.hpp"
 
+#include <algorithm>
+
 #include <boost/log/trivial.hpp>
 
 namespace Slic3r {
@@ -182,8 +184,41 @@ void Layer::make_perimeters()
     // keep track of regions whose perimeters we have already generated
     std::vector<unsigned char> done(m_regions.size(), false);
 
-    for (LayerRegionPtrs::iterator layerm = m_regions.begin(); layerm != m_regions.end(); ++ layerm)
-    	if ((*layerm)->slices.empty()) {
+    // Multi-diameter adaptive layer height: regions of one layer may belong to different adaptive bands, so two
+    // regions may only share one shell discovery pass when their merge plans are identical.
+    auto same_merge_patches = [](const LayerRegion *lhs, const LayerRegion *rhs) {
+        const bool lhs_merged = ! lhs->adaptive_merge_patches.empty();
+        const bool rhs_merged = ! rhs->adaptive_merge_patches.empty();
+        if (lhs_merged != rhs_merged)
+            return false;
+        if (! lhs_merged)
+            return true;
+        // A layer may carry both markers of a band above and a local group top of its own. The group top of a
+        // secondary region would be lost in a shared pass, so any extruding group top forbids sharing.
+        auto has_extruding_group_top = [](const LayerRegion *layerm) {
+            return std::any_of(layerm->adaptive_merge_patches.begin(), layerm->adaptive_merge_patches.end(),
+                               [](const AdaptiveMergePatch &patch) { return patch.group_top && ! patch.area().empty(); });
+        };
+        if (has_extruding_group_top(lhs) || has_extruding_group_top(rhs))
+            return false;
+        const AdaptiveMergePatch &a = lhs->adaptive_merge_patches.front();
+        const AdaptiveMergePatch &b = rhs->adaptive_merge_patches.front();
+        if (a.bottom_idx != b.bottom_idx || a.top_idx != b.top_idx || a.group_top != b.group_top)
+            return false;
+        // A layer swallowed by the band above it extrudes nothing, so its regions can share one shell discovery
+        // pass. A group top clips against the contour it retained, which no two regions share.
+        return ! a.group_top;
+    };
+
+    for (LayerRegionPtrs::iterator layerm = m_regions.begin(); layerm != m_regions.end(); ++ layerm) {
+        // A band which starts at the object base is generated from the base layer slices, so it may have material
+        // even where the current grid layer has none.
+        const bool has_first_band_source = std::any_of(
+            (*layerm)->adaptive_merge_patches.begin(), (*layerm)->adaptive_merge_patches.end(),
+            [](const AdaptiveMergePatch &patch) {
+                return patch.group_top && patch.bottom_idx == 0 && ! patch.area().empty();
+            });
+	if ((*layerm)->slices.empty() && ! has_first_band_source) {
  			(*layerm)->perimeters.clear();
  			(*layerm)->fills.clear();
  			(*layerm)->thin_fills.clear();
@@ -202,7 +237,7 @@ void Layer::make_perimeters()
 	            if (! (*it)->slices.empty()) {
 		            LayerRegion* other_layerm = *it;
 		            const PrintRegion &other_region = other_layerm->region();
-                    if (is_perimeter_compatible(this_region, other_region))
+                    if (is_perimeter_compatible(this_region, other_region) && same_merge_patches(*layerm, other_layerm))
 		            {
 			 			other_layerm->perimeters.clear();
 			 			other_layerm->fills.clear();
@@ -212,22 +247,98 @@ void Layer::make_perimeters()
 		            }
 		        }
 
+            // Multi-diameter adaptive layer height: a region inside a band is extruded on the group top only,
+            // at the height of the whole band. The grid layers below it are dropped, not merged into it.
+            auto generate_region_perimeters = [&](LayerRegion *lm, const SurfaceCollection &src,
+                                                  SurfaceCollection *out_fill, ExPolygons *out_no_overlap) {
+                if (lm->adaptive_merge_patches.empty()) {
+                    lm->make_perimeters(src, layerms, out_fill, out_no_overlap);
+                    return;
+                }
+
+                const auto group_top_patch = std::find_if(
+                    lm->adaptive_merge_patches.begin(), lm->adaptive_merge_patches.end(),
+                    [](const AdaptiveMergePatch &patch) { return patch.group_top; });
+                if (group_top_patch == lm->adaptive_merge_patches.end()) {
+                    // Swallowed by the group top, so nothing is extruded here. The fill surfaces still have to
+                    // pass through shell discovery, otherwise a solid layer inside the band disappears before
+                    // it can be promoted to the band top.
+                    lm->make_perimeters(src, layerms, out_fill, out_no_overlap, 0., true, nullptr, nullptr, true);
+                    return;
+                }
+
+                // All local boundary pieces share this fixed group top, so their ceiling is identical.
+                ExPolygons upper_slices_storage;
+                const ExPolygons *upper_slices = nullptr;
+                const size_t top_idx = group_top_patch->top_idx;
+                if (top_idx + 1 < this->object()->layer_count()) {
+                    // The next physical layer may be swallowed by another adaptive band. Build the footprint
+                    // that band will actually extrude so top-only walls see the real ceiling.
+                    const Layer *upper_layer = this->object()->get_layer(int(top_idx + 1));
+                    Polygons upper_footprint;
+                    for (const LayerRegion *upper_region : upper_layer->regions()) {
+                        if (upper_region->adaptive_merge_patches.empty()) {
+                            polygons_append(upper_footprint, to_polygons(upper_region->slices.surfaces));
+                        } else {
+                            for (const AdaptiveMergePatch &upper_patch : upper_region->adaptive_merge_patches)
+                                polygons_append(upper_footprint, to_polygons(upper_patch.area()));
+                        }
+                    }
+                    upper_slices_storage = union_ex(upper_footprint);
+                    upper_slices = &upper_slices_storage;
+                }
+
+                bool generated = false;
+                for (const AdaptiveMergePatch &patch : lm->adaptive_merge_patches) {
+                    if (! patch.group_top || patch.area().empty())
+                        continue;
+
+                    SurfaceCollection core_slices;
+                    const SurfaceCollection &patch_source = patch.bottom_idx == 0 ?
+                        this->object()->get_layer(0)->get_region(region_id)->slices : src;
+                    for (const Surface &s : patch_source.surfaces)
+                        for (ExPolygon &e : intersection_ex(ExPolygons{ s.expolygon }, patch.area()))
+                            core_slices.surfaces.emplace_back(s, std::move(e));
+                    if (core_slices.surfaces.empty())
+                        continue;
+
+                    // Each local piece rests immediately above its own obstruction. A suppressed orphan there is
+                    // sliced but not extruded, so the walls over it overhang.
+                    const ExPolygons *lower_slices = nullptr;
+                    ExPolygons        lower_storage;
+                    if (patch.bottom_idx > 0) {
+                        const Layer     *lower   = this->object()->get_layer(int(patch.bottom_idx - 1));
+                        const ExPolygons dropped = adaptive_suppressed_orphan_area(*lower);
+                        if (dropped.empty())
+                            lower_slices = &lower->lslices;
+                        else {
+                            lower_storage = diff_ex(lower->lslices, dropped);
+                            lower_slices  = &lower_storage;
+                        }
+                    }
+                    lm->make_perimeters(core_slices, layerms, out_fill, out_no_overlap, patch.merged_height, ! generated,
+                                        lower_slices, upper_slices, false, patch.bottom_idx == 0);
+                    generated = true;
+                }
+                if (! generated) {
+                    lm->perimeters.clear();
+                    lm->thin_fills.clear();
+                }
+            };
+
 	        if (layerms.size() == 1) {  // optimization
 	            (*layerm)->fill_surfaces.surfaces.clear();
-                (*layerm)->make_perimeters((*layerm)->slices, {*layerm}, &(*layerm)->fill_surfaces, &(*layerm)->fill_no_overlap_expolygons);
+                (*layerm)->fill_no_overlap_expolygons.clear();
+                generate_region_perimeters(*layerm, (*layerm)->slices, &(*layerm)->fill_surfaces, &(*layerm)->fill_no_overlap_expolygons);
 	            (*layerm)->fill_expolygons = to_expolygons((*layerm)->fill_surfaces.surfaces);
 	        } else {
 	            SurfaceCollection new_slices;
-	            // Use the region with highest infill rate, as the make_perimeters() function below decides on the gap fill based on the infill existence.
-	            LayerRegion *layerm_config = layerms.front();
 	            {
 	                // group slices (surfaces) according to number of extra perimeters
 	                std::map<unsigned short, Surfaces> slices;  // extra_perimeters => [ surface, surface... ]
 	                for (LayerRegion *layerm : layerms) {
 	                    for (const Surface &surface : layerm->slices.surfaces)
 	                        slices[surface.extra_perimeters].emplace_back(surface);
-	                    if (layerm->region().config().sparse_infill_density > layerm_config->region().config().sparse_infill_density)
-	                    	layerm_config = layerm;
 	                }
 	                // merge the surfaces assigned to each group
 	                for (std::pair<const unsigned short,Surfaces> &surfaces_with_extra_perimeters : slices)
@@ -238,7 +349,7 @@ void Layer::make_perimeters()
 	            SurfaceCollection fill_surfaces;
                 //BBS
                 ExPolygons fill_no_overlap;
-	            layerm_config->make_perimeters(new_slices, layerms, &fill_surfaces, &fill_no_overlap);
+	            generate_region_perimeters(*layerm, new_slices, &fill_surfaces, &fill_no_overlap);
 
 	            // assign fill_surfaces to each layer
 	            if (!fill_surfaces.surfaces.empty()) {
@@ -253,6 +364,7 @@ void Layer::make_perimeters()
 	            }
 	        }
 	    }
+    }
     BOOST_LOG_TRIVIAL(trace) << "Generating perimeters for layer " << this->id() << " - Done";
 }
 

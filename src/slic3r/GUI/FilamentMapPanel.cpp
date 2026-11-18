@@ -1,5 +1,6 @@
 #include "FilamentMapPanel.hpp"
 #include "GUI_App.hpp"
+#include <algorithm>
 #include <wx/dcbuffer.h>
 #include "wx/graphics.h"
 
@@ -110,6 +111,7 @@ void FilamentMapManualPanel::Show()
     m_switch_btn->Show();
     wxPanel::Show();
 }
+
 
 GUI::FilamentMapBtnPanel::FilamentMapBtnPanel(wxWindow *parent, const wxString &label, const wxString &detail, const std::string &icon) : wxPanel(parent)
 {

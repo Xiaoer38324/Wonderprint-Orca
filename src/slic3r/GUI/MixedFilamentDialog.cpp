@@ -7,6 +7,8 @@
 #include "MixedFilamentBadge.hpp"
 #include "libslic3r/MixedFilament.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/PrintConfig.hpp"
+#include "MsgDialog.hpp"
 #include "wxExtensions.hpp"
 #include "Widgets/Label.hpp"
 #include "Widgets/RadioGroup.hpp"
@@ -21,8 +23,10 @@
 #include <wx/clrpicker.h>
 #include <wx/colordlg.h>
 #include <wx/wrapsizer.h>
+#include <wx/weakref.h>
 
 #include <algorithm>
+#include <cmath>
 #include <numeric>
 #include <utility>
 #include <set>
@@ -33,6 +37,21 @@ namespace Slic3r { namespace GUI {
 static constexpr int SWATCH_SIZE  = 16;
 static constexpr int PREVIEW_SIZE = 140;
 static constexpr int STRIP_HEIGHT = 24;
+
+// Orca: nozzle diameter of every physical filament, in preset order. Used to reject a mix whose components
+// are printed through different nozzle sizes.
+static std::vector<double> current_physical_nozzle_diameters(size_t count)
+{
+    std::vector<double> diameters;
+    PresetBundle *preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr)
+        return diameters;
+    const DynamicPrintConfig full = preset_bundle->full_config();
+    diameters.resize(count, 0.);
+    for (size_t index = 0; index < count; ++index)
+        diameters[index] = nozzle_diameter_for_filament(full, unsigned(index) + 1);
+    return diameters;
+}
 
 // ---------------------------------------------------------------------------
 // Custom Figma-style range slider for match mode "Min mix ratio"
@@ -2214,23 +2233,63 @@ void MixedFilamentDialog::update_compatibility_warning()
         }
     }
 
+    // Orca: illegal virtual filament. A mix may only combine physical filaments that are printed through
+    // nozzles of the same diameter; one mixed extrusion cannot switch nozzle size between its components.
+    bool nozzle_mismatch = false;
+    {
+        const std::vector<double> nozzle_diameters = current_physical_nozzle_diameters(m_filament_colours.size());
+        double                    first_diameter  = 0.;
+        for (unsigned int filament_index : fids) {
+            if (filament_index >= nozzle_diameters.size())
+                continue;
+            const double diameter = nozzle_diameters[filament_index];
+            if (diameter <= 0.)
+                continue;
+            if (first_diameter <= 0.) {
+                first_diameter = diameter;
+            } else if (std::abs(first_diameter - diameter) > 1e-3) {
+                nozzle_mismatch = true;
+                break;
+            }
+        }
+    }
+
     if (!is_filament_compatible(fids)) {
+        m_nozzle_mismatch_shown = false;
         if (auto pair = find_incompatible_filament_pair(fids)) {
             set_error(wxString::Format(_L("Filament %d and Filament %d cannot be mixed. Please select filaments of the same type."), pair->first, pair->second));
         } else {
             set_error(_L("Different filament types cannot be mixed. Please correct the settings."));
         }
+    } else if (nozzle_mismatch) {
+        const wxString msg = _L("Filaments printed with different nozzle diameters cannot be mixed. "
+                                "Please select filaments that use the same nozzle size.");
+        set_error(msg);
+        if (!m_nozzle_mismatch_shown) {
+            m_nozzle_mismatch_shown = true;
+            wxWeakRef<wxWindow> weak_self(this);
+            // wxTheApp->CallAfter([weak_self, msg]() {
+            //     if (wxWindow *parent = weak_self.get()) {
+            //         MessageDialog dlg(parent, msg, _L("Cannot mix filaments"), wxICON_ERROR | wxOK);
+            //         dlg.ShowModal();
+            //     }
+            // });
+        }
     } else if (wxString warning_msg = get_ratio_warning_msg(); !warning_msg.empty()) {
+        m_nozzle_mismatch_shown = false;
         display_warning(warning_msg);
         if (m_btn_confirm) m_btn_confirm->Enable();
     } else if (m_current_mode == MODE_CYCLE && fids.size() == 1) {
+        m_nozzle_mismatch_shown = false;
         // A single filament cannot produce a new color: treat it as an invalid input and
         // disable Confirm, like the other error cases.
         set_error(_L("Same filament colors cannot produce new colors. Please select different colors for mixing."));
     } else if (m_current_mode == MODE_CYCLE && fids.size() > 4) {
+        m_nozzle_mismatch_shown = false;
         display_warning(_L("Excessive filaments in the mix may affect the result. Please use with caution."));
         if (m_btn_confirm) m_btn_confirm->Enable();
     } else {
+        m_nozzle_mismatch_shown = false;
         m_error_panel->Hide();
         m_warning_panel->Hide();
         m_btn_confirm->Enable();

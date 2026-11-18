@@ -50,7 +50,15 @@ static std::vector<std::string> s_project_options {
     "flush_multiplier",
     "nozzle_volume_type",
     "filament_map_mode",
-    "filament_map"
+    "filament_map",
+    // Multi nozzle diameter ("multi-diameter"): the rack state and the per-filament nozzle choice belong to the
+    // project, so a 3MF opens with the nozzles it was sliced with instead of the machine preset's defaults.
+    "extruder_nozzle_count",
+    "extruder_nozzle_diameter",
+    "extruder_nozzle_slot",
+    "extruder_max_nozzle_count",
+    "filament_diameter_map",
+    "multi_nozzle_diameter_mode"
 };
 
 //Orca: add custom as default

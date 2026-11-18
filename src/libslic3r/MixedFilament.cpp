@@ -725,6 +725,47 @@ static bool mixed_filament_references_exceed_physical(const std::string &gradien
     return false;
 }
 
+bool mixed_filament_mixes_nozzle_diameters(const MixedFilament &mf,
+                                           const std::vector<double> &physical_nozzle_diameters)
+{
+    if (physical_nozzle_diameters.empty())
+        return false;
+
+    std::vector<unsigned int> ids;
+    auto push = [&ids](unsigned int id) {
+        if (id >= 1 && std::find(ids.begin(), ids.end(), id) == ids.end())
+            ids.push_back(id);
+    };
+
+    const std::string pattern = MixedFilamentManager::normalize_manual_pattern(mf.manual_pattern);
+    if (!pattern.empty()) {
+        for (const std::string &group : MixedFilamentManager::split_pattern_groups(pattern))
+            for (const std::string &token :
+                 MixedFilamentManager::split_pattern_group_to_tokens(group, physical_nozzle_diameters.size()))
+                push(MixedFilamentManager::physical_filament_from_token(token, mf, physical_nozzle_diameters.size()));
+    } else {
+        push(mf.component_a);
+        push(mf.component_b);
+        for (unsigned int id :
+             MixedFilamentManager::decode_gradient_component_ids(mf.gradient_component_ids, physical_nozzle_diameters.size()))
+            push(id);
+    }
+
+    double first_diameter = 0.;
+    for (unsigned int id : ids) {
+        if (id > physical_nozzle_diameters.size())
+            continue;
+        const double diameter = physical_nozzle_diameters[id - 1];
+        if (diameter <= 0.)
+            continue;
+        if (first_diameter <= 0.)
+            first_diameter = diameter;
+        else if (std::abs(first_diameter - diameter) > 1e-3)
+            return true;
+    }
+    return false;
+}
+
 std::vector<std::string> MixedFilamentManager::split_pattern_group_to_tokens(const std::string &group, size_t /*num_physical*/)
 {
     return tokenize_pattern_group(group);

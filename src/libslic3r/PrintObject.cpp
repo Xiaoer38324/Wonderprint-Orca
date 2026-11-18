@@ -1,5 +1,6 @@
 #include "Exception.hpp"
 #include "Print.hpp"
+#include "AdaptiveLayerMerge.hpp"
 #include "BoundingBox.hpp"
 #include "ClipperUtils.hpp"
 #include "ElephantFootCompensation.hpp"
@@ -509,6 +510,10 @@ void PrintObject::make_perimeters()
         BOOST_LOG_TRIVIAL(debug) << "Generating extra perimeters for region " << region_id << " in parallel - end";
     }
 
+    // BBS multi-diameter: decide layer-merge groups before generating walls (walls and infill share the grouping).
+    this->compute_adaptive_merge_groups();
+    m_print->throw_if_canceled();
+
     BOOST_LOG_TRIVIAL(debug) << "Generating perimeters in parallel - start";
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, m_layers.size()),
@@ -547,6 +552,9 @@ void PrintObject::prepare_infill()
     // by the cummulative area of the previous $layerm->fill_surfaces.
     this->detect_surfaces_type();
     m_print->throw_if_canceled();
+    // BBS multi-diameter: a suppressed orphan is sliced but not extruded, so the surfaces above it are bridges.
+    if (this->print()->uses_multiple_nozzle_diameters())
+        type_bridges_over_suppressed_orphans(m_layers);
 
     // Decide what surfaces are to be filled.
     // Here the stTop / stBottomBridge / stBottom infill is turned to just stInternal if zero top / bottom infill layers are configured.
@@ -641,6 +649,11 @@ void PrintObject::prepare_infill()
     // the following step needs to be done before combination because it may need
     // to remove only half of the combined infill
     this->bridge_over_infill();
+    m_print->throw_if_canceled();
+
+    // BBS multi-diameter: merge large-nozzle regions' internal fill into N x base height layers before the
+    // regular infill combination, so the shared core is printed thick while the boundary keeps base height.
+    this->combine_adaptive_infill();
     m_print->throw_if_canceled();
 
     // combine fill surfaces to honor the "infill every N layers" option
@@ -794,8 +807,12 @@ static const float g_min_overhang_percent_for_lift = 0.3f;
 void PrintObject::detect_overhangs_for_lift()
 {
     if (this->set_started(posDetectOverhangsForLift)) {
-        const double nozzle_diameter = m_print->config().nozzle_diameter.get_at(0);
-        const coordf_t line_width = this->config().get_abs_value("line_width", nozzle_diameter);
+        // This object-level heuristic has no region context. The first nozzle is an intentional
+        // approximation used only to scale the overhang-detection tolerance.
+        const float reference_nozzle = float(primary_nozzle_diameter(this->print()->full_print_config()));
+        const float line_width = float(Flow::extrusion_width_for_nozzle(
+            m_config.line_width, reference_nozzle, reference_nozzle,
+            multi_nozzle_diameter_mode_enabled(this->print()->full_print_config())));
 
         const float min_overlap = line_width * g_min_overhang_percent_for_lift;
         size_t num_layers = this->layer_count();
@@ -3474,11 +3491,30 @@ void PrintObject::generate_support_preview()
 
 void PrintObject::update_slicing_parameters()
 {
+    // BBS multi-diameter: the slicing parameters depend on the layer grid the print is sliced on, which the
+    // print resolves once per apply (single diameter fast path vs. the fine merge grid).
+    if (!m_slicing_params.valid)
+        m_slicing_params = this->compute_slicing_parameters(this->print()->single_diameter_layering_nozzle());
+}
+
+SlicingParameters PrintObject::compute_slicing_parameters(double single_diameter_layering_nozzle) const
+{
     // Orca: updated function call for XYZ shrinkage compensation
-    if (!m_slicing_params.valid) {
-          m_slicing_params = SlicingParameters::create_from_config(this->print()->config(), m_config, this->model_object()->max_z(),
-                                                                   this->object_extruders(), this->print()->shrinkage_compensation());
-      }
+    const DynamicPrintConfig &full_config = this->print()->full_print_config();
+    // Whole plate on the finest grid the machine can be asked to use, each filament's nozzle then merges the
+    // steps of one band into a single extrusion. Subdividing the preset's layer height keeps the preset's own
+    // speeds and line widths valid for a plate printed on other nozzles.
+    const int subdivision = layer_grid_subdivision(full_config);
+    // Single diameter fast path: slice straight at the nozzle's band height instead of merging grid layers.
+    // The band height is the preset layer height scaled the same way the merge path scales it.
+    const int multiplier = single_diameter_layering_nozzle > EPSILON ?
+        int(adaptive_layer_band_size(single_diameter_layering_nozzle,
+                                     layer_grid_nozzle_diameter(full_config),
+                                     m_config.layer_height.value / double(std::max(1, subdivision)))) :
+        1;
+    return SlicingParameters::create_from_config(this->print()->config(), m_config, this->model_object()->max_z(),
+                                                this->object_extruders(), this->print()->shrinkage_compensation(),
+                                                subdivision, multiplier, single_diameter_layering_nozzle);
 }
 
 // Orca: XYZ shrinkage compensation has introduced the const Vec3d &object_shrinkage_compensation parameter to the function below
@@ -3924,11 +3960,11 @@ void PrintObject::combine_infill()
         const InfillPattern infill_pattern   = use_solid_infill ? region.config().internal_solid_infill_pattern :
                                                                   region.config().sparse_infill_pattern;
 
-        // Limit the number of combined layers to the maximum height allowed by this regions' nozzle.
+        // Limit the number of combined layers to the sparse-infill nozzle diameter. Solid fill is not
+        // combined here and must not constrain the sparse-infill band size.
         //FIXME limit the layer height to max_layer_height
-        double nozzle_diameter = std::min(
-            this->print()->config().nozzle_diameter.get_at(region.config().sparse_infill_filament.value - 1),
-            this->print()->config().nozzle_diameter.get_at(region.config().solid_infill_filament.value - 1));
+        double nozzle_diameter = nozzle_diameter_for_filament(
+            this->print()->config(), region.config().sparse_infill_filament.value);
         
         //Orca: Limit combination of infill to up to infill_combination_max_layer_height
         const double infill_combination_max_layer_height = region.config().infill_combination_max_layer_height.get_abs_value(nozzle_diameter);

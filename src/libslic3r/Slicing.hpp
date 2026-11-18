@@ -30,12 +30,21 @@ struct SlicingParameters
 	SlicingParameters() = default;
 
     // Orca: XYZ filament compensation introduced object_shrinkage_compensation
+    // Multi nozzle diameter ("multi-diameter"): layer_grid_subdivision cuts the preset's authored layer
+    // height into that many object layers, decoupling the grid resolution from the preset the plate was
+    // sliced with. 1 means "grid == authored layer height", the historical behavior outside multi-diameter
+    // mode. layer_grid_multiplier then stacks that many grid steps into one sliced layer; it stays 1 until
+    // the single-diameter fast path is used, in which case the plate is sliced straight at the height the
+    // nozzle's merged band would have (see single_diameter_layering_nozzle).
     static SlicingParameters create_from_config(
          const PrintConfig               &print_config,
          const PrintObjectConfig         &object_config,
          coordf_t                         object_height,
          const std::vector<unsigned int> &object_extruders,
-         const Vec3d                     &object_shrinkage_compensation);
+         const Vec3d                     &object_shrinkage_compensation,
+         int                              layer_grid_subdivision = 1,
+         int                              layer_grid_multiplier = 1,
+         double                           single_diameter_layering_nozzle = 0.);
 
     // Has any raft layers?
     bool        has_raft() const { return raft_layers() > 0; }
@@ -66,6 +75,17 @@ struct SlicingParameters
 	// The regular layer height, applied for all but the first layer, if not overridden by layer ranges
 	// or by the variable layer thickness table.
     coordf_t    layer_height { 0 };
+    // Ratio between authored layer heights and the base layer grid used for slicing.
+    int         layer_grid_subdivision { 1 };
+    // Grid steps stacked into one sliced layer, see create_from_config().
+    int         layer_grid_multiplier { 1 };
+    // True when a multi-diameter printer uses one diameter and is sliced directly at that diameter's layer height.
+    bool        single_diameter_layering { false };
+    coordf_t    to_base_layer_height(coordf_t height) const
+        { return height * coordf_t(layer_grid_multiplier > 0 ? layer_grid_multiplier : 1) /
+                 coordf_t(layer_grid_subdivision > 0 ? layer_grid_subdivision : 1); }
+    coordf_t    to_layer_height_limit(coordf_t height) const
+        { return height / coordf_t(layer_grid_subdivision > 0 ? layer_grid_subdivision : 1); }
     // Minimum / maximum layer height, to be used for the automatic adaptive layer height algorithm,
     // or by an interactive layer height editor.
     coordf_t    min_layer_height { 0 };
@@ -124,6 +144,9 @@ inline bool equal_layering(const SlicingParameters &sp1, const SlicingParameters
             sp1.interface_raft_layer_height         == sp2.interface_raft_layer_height          &&
             sp1.contact_raft_layer_height           == sp2.contact_raft_layer_height            &&
             sp1.layer_height                        == sp2.layer_height                         &&
+            sp1.layer_grid_subdivision              == sp2.layer_grid_subdivision               &&
+            sp1.layer_grid_multiplier               == sp2.layer_grid_multiplier                &&
+            sp1.single_diameter_layering            == sp2.single_diameter_layering             &&
             sp1.min_layer_height                    == sp2.min_layer_height                     &&
             sp1.max_layer_height                    == sp2.max_layer_height                     &&
 //            sp1.max_suport_layer_height             == sp2.max_suport_layer_height              &&

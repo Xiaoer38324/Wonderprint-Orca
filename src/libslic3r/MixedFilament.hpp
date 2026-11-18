@@ -500,6 +500,12 @@ RedundantFilamentSet compute_redundant_filaments(
     const std::vector<unsigned int>  &kept_mixed_ids,
     const std::vector<MixedFilament> &mixed_filaments);
 
+// True when the row combines physical filaments printed through nozzles of different diameters. Such a mix is
+// illegal: one mixed extrusion cannot change nozzle size between its components. Empty or short
+// `physical_nozzle_diameters` means "unknown" and is never reported as a mismatch.
+bool mixed_filament_mixes_nozzle_diameters(const MixedFilament &mf,
+                                           const std::vector<double> &physical_nozzle_diameters);
+
 // Returns true when the mixed filament represents a simple two-color gradient
 // that can be rendered as a vertical color ramp (no manual pattern, exactly 2 components).
 inline bool is_simple_gradient(const MixedFilament& mf)

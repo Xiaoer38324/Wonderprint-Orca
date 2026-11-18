@@ -1,6 +1,7 @@
 #include "Config.hpp"
 #include "Exception.hpp"
 #include "Print.hpp"
+#include "AdaptiveLayerMerge.hpp"
 #include "BoundingBox.hpp"
 #include "Brim.hpp"
 #include "ClipperUtils.hpp"
@@ -558,6 +559,54 @@ std::vector<unsigned int> Print::extruders(bool conside_custom_gcode) const
 
     sort_remove_duplicates(extruders);
     return extruders;
+}
+
+bool Print::uses_multiple_nozzle_diameters() const
+{
+    if (! multi_nozzle_diameter_mode_enabled(m_full_print_config))
+        return false;
+    // Sliced straight at the one nozzle's band height, every layer is already what that nozzle prints.
+    if (m_single_diameter_layering_nozzle > EPSILON)
+        return false;
+
+    // Regions and object configs only. This is queried from inside the per-object slicing steps, and support
+    // generation runs them in parallel, while Print::extruders() reaches into the model volumes and updates
+    // their lazy paint caches on the way.
+    std::vector<unsigned int> filaments;
+    for (const PrintRegion* region : m_print_regions)
+        region->collect_object_printing_extruders(*this, filaments);
+    for (const PrintObject* object : m_objects)
+        if (object->has_support_material()) {
+            // A "don't care" support filament prints with one of the filaments collected above.
+            if (object->config().support_filament > 0)
+                filaments.emplace_back((unsigned int) object->config().support_filament - 1);
+            if (object->config().support_interface_filament > 0)
+                filaments.emplace_back((unsigned int) object->config().support_interface_filament - 1);
+        }
+    sort_remove_duplicates(filaments);
+    if (has_multiple_used_nozzle_diameters(m_config, filaments))
+        return true;
+
+    // A plate using only one coarse filament still needs adaptive bands when the layer grid is anchored to a
+    // smaller nozzle. "Multiple diameter mode" describes the machine/grid capability, not a requirement that
+    // two differently sized tools must both appear on this plate. The comparison is against the grid anchor
+    // rather than the preset diameter, so a coarse preset over a finer grid - a 0.4 preset on the 0.2 grid,
+    // where 0.2mm layers are sliced as 2 x 0.1mm - still merges its steps back together.
+    const double reference_nozzle = layer_grid_nozzle_diameter(m_full_print_config);
+    if (reference_nozzle <= EPSILON)
+        return false;
+    return std::any_of(filaments.begin(), filaments.end(), [&](unsigned int filament_id) {
+        return nozzle_diameter_for_filament(m_config, filament_id + 1) > reference_nozzle + EPSILON;
+    });
+}
+
+double Print::resolve_single_diameter_layering_nozzle() const
+{
+    // TODO(multi-diameter): implement the single diameter fast path ported from Bambu (Print::printed_filaments()
+    // plus the layer height window checks). Until then the plate always takes the layer grid merge path, which is
+    // correct for every configuration, only slower for a plate that could be sliced straight at one nozzle's band
+    // height.
+    return 0.;
 }
 
 unsigned int Print::num_object_instances() const
@@ -1217,6 +1266,48 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
     if (extruders.empty())
         return { L("No extrusions under current settings.") };
 
+    // Orca: illegal virtual filaments. A Color Mixing row may only combine physical filaments that are
+    // printed through nozzles of the same diameter: a mixed extrusion cannot switch nozzle size between its
+    // components. Only rows the plate actually uses are checked, so an unused generated row does not block
+    // slicing.
+    {
+        size_t physical_count = 0;
+        if (const ConfigOptionStrings *colours = m_full_print_config.option<ConfigOptionStrings>("filament_colour"))
+            physical_count = colours->values.size();
+        if (physical_count > 0) {
+            std::vector<double> nozzle_diameters;
+            nozzle_diameters.reserve(physical_count);
+            for (size_t i = 0; i < physical_count; ++i)
+                nozzle_diameters.push_back(nozzle_diameter_for_filament(m_full_print_config, unsigned(i + 1)));
+
+            std::vector<unsigned int> used_virtual_filaments;
+            for (const PrintObject *object : m_objects) {
+                const ModelObject *model_object = object->model_object();
+                if (model_object == nullptr)
+                    continue;
+                for (const ModelVolume *volume : model_object->volumes)
+                    for (int extruder_id : volume->get_extruders())
+                        if (extruder_id > int(physical_count))
+                            used_virtual_filaments.emplace_back(unsigned(extruder_id));
+            }
+            sort_remove_duplicates(used_virtual_filaments);
+
+            const std::vector<MixedFilament> &mixed_filaments = m_mixed_filament_mgr.mixed_filaments();
+            for (unsigned int virtual_id : used_virtual_filaments) {
+                const size_t index = size_t(virtual_id) - physical_count - 1;
+                if (index >= mixed_filaments.size())
+                    continue;
+                const MixedFilament &mf = mixed_filaments[index];
+                if (! mf.enabled || mf.deleted)
+                    continue;
+                if (mixed_filament_mixes_nozzle_diameters(mf, nozzle_diameters))
+                    return { L("Color Mixing rows cannot combine filaments printed with different nozzle diameters. "
+                               "Please select filaments that use the same nozzle size."),
+                             nullptr, "mixed_filament_definitions" };
+            }
+        }
+    }
+
     if (nozzles < 2 && extruders.size() > 1) {
         auto ret = check_multi_filament_valid(*this);
         if (!ret.string.empty())
@@ -1283,6 +1374,21 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
             warningtemp.opt_key    = "enable_prime_tower";
             warningtemp.is_warning = true;
             *warning               = warningtemp;
+        }
+    }
+
+    // Multi nozzle diameter mode: the support layers are still generated on the fine slicing grid, so they are
+    // not merged into the adaptive layer bands yet. Warn instead of silently promising a fully validated setup.
+    if (warning != nullptr && multi_nozzle_diameter_mode_enabled(m_full_print_config)) {
+        for (const PrintObject *object : m_objects) {
+            if (object->has_support_material()) {
+                StringObjectException warningtemp;
+                warningtemp.string     = L("Multi nozzle diameter mode with support material is experimental: support layers are not merged into the adaptive layer bands yet.");
+                warningtemp.opt_key    = "multi_nozzle_diameter_mode";
+                warningtemp.is_warning = true;
+                *warning               = warningtemp;
+                break;
+            }
         }
     }
 
@@ -1369,20 +1475,29 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
         }
 
     if (this->has_wipe_tower() && ! m_objects.empty()) {
-        // Make sure all extruders use same diameter filament and have the same nozzle diameter
-        // EPSILON comparison is used for nozzles and 10 % tolerance is used for filaments
+        // Type 2 (non-BBL) plans the tower per band: every tower layer takes the band height and the shared
+        // wall width comes from the narrowest nozzle, so mixed nozzle diameters are supported there. The Type 1
+        // tower still assumes one nozzle size for the whole tower.
+        const bool type2_tower = this->wipe_tower_type() == WipeTowerType::Type2;
         double first_nozzle_diam = m_config.nozzle_diameter.get_at(extruders.front());
         double first_filament_diam = m_config.filament_diameter.get_at(extruders.front());
         for (const auto& extruder_idx : extruders) {
             double nozzle_diam = m_config.nozzle_diameter.get_at(extruder_idx);
             double filament_diam = m_config.filament_diameter.get_at(extruder_idx);
-            if (nozzle_diam - EPSILON > first_nozzle_diam || nozzle_diam + EPSILON < first_nozzle_diam
-                || std::abs((filament_diam - first_filament_diam) / first_filament_diam) > 0.1) {
-                // return { L("Different nozzle diameters and different filament diameters may not work well when prime tower is enabled. It's very experimental, please proceed with caucious.") };
-                    warning->string = L("Different nozzle diameters and different filament diameters may not work well when the prime tower is enabled. It's very experimental, so please proceed with caution.");
+            const bool nozzle_mismatch   = nozzle_diam - EPSILON > first_nozzle_diam || nozzle_diam + EPSILON < first_nozzle_diam;
+            const bool filament_mismatch = std::abs((filament_diam - first_filament_diam) / first_filament_diam) > 0.1;
+            if (nozzle_mismatch || filament_mismatch) {
+                if (nozzle_mismatch && !type2_tower) {
+                    warning->string = L("Different nozzle diameters may not work well when the prime tower is enabled. "
+                                        "It's very experimental, so please proceed with caution.");
                     warning->opt_key = "nozzle_diameter";
-                    break;
+                } else if (filament_mismatch) {
+                    warning->string = L("Different filament diameters may not work well when the prime tower is enabled. "
+                                        "It's very experimental, so please proceed with caution.");
+                    warning->opt_key = "filament_diameter";
                 }
+                break;
+            }
         }
 
         if (! m_config.use_relative_e_distances)
@@ -1621,10 +1736,19 @@ StringObjectException Print::validate(StringObjectException *warning, Polygons* 
                 if (!validate_extrusion_width(object->config(), "support_line_width", layer_height, err_msg))
                     return {err_msg, object, "support_line_width"};
             }
-            for (const char *opt_key : { "inner_wall_line_width", "outer_wall_line_width", "sparse_infill_line_width", "internal_solid_infill_line_width", "top_surface_line_width","skin_infill_line_width" ,"skeleton_infill_line_width"})
-				for (const PrintRegion &region : object->all_regions())
+            // The two Locked Zag line widths are only used by that infill pattern. The UI hides them for every
+            // other pattern, so validating them there rejects a value the user can neither see nor influence
+            // (a 0.2 mm nozzle with a 0.2 mm layer gets "Too small line width" for the default 100% width).
+            for (const char *opt_key : { "inner_wall_line_width", "outer_wall_line_width", "sparse_infill_line_width", "internal_solid_infill_line_width", "top_surface_line_width","skin_infill_line_width" ,"skeleton_infill_line_width"}) {
+                const bool locked_zag_only = std::string(opt_key) == "skin_infill_line_width" ||
+                                             std::string(opt_key) == "skeleton_infill_line_width";
+                for (const PrintRegion &region : object->all_regions()) {
+                    if (locked_zag_only && region.config().sparse_infill_pattern != ipLockedZag)
+                        continue;
                     if (!validate_extrusion_width(region.config(), opt_key, layer_height, err_msg))
-		            	return  {err_msg, object, opt_key};
+                        return {err_msg, object, opt_key};
+                }
+            }
         }
     }
 
@@ -1905,7 +2029,15 @@ BoundingBox Print::total_bounding_box() const
 
 double Print::skirt_first_layer_height() const
 {
-    return m_config.initial_layer_print_height.value;
+    // A multi-diameter plate printing with a single diameter lays its first layer at that nozzle's height,
+    // which is what the slicing parameters made of it. Every object shares it; the brim and skirt are laid on
+    // one layer.
+    if (m_single_diameter_layering_nozzle > EPSILON && ! m_objects.empty() &&
+        m_objects.front()->slicing_parameters().valid)
+        return m_objects.front()->slicing_parameters().first_print_layer_height;
+    // Same first grid step as SlicingParameters: multi-diameter slicing subdivides the initial layer too, and
+    // the brim / prime tower foundation is laid on that step, not on the authored initial layer height.
+    return m_config.initial_layer_print_height.value / double(std::max(1, layer_grid_subdivision(m_full_print_config)));
 }
 
 Flow Print::brim_flow() const
@@ -3392,6 +3524,19 @@ void Print::_make_wipe_tower()
         for (size_t i = 0; i < number_of_extruders; ++i)
             wipe_tower.set_extruder(i, m_config);
 
+        // Multi-diameter: the tower has a single wall width, so it must be printable by the narrowest
+        // nozzle that actually takes part in this print (not by an unused filament slot).
+        {
+            float tower_nozzle_diameter = 0.f;
+            for (unsigned int filament_id : m_wipe_tower_data.tool_ordering.all_extruders()) {
+                const float diameter = nozzle_diameter_for_filament(m_full_print_config, filament_id + 1);
+                if (diameter <= 0.f)
+                    continue;
+                tower_nozzle_diameter = tower_nozzle_diameter <= 0.f ? diameter : std::min(tower_nozzle_diameter, diameter);
+            }
+            wipe_tower.set_tower_nozzle_diameter(tower_nozzle_diameter);
+        }
+
         m_wipe_tower_data.priming = Slic3r::make_unique<std::vector<WipeTower::ToolChangeResult>>(
             wipe_tower.prime((float)this->skirt_first_layer_height(), m_wipe_tower_data.tool_ordering.all_extruders(), false));
 
@@ -3435,44 +3580,19 @@ void Print::_make_wipe_tower()
                     if (print_object == nullptr)
                         continue;
 
-                    const size_t layer_id = layer_to_print.object_layer->id();
-                    const std::vector<LocalZInterval> &intervals = print_object->local_z_intervals();
-                    const std::vector<SubLayerPlan>   &plans     = print_object->local_z_sublayer_plan();
-                    const auto interval_it = [&]() {
-                        auto it = std::find_if(intervals.begin(), intervals.end(), [layer_id](const LocalZInterval &interval) {
-                            return interval.layer_id == layer_id;
-                        });
-                        if (it == intervals.end())
-                            it = std::find_if(intervals.begin(), intervals.end(), [&layer_to_print](const LocalZInterval &interval) {
-                                return std::abs(interval.z_hi - layer_to_print.object_layer->print_z) <= 1e-4;
-                            });
-                        return it;
-                    }();
-                    if (interval_it == intervals.end() || !interval_it->has_mixed_paint || interval_it->sublayer_count <= 1 ||
-                        interval_it->first_sublayer_idx >= plans.size())
+                    // Gather the Local-Z passes exactly like G-code emission does: in multi nozzle diameter
+                    // mode a merged band swallows the slicing grid layers below its top, so their passes are
+                    // printed on the band top and a swallowed layer never owns a toolchange.
+                    if (layer_to_print.object_layer->is_adaptive_merged_out())
                         continue;
-
-                    const size_t end_idx = std::min(plans.size(), interval_it->first_sublayer_idx + interval_it->sublayer_count);
-                    for (size_t plan_idx = interval_it->first_sublayer_idx; plan_idx < end_idx; ++plan_idx) {
-                        const SubLayerPlan &plan = plans[plan_idx];
-                        if (!plan.split_interval)
-                            continue;
-                        unsigned int pass_extruder = unsigned(-1);
-                        for (size_t extruder_idx = 0; extruder_idx < plan.painted_masks_by_extruder.size(); ++extruder_idx) {
-                            if (!plan.painted_masks_by_extruder[extruder_idx].empty()) {
-                                pass_extruder = unsigned(extruder_idx);
-                                break;
-                            }
-                        }
-                        if (pass_extruder == unsigned(-1)) {
-                            for (size_t extruder_idx = 0; extruder_idx < plan.fixed_painted_masks_by_extruder.size(); ++extruder_idx) {
-                                if (!plan.fixed_painted_masks_by_extruder[extruder_idx].empty()) {
-                                    pass_extruder = unsigned(extruder_idx);
-                                    break;
-                                }
-                            }
-                        }
-                        if (pass_extruder < number_of_extruders)
+                    std::vector<LocalZPassSpan> pass_spans;
+                    if (!resolve_local_z_layer_passes(*layer_to_print.object_layer, *print_object, pass_spans))
+                        continue;
+                    const std::vector<SubLayerPlan> &plans = print_object->local_z_sublayer_plan();
+                    for (const LocalZPassSpan &pass_span : pass_spans) {
+                        std::vector<unsigned int> pass_extruders;
+                        local_z_pass_extruders(plans[pass_span.plan_index], number_of_extruders, pass_extruders);
+                        for (unsigned int pass_extruder : pass_extruders)
                             local_z_pass_sequence[print_z].push_back(pass_extruder);
                     }
                 }
@@ -4963,6 +5083,14 @@ int Print::load_cached_data(const std::string& directory)
                     }
                 }
             );
+
+            // Multi-diameter: the adaptive merge patches are runtime data that is not stored in the slice cache,
+            // but the G-code export needs them to know each merged band's real print height. Recompute them from
+            // the cached raw slices so a loaded project is emitted exactly like a freshly sliced one.
+            if (this->uses_multiple_nozzle_diameters()) {
+                BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << ": recomputing adaptive merge patches for " << name;
+                obj->compute_adaptive_merge_groups();
+            }
 
             //support layers
             Layer* previous_support_layer = NULL;

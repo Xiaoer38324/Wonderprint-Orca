@@ -2,6 +2,7 @@
 #include "WipeTower2.hpp"
 
 #include <cassert>
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <numeric>
@@ -1380,14 +1381,21 @@ void WipeTower2::set_extruder(size_t idx, const PrintConfig& config)
     }
 
     m_filpar[idx].filament_area = float((M_PI/4.f) * pow(config.filament_diameter.get_at(idx), 2)); // all extruders are assumed to have the same filament diameter at this point
-    float nozzle_diameter = float(config.nozzle_diameter.get_at(idx));
-    m_filpar[idx].nozzle_diameter = nozzle_diameter; // to be used in future with (non-single) multiextruder MM
+    // Multi-diameter: the tower must ram and wipe with the nozzle that actually prints this filament
+    // (per filament override -> filament map -> extruder nozzle), not with the extruder array slot.
+    float nozzle_diameter = nozzle_diameter_for_filament(config, unsigned(idx) + 1);
+    if (nozzle_diameter <= 0.f)
+        nozzle_diameter = float(config.nozzle_diameter.get_at(idx));
+    m_filpar[idx].nozzle_diameter = nozzle_diameter;
 
     float max_vol_speed = float(config.filament_max_volumetric_speed.get_at(idx));
     if (max_vol_speed!= 0.f)
         m_filpar[idx].max_e_speed = (max_vol_speed / filament_area());
 
-    m_perimeter_width = nozzle_diameter * Width_To_Nozzle_Ratio; // all extruders are now assumed to have the same diameter
+    // The tower shares one extrusion width across all filaments. Use the narrowest nozzle actually
+    // printing it, otherwise a line planned for a 0.4/0.6 nozzle cannot be laid down by a 0.2 nozzle.
+    m_min_nozzle_diameter = m_min_nozzle_diameter <= 0.f ? nozzle_diameter :
+                                                                  std::min(m_min_nozzle_diameter, nozzle_diameter);
 
     if (m_semm) {
         std::istringstream stream{config.filament_ramming_parameters.get_at(idx)};
@@ -1435,6 +1443,10 @@ std::vector<WipeTower::ToolChangeResult> WipeTower2::prime(
 	// If false, the last priming are will be large enough to wipe the last extruder sufficiently.
     bool 						/*last_wipe_inside_wipe_tower*/)
 {
+    // All set_extruder() calls happened before priming; fix the shared tower line width to the narrowest
+    // nozzle now so planning, priming and G-code generation all use the same value.
+    if (m_min_nozzle_diameter > 0.f)
+        m_perimeter_width = m_min_nozzle_diameter * Width_To_Nozzle_Ratio;
 	this->set_layer(initial_layer_print_height, initial_layer_print_height, tools.size(), true, false);
 	m_current_tool 		= tools.front();
     

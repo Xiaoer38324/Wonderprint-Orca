@@ -175,6 +175,7 @@
 #include "StepMeshDialog.hpp"
 #include "FilamentMapDialog.hpp"
 #include "CloneDialog.hpp"
+#include "MultiNozzleSettingsDialog.hpp"
 
 #include "DeviceCore/DevFilaSystem.h"
 #include "DeviceCore/DevManager.h"
@@ -439,6 +440,8 @@ struct Sidebar::priv
     PlaterPresetComboBox *combo_printer       = nullptr;
     ScalableButton *      btn_edit_printer    = nullptr;
     ScalableButton *      btn_connect_printer = nullptr;
+    // Multi nozzle: entry next to the printer card for machines that can carry more than one nozzle.
+    Button *              btn_multi_nozzle    = nullptr;
 
     // Nozzle diameter
     StaticBox *     panel_nozzle_dia  = nullptr;
@@ -586,6 +589,7 @@ void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
         wxBoxSizer *hsizer_printer = new wxBoxSizer(wxHORIZONTAL);
         hsizer_printer->Add(panel_printer_preset, 1, wxEXPAND, 0);
         hsizer_printer->Add(panel_nozzle_dia , 0, wxLEFT, FromDIP(4));
+        hsizer_printer->Add(btn_multi_nozzle , 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(4));
         hsizer_printer->Add(panel_printer_bed, 0, wxLEFT, FromDIP(4));
         //hsizer_printer->Add(btn_sync_printer , 0, wxLEFT, FromDIP(4));
         vsizer_printer->AddSpacer(FromDIP(SidebarProps::ContentMarginV()));
@@ -627,6 +631,10 @@ void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
     // NEEDFIX requires AMS check or any type of ???
     // Single nozzle & non ams
     panel_nozzle_dia->Show(!isDual && preset_bundle.get_printer_extruder_count() < 2);
+    // Multi nozzle entry: show it for a machine carrying more than one nozzle, and keep it visible while the
+    // project uses the mode so a single nozzle machine set up for mixed diameters can still be edited.
+    btn_multi_nozzle->Show(preset_bundle.get_printer_extruder_count() > 1 ||
+                           multi_nozzle_diameter_mode_enabled(preset_bundle.project_config));
     extruder_single_sizer->Show(false);
 }
 
@@ -1894,6 +1902,19 @@ Sidebar::Sidebar(Plater *parent)
         nozzle_dia_sizer->Add(p->label_nozzle_type , 0, wxALIGN_CENTER);
 
         p->panel_nozzle_dia->SetSizer(nozzle_dia_sizer);
+
+        // Multi nozzle: visible entry for machines that can carry more than one nozzle. The fork has no
+        // nozzle rack panel of the upstream branch, so this opens the configuration dialog.
+        // layout_printer() hides it for single nozzle printers. A label is used instead of a bare icon so the
+        // entry is discoverable, which was the main complaint about the previous menu-only entry.
+        p->btn_multi_nozzle = new Button(p->m_panel_printer_content, _L("Nozzle"), "settings", 0, FromDIP(16));
+        p->btn_multi_nozzle->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
+        p->btn_multi_nozzle->SetToolTip(_L("Multi nozzle diameter settings"));
+        p->btn_multi_nozzle->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+            MultiNozzleSettingsDialog dlg(this);
+            dlg.ShowModal();
+        });
+        p->btn_multi_nozzle->Hide();
 
         // Bed type selection
         p->panel_printer_bed = new StaticBox(p->m_panel_printer_content);
@@ -3477,6 +3498,23 @@ std::vector<std::string> current_filament_types()
     return types;
 }
 
+// Orca: nozzle diameter of every physical filament (per filament override -> filament map -> extruder
+// nozzle). Used to reject Color Mixing rows whose components cannot be printed through one nozzle size.
+static std::vector<double> current_filament_nozzle_diameters()
+{
+    std::vector<double> diameters;
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr)
+        return diameters;
+
+    const size_t count = preset_bundle->filament_presets.size();
+    diameters.reserve(count);
+    const DynamicPrintConfig full = preset_bundle->full_config();
+    for (size_t index = 0; index < count; ++index)
+        diameters.push_back(nozzle_diameter_for_filament(full, unsigned(index) + 1));
+    return diameters;
+}
+
 // Vertical two-colour ramp for a gradient mixed filament, with the 1-based
 // filament number drawn on top (same style as get_extruder_color_icon).
 static wxBitmap* get_vertical_gradient_filament_icon(const std::string& top_hex,
@@ -3843,7 +3881,7 @@ void Sidebar::apply_state_to_ui()
     const std::vector<std::string> colours       = current_filament_colours();
 
     p->vf_state.normalize(colours);
-    p->vf_state.update_compatibility(current_filament_types(),
+    p->vf_state.update_compatibility(current_filament_types(), current_filament_nozzle_diameters(),
                                      [](const MixedFilament& mixed) { return is_filament_compatible(mixed); });
     // Do not publish before the project definitions were loaded into the state, otherwise an empty
     // state would wipe the Color Mixing rows of a project that is still being opened.
@@ -4053,7 +4091,7 @@ void Sidebar::rebuild_filament_mix_rows()
             // Orca: warn about mixed filaments whose components are different material types.
             wxBitmap warning_bmp = create_scaled_bitmap("warning", row_panel, 16, false);
             auto*    warning_icon = new wxStaticBitmap(row_panel, wxID_ANY, warning_bmp);
-            warning_icon->SetToolTip(_L("Mixed filaments contain incompatible material types."));
+            warning_icon->SetToolTip(_L("Mixed filaments contain incompatible material types or nozzle diameters."));
             row_sizer->Add(warning_icon, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(4));
         }
         row_sizer->Add(text_field, 1, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(2));
@@ -10905,7 +10943,7 @@ void Plater::priv::on_action_slice_all(SimpleEvent&)
             if (NotificationManager* notification_manager = q->get_notification_manager())
                 notification_manager->push_notification(NotificationType::CustomNotification,
                                                         NotificationManager::NotificationLevel::ErrorNotificationLevel,
-                                                        into_u8(_L("Mixed filaments contain incompatible material types. Please correct the mixed filaments settings before slicing.")));
+                                                        into_u8(_L("Mixed filaments contain incompatible material types or nozzle diameters. Please correct the mixed filaments settings before slicing.")));
             q->reset_gcode_toolpaths();
             return;
         }
@@ -16620,7 +16658,7 @@ void Plater::reslice()
         if (NotificationManager* notification_manager = this->get_notification_manager())
             notification_manager->push_notification(NotificationType::CustomNotification,
                                                     NotificationManager::NotificationLevel::ErrorNotificationLevel,
-                                                    into_u8(_L("Mixed filaments contain incompatible material types. Please correct the mixed filaments settings before slicing.")));
+                                                    into_u8(_L("Mixed filaments contain incompatible material types or nozzle diameters. Please correct the mixed filaments settings before slicing.")));
         reset_gcode_toolpaths();
         return;
     }

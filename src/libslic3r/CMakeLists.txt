@@ -25,6 +25,8 @@ set(lisbslic3r_sources
     AABBMesh.hpp
     AABBTreeIndirect.hpp
     AABBTreeLines.hpp
+    AdaptiveLayerMerge.cpp
+    AdaptiveLayerMerge.hpp
     Algorithm/LineSplit.cpp
     Algorithm/LineSplit.hpp
     Algorithm/RegionExpansion.cpp
@@ -370,6 +372,7 @@ set(lisbslic3r_sources
     Print.cpp
     Print.hpp
     PrintObject.cpp
+    PrintObjectMultiDiameter.cpp
     PrintObjectSlice.cpp
     PrintRegion.cpp
     ProjectTask.cpp

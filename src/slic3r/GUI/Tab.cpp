@@ -50,6 +50,7 @@
 #include "BedShapeDialog.hpp"
 #include "libslic3r/GCode/Thumbnails.hpp"
 #include "WipeTowerDialog.hpp"
+#include "MultiNozzleSettingsDialog.hpp"
 
 #include "DeviceCore/DevManager.h"
 
@@ -4466,6 +4467,33 @@ void TabPrinter::build_fff()
         optgroup->append_single_option_line("auxiliary_fan", "printer_basic_information_accessory#auxiliary-part-cooling-fan");
         optgroup->append_single_option_line("support_chamber_temp_control", "printer_basic_information_accessory#support-controlling-chamber-temperature");
         optgroup->append_single_option_line("support_air_filtration", "printer_basic_information_accessory#support-air-filtration");
+
+        // Multi nozzle diameter: the fork has no nozzle rack panel of the upstream branch, so the rack and the
+        // per filament nozzle assignment are edited in a dedicated dialog. Put the entry on the page the user
+        // opens to configure the machine, otherwise it is only reachable from the top bar menu.
+        optgroup = page->new_optgroup(L("Multi nozzle"), "param_extruder_size");
+        {
+            // A bare Line: the entry is a button only, it does not bind any configuration option (binding an
+            // option without a field would leave a key in the group's option map that no control owns).
+            Line line{_L("Nozzle size and flow of every extruder"),
+                      _L("Configure the size and flow type of the single nozzle each extruder carries.")};
+            // A widget-only line must be full width: OptionsGroup::activate_line() takes the first option of a
+            // regular line unconditionally, and this line intentionally binds no option.
+            line.full_width = 1;
+            line.widget = [this](wxWindow *parent) -> wxSizer * {
+                Button *btn = new Button(parent, _L("Configure..."));
+                btn->SetStyle(ButtonStyle::Regular, ButtonType::Parameter);
+                btn->SetToolTip(_L("Open the multi nozzle diameter settings."));
+                btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+                    MultiNozzleSettingsDialog dlg(this);
+                    dlg.ShowModal();
+                });
+                auto *sizer = new wxBoxSizer(wxHORIZONTAL);
+                sizer->Add(btn);
+                return sizer;
+            };
+            optgroup->append_line(line);
+        }
 
         auto edit_custom_gcode_fn = [this](const t_config_option_key& opt_key) { edit_custom_gcode(opt_key); };
 

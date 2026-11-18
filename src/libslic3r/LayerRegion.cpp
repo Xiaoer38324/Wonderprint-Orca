@@ -68,54 +68,81 @@ void LayerRegion::slices_to_fill_surfaces_clipped()
     }
 }
 
-void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRegionPtrs &compatible_regions, SurfaceCollection* fill_surfaces, ExPolygons* fill_no_overlap)
+void LayerRegion::make_perimeters(const SurfaceCollection &slices, const LayerRegionPtrs &compatible_regions, SurfaceCollection* fill_surfaces, ExPolygons* fill_no_overlap,
+                                  double perimeter_layer_height, bool clear_outputs,
+                                  const ExPolygons *lower_slices_override, const ExPolygons *upper_slices_override,
+                                  bool fill_only, bool starts_at_object_base)
 {
-    this->perimeters.clear();
-    this->thin_fills.clear();
+    if (clear_outputs && ! fill_only) {
+        this->perimeters.clear();
+        this->thin_fills.clear();
+    }
 
     const PrintConfig       &print_config  = this->layer()->object()->print()->config();
     const PrintRegionConfig &region_config = this->region().config();
     const PrintObjectConfig& object_config = this->layer()->object()->config();
+
+    // Multi-diameter adaptive layer height: a band of merged grid layers is extruded as a single pass at the
+    // height of the whole band, so every flow of that pass has to be sized for the merged height. A band which
+    // reaches the object base is treated as a first layer even when it is emitted above the physical layer 0.
+    const double wall_layer_height  = perimeter_layer_height > 0. ? perimeter_layer_height : this->layer()->height;
+    const bool   first_object_layer = this->layer()->id() == 0 || starts_at_object_base;
+    auto wall_flow = [&](FlowRole role) {
+        return this->region().flow(*this->layer()->object(), role, wall_layer_height, first_object_layer);
+    };
+
     // This needs to be in sync with PrintObject::_slice() slicing_mode_normal_below_layer!
     bool spiral_mode = print_config.spiral_mode &&
         //FIXME account for raft layers.
         (this->layer()->id() >= size_t(region_config.bottom_shell_layers.value) &&
          this->layer()->print_z >= region_config.bottom_shell_thickness - EPSILON);
 
+    // A swallowed grid layer only has to run shell discovery so that the fill surfaces can be promoted to the
+    // band top, its walls are thrown away.
+    ExtrusionEntityCollection discarded_perimeters;
+    ExtrusionEntityCollection discarded_thin_fills;
+
     PerimeterGenerator g(
         // input:
         &slices,
         &compatible_regions,
-        this->layer()->height,
+        wall_layer_height,
         this->layer()->slice_z,
-        this->flow(frPerimeter),
+        wall_flow(frPerimeter),
         &region_config,
         &this->layer()->object()->config(),
         &print_config,
         spiral_mode,
         
         // output:
-        &this->perimeters,
-        &this->thin_fills,
+        fill_only ? &discarded_perimeters : &this->perimeters,
+        fill_only ? &discarded_thin_fills : &this->thin_fills,
         fill_surfaces,
         //BBS
         fill_no_overlap
     );
     
-    if (this->layer()->lower_layer != nullptr)
+    if (lower_slices_override != nullptr)
+        g.lower_slices = lower_slices_override;
+    else if (this->layer()->lower_layer != nullptr)
         // Cummulative sum of polygons over all the regions.
         g.lower_slices = &this->layer()->lower_layer->lslices;
-    if (this->layer()->upper_layer != NULL)
+
+    if (upper_slices_override != nullptr)
+        g.upper_slices = upper_slices_override;
+    else if (this->layer()->upper_layer != NULL)
         g.upper_slices = &this->layer()->upper_layer->lslices;
 
     int region_id = this->region().print_object_region_id();
-    if (this->layer()->upper_layer != NULL)
+    if (upper_slices_override == nullptr && this->layer()->upper_layer != NULL)
         g.upper_slices_same_region = &this->layer()->upper_layer->get_region(region_id)->slices;
 
     g.layer_id              = (int)this->layer()->id();
-    g.ext_perimeter_flow    = this->flow(frExternalPerimeter);
-    g.overhang_flow         = this->bridging_flow(frPerimeter, object_config.thick_bridges);
-    g.solid_infill_flow     = this->flow(frSolidInfill);
+    g.ext_perimeter_flow    = wall_flow(frExternalPerimeter);
+    g.overhang_flow         = wall_layer_height > this->layer()->height + EPSILON ?
+        wall_flow(frPerimeter).with_flow_ratio(region_config.bridge_flow) :
+        this->bridging_flow(frPerimeter, object_config.thick_bridges);
+    g.solid_infill_flow     = wall_flow(frSolidInfill);
 
     if (this->layer()->object()->config().wall_generator.value == PerimeterGeneratorType::Arachne && !spiral_mode)
         g.process_arachne();

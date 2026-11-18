@@ -47,6 +47,8 @@ public:
 
 	// Set the extruder properties.
     void set_extruder(size_t idx, const PrintConfig& config);
+    // Multi-diameter: restrict the shared tower line width to the nozzles that actually print the tower.
+    void set_tower_nozzle_diameter(float diameter) { if (diameter > 0.f) m_min_nozzle_diameter = diameter; }
 
 	// Appends into internal structure m_plan containing info about the future wipe tower
 	// to be used before building begins. The entries must be added ordered in z.
@@ -263,6 +265,9 @@ private:
     Vec2f m_bed_bottom_left; // bottom-left corner coordinates (for rectangular beds)
 
 	float m_perimeter_width = 0.4f * Width_To_Nozzle_Ratio; // Width of an extrusion line, also a perimeter spacing for 100% infill.
+	// Smallest nozzle printing the tower. Mixed nozzle diameters share one tower wall width that every
+	// nozzle can actually lay down; any line wider than the narrowest nozzle would be unprintable there.
+	float m_min_nozzle_diameter = 0.f;
 	float m_extrusion_flow = 0.038f; //0.029f;// Extrusion flow is derived from m_perimeter_width, layer height and filament diameter.
 
 	// Extruder specific parameters.

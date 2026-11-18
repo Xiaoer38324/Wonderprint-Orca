@@ -107,6 +107,22 @@ public:
 
     static Flow new_from_config_width(FlowRole role, const ConfigOptionFloatOrPercent &width, float nozzle_diameter, float height);
 
+    // BBS multi-diameter: the line width option authored by the process preset is relative to the preset (primary)
+    // nozzle diameter. When the filament is printed by a different nozzle, the stored absolute width has to be
+    // rescaled to the nozzle actually installed for the filament. Percent widths already follow the nozzle.
+    static double extrusion_width_for_nozzle(
+        const ConfigOptionFloatOrPercent &width, float preset_nozzle_diameter, float nozzle_diameter, bool multi_nozzle_diameter_mode);
+    // BBS multi-diameter: same as extrusion_width(), but the absolute width is rescaled from the preset nozzle
+    // diameter to the nozzle actually installed for the filament.
+    static double resolve_extrusion_width_for_nozzle(
+        const std::string &opt_key, const ConfigOptionResolver &config, float preset_nozzle_diameter, float nozzle_diameter,
+        bool multi_nozzle_diameter_mode);
+    // BBS multi-diameter: new_from_config_width() variant taking the nozzle diameter the width was authored for
+    // (preset_nozzle_diameter) and the nozzle diameter actually used to print (nozzle_diameter).
+    static Flow new_from_config_width(
+        FlowRole role, const ConfigOptionFloatOrPercent &width, float preset_nozzle_diameter, float nozzle_diameter, float height,
+        bool multi_nozzle_diameter_mode);
+
     // Spacing of extrusions with rounded extrusion model.
     static float rounded_rectangle_extrusion_spacing(float width, float height);
     // Width of extrusions with rounded extrusion model.
@@ -139,6 +155,9 @@ private:
     bool        m_bridge { false };
 };
 
+// BBS multi-diameter: nozzle diameter actually installed for the given 1-based filament id.
+// filament_id == 0 (no tool change) falls back to the whole-plate single nozzle when single diameter layering is on.
+extern float support_nozzle_diameter(const PrintObject *object, unsigned int filament_id);
 extern Flow support_material_flow(const PrintObject* object, float layer_height = 0.f);
 extern Flow support_transition_flow(const PrintObject *object); //BBS
 extern Flow support_material_1st_layer_flow(const PrintObject *object, float layer_height = 0.f);
