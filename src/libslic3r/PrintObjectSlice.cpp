@@ -1430,8 +1430,14 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
             // Orca: physical filaments are the real ones. Color Mixing entries are painted as extra
             // virtual channels after them and are collapsed onto a physical component per layer.
             const MixedFilamentManager &mixed_mgr   = print_object.print()->mixed_filament_manager();
+            const PrintConfig          &print_cfg   = print_object.print()->config();
             const size_t                num_physical = print_object.print()->config().filament_colour.size();
             const size_t                num_channels = mixed_mgr.total_filaments(num_physical);
+            const bool                  local_z_enabled =
+                mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value) &&
+                (!print_cfg.enable_prime_tower.value ||
+                 (print_object.print()->wipe_tower_type() == WipeTowerType::Type2 &&
+                  print_cfg.print_sequence == PrintSequence::ByLayer));
 
             struct ByExtruder {
                 ExPolygons  expolygons;
@@ -1470,6 +1476,26 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
                     if (segmentation[layer_id][ch].empty())
                         continue;
                     const unsigned int state_id = unsigned(ch) + 1;
+                    const MixedFilament *mixed_row = mixed_mgr.mixed_filament_from_id(state_id, num_physical);
+                    const bool local_z_row = local_z_enabled && mixed_row != nullptr &&
+                        is_simple_gradient(*mixed_row) &&
+                        (print_cfg.dithering_local_z_mode.value || mixed_row->local_z_max_sublayers >= 2);
+                    if (local_z_row && layer_id > 0) {
+                        // Local-Z prints both components on this layer. Keep the
+                        // painted mask in both physical regions; collapsing it to
+                        // one component gives the other pass no geometry (the
+                        // long thin stripe / missing-wall artifact).
+                        const unsigned int comps[2] = { mixed_row->component_a, mixed_row->component_b };
+                        for (unsigned int comp : comps) {
+                            if (comp < 1 || comp > num_physical)
+                                continue;
+                            ByExtruder &target = by_extruder[comp - 1];
+                            append(target.expolygons, segmentation[layer_id][ch]);
+                            target.bbox = get_extents(target.expolygons);
+                            layer_split = true;
+                        }
+                        continue;
+                    }
                     const unsigned int resolved = mixed_mgr.resolve(state_id, num_physical,
                                                                     int(layer_id), float(layer.print_z), float(layer.height));
                     if (resolved < 1 || resolved > num_physical)
