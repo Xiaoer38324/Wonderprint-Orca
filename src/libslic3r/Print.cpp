@@ -269,6 +269,14 @@ bool Print::invalidate_state_by_config_options(const ConfigOptionResolver & /* n
         } else if (
                opt_key == "initial_layer_print_height"
             || opt_key == "nozzle_diameter"
+            // Multi-diameter: the per-filament nozzle selects the layer-height ladder and the flow of
+            // every filament. Without posSlice invalidation a UI change keeps the old sliced layers and
+            // the project only picks the new size up after it is reopened.
+            || opt_key == "filament_diameter_map"
+            || opt_key == "multi_nozzle_diameter_mode"
+            || opt_key == "extruder_nozzle_diameter"
+            || opt_key == "extruder_nozzle_count"
+            || opt_key == "nozzle_volume_type"
             || opt_key == "filament_shrink"
             || opt_key == "filament_shrinkage_compensation_z"
             || opt_key == "resolution"

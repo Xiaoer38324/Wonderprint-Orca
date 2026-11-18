@@ -89,6 +89,7 @@ void MultiNozzleSettingsDialog::build_ui()
     const DynamicPrintConfig &printer_config = edited_printer_config();
     if (const ConfigOptionFloats *opt = printer_config.option<ConfigOptionFloats>("nozzle_diameter"))
         diameters = opt->values;
+    m_original_extruder_diameters = diameters;
     // nozzle_volume_type is a project scope option in this fork (PresetBundle::project_config), the printer
     // preset only carries extruder_type. Read the project value first and fall back to the printer preset.
     if (const ConfigOptionEnumsGeneric *opt = edited_project_config().option<ConfigOptionEnumsGeneric>("nozzle_volume_type"))
@@ -318,6 +319,57 @@ void MultiNozzleSettingsDialog::apply_to_config()
 
     const bool mode_on = m_mode_checkbox != nullptr && m_mode_checkbox->GetValue();
 
+    // If the user changes an extruder nozzle, a per-filament override that still carries the extruder's old
+    // size has to follow it. Otherwise the explicit override would keep slicing with the old nozzle (e.g. a
+    // filament set to 0.6 keeps printing 0.6 after the extruder was changed to 0.4).
+    std::vector<int> filament_to_extruder;
+    if (const ConfigOptionInts *map = edited_project_config().option<ConfigOptionInts>("filament_map"))
+        filament_to_extruder = map->values;
+    for (size_t filament_index = 0; filament_index < m_filament_size_combos.size(); ++ filament_index) {
+        ComboBox *combo = m_filament_size_combos[filament_index];
+        const int selection = combo != nullptr ? combo->GetSelection() : 0;
+        if (selection <= 0 || size_t(selection) > sizes.size())
+            continue;
+        const double current_diameter = sizes[size_t(selection) - 1];
+
+        int extruder_index = -1;
+        if (filament_index < filament_to_extruder.size() && filament_to_extruder[filament_index] > 0)
+            extruder_index = filament_to_extruder[filament_index] - 1;
+        auto sync_from_extruder = [&](int candidate) {
+            if (candidate < 0 || size_t(candidate) >= diameters.size() ||
+                size_t(candidate) >= m_original_extruder_diameters.size())
+                return false;
+            const double old_diameter = m_original_extruder_diameters[size_t(candidate)];
+            const double new_diameter = diameters[size_t(candidate)];
+            if (std::abs(old_diameter - new_diameter) <= 1e-4 ||
+                std::abs(current_diameter - old_diameter) > 1e-4)
+                return false;
+            for (size_t size_index = 0; size_index < sizes.size(); ++ size_index)
+                if (std::abs(sizes[size_index] - new_diameter) <= 1e-4) {
+                    combo->SetSelection(int(size_index) + 1);
+                    return true;
+                }
+            return false;
+        };
+        if (sync_from_extruder(extruder_index))
+            continue;
+        // The filament map may route every filament to one extruder while the rack still carries the
+        // nozzle the override names. If exactly one extruder changed away from that size, follow it.
+        int matched = -1;
+        int matches = 0;
+        for (int candidate = 0; candidate < int(diameters.size()); ++ candidate) {
+            if (size_t(candidate) >= m_original_extruder_diameters.size())
+                continue;
+            if (std::abs(m_original_extruder_diameters[size_t(candidate)] - current_diameter) <= 1e-4 &&
+                std::abs(diameters[size_t(candidate)] - current_diameter) > 1e-4) {
+                matched = candidate;
+                ++matches;
+            }
+        }
+        if (matches == 1)
+            sync_from_extruder(matched);
+    }
+
     // Printer scope: the nozzle size of every extruder. One nozzle per extruder, so the diameter list has
     // exactly one entry per extruder.
     DynamicPrintConfig printer_config;
@@ -362,8 +414,10 @@ void MultiNozzleSettingsDialog::apply_to_config()
     bundle->project_config.apply(project_config);
 
     if (Plater *plater = wxGetApp().plater()) {
-        plater->on_config_change(printer_config);
-        plater->on_config_change(project_config);
+        // Push the complete merged config. auto_reslice=false: invalidate the plate and mark it dirty,
+        // but leave the actual slicing to the user's Slice button.
+        const DynamicPrintConfig full_config = wxGetApp().preset_bundle->full_config();
+        plater->on_config_change(full_config, false);
         plater->set_plater_dirty(true);
     }
 }

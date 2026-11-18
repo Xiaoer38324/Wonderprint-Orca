@@ -56,6 +56,9 @@ private:
 
     std::vector<ExtruderRow> m_extruder_rows;
     std::vector<ComboBox *>  m_filament_size_combos;
+    // Nozzle sizes of the extruders when the dialog opened. Used to carry a per-filament override over
+    // when its extruder's size is changed, instead of leaving the stale size behind.
+    std::vector<double>      m_original_extruder_diameters;
 };
 
 } // namespace GUI

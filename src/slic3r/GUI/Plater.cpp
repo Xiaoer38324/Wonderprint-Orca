@@ -17380,7 +17380,7 @@ void Plater::config_change_notification(const DynamicPrintConfig &config, const 
     // notification for more options
 }
 
-void Plater::on_config_change(const DynamicPrintConfig &config)
+void Plater::on_config_change(const DynamicPrintConfig &config, bool auto_reslice)
 {
     bool update_scheduled = false;
     bool bed_shape_changed = false;
@@ -17501,7 +17501,10 @@ void Plater::on_config_change(const DynamicPrintConfig &config)
     if (p->main_frame->is_loaded()) {
         this->p->schedule_background_process();
         update_title_dirty_status();
-        p->schedule_auto_reslice_if_needed();
+        // Changing the per-filament nozzle only marks the plate dirty; the user starts the slice
+        // explicitly instead of the dialog triggering an automatic re-slice.
+        if (auto_reslice)
+            p->schedule_auto_reslice_if_needed();
     }
 }
 
