@@ -4,6 +4,7 @@
 #include <vector>
 
 #include <wx/scrolwin.h>
+#include <wx/textctrl.h>
 
 #include "GUI_Utils.hpp"
 #include "Widgets/ComboBox.hpp"
@@ -46,6 +47,8 @@ private:
     wxBoxSizer       *m_content_sizer{ nullptr };
     Label            *m_mode_status{ nullptr };
     Label            *m_mode_detail{ nullptr };
+    // Debug: JSON the printer server would return. Read by the "update from printer server" action.
+    wxTextCtrl       *m_mock_server_text{ nullptr };
 
     std::vector<ExtruderRow> m_extruder_rows;
 };
