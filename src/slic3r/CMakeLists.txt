@@ -248,6 +248,10 @@ set(SLIC3R_GUI_SOURCES
     GUI/FilamentMapDialog.hpp
     GUI/MultiNozzleSettingsDialog.cpp
     GUI/MultiNozzleSettingsDialog.hpp
+    GUI/NozzleConfig.cpp
+    GUI/NozzleConfig.hpp
+    GUI/NozzleRackPanel.cpp
+    GUI/NozzleRackPanel.hpp
     GUI/IconManager.cpp
     GUI/IconManager.hpp
     GUI/ImageGrid.cpp

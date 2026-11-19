@@ -175,7 +175,7 @@
 #include "StepMeshDialog.hpp"
 #include "FilamentMapDialog.hpp"
 #include "CloneDialog.hpp"
-#include "MultiNozzleSettingsDialog.hpp"
+#include "NozzleRackPanel.hpp"
 
 #include "DeviceCore/DevFilaSystem.h"
 #include "DeviceCore/DevManager.h"
@@ -440,8 +440,8 @@ struct Sidebar::priv
     PlaterPresetComboBox *combo_printer       = nullptr;
     ScalableButton *      btn_edit_printer    = nullptr;
     ScalableButton *      btn_connect_printer = nullptr;
-    // Multi nozzle: entry next to the printer card for machines that can carry more than one nozzle.
-    Button *              btn_multi_nozzle    = nullptr;
+    // Nozzle editor below the printer card: one tab per print head.
+    NozzleRackPanel *     panel_nozzle_rack   = nullptr;
 
     // Nozzle diameter
     StaticBox *     panel_nozzle_dia  = nullptr;
@@ -589,11 +589,14 @@ void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
         wxBoxSizer *hsizer_printer = new wxBoxSizer(wxHORIZONTAL);
         hsizer_printer->Add(panel_printer_preset, 1, wxEXPAND, 0);
         hsizer_printer->Add(panel_nozzle_dia , 0, wxLEFT, FromDIP(4));
-        hsizer_printer->Add(btn_multi_nozzle , 0, wxLEFT | wxALIGN_CENTER_VERTICAL, FromDIP(4));
         hsizer_printer->Add(panel_printer_bed, 0, wxLEFT, FromDIP(4));
         //hsizer_printer->Add(btn_sync_printer , 0, wxLEFT, FromDIP(4));
         vsizer_printer->AddSpacer(FromDIP(SidebarProps::ContentMarginV()));
         vsizer_printer->Add(hsizer_printer, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(SidebarProps::ContentMargin()));
+
+        // Nozzle editor: one tab per print head, directly below the printer card.
+        vsizer_printer->Add(panel_nozzle_rack, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP,
+                            FromDIP(SidebarProps::ContentMargin()));
 
         // Printer - extruder
 
@@ -631,10 +634,12 @@ void Sidebar::priv::layout_printer(bool isBBL, bool isDual)
     // NEEDFIX requires AMS check or any type of ???
     // Single nozzle & non ams
     panel_nozzle_dia->Show(!isDual && preset_bundle.get_printer_extruder_count() < 2);
-    // Multi nozzle entry: show it for a machine carrying more than one nozzle, and keep it visible while the
-    // project uses the mode so a single nozzle machine set up for mixed diameters can still be edited.
-    btn_multi_nozzle->Show(preset_bundle.get_printer_extruder_count() > 1 ||
-                           multi_nozzle_diameter_mode_enabled(preset_bundle.project_config));
+    // The nozzle editor replaces the old "Nozzle" button next to the printer card. It has one tab per print
+    // head, so it is shown for machines carrying more than one nozzle.
+    const bool show_nozzle_rack = preset_bundle.get_printer_extruder_count() > 1;
+    panel_nozzle_rack->Show(show_nozzle_rack);
+    if (show_nozzle_rack)
+        panel_nozzle_rack->reload();
     extruder_single_sizer->Show(false);
 }
 
@@ -1903,18 +1908,11 @@ Sidebar::Sidebar(Plater *parent)
 
         p->panel_nozzle_dia->SetSizer(nozzle_dia_sizer);
 
-        // Multi nozzle: visible entry for machines that can carry more than one nozzle. The fork has no
-        // nozzle rack panel of the upstream branch, so this opens the configuration dialog.
-        // layout_printer() hides it for single nozzle printers. A label is used instead of a bare icon so the
-        // entry is discoverable, which was the main complaint about the previous menu-only entry.
-        p->btn_multi_nozzle = new Button(p->m_panel_printer_content, _L("Nozzle"), "settings", 0, FromDIP(16));
-        p->btn_multi_nozzle->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
-        p->btn_multi_nozzle->SetToolTip(_L("Multi nozzle diameter settings"));
-        p->btn_multi_nozzle->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
-            MultiNozzleSettingsDialog dlg(this);
-            dlg.ShowModal();
-        });
-        p->btn_multi_nozzle->Hide();
+        // Nozzle editor: one tab per print head, with the diameter and the flow type of every nozzle.
+        // Because the panel edits the printer preset it must exist before layout_printer() adds it to the
+        // printer section sizer.
+        p->panel_nozzle_rack = new NozzleRackPanel(p->m_panel_printer_content);
+        p->panel_nozzle_rack->Hide();
 
         // Bed type selection
         p->panel_printer_bed = new StaticBox(p->m_panel_printer_content);
@@ -3008,6 +3006,8 @@ void Sidebar::msw_rescale()
     p->combo_printer_bed->Rescale();
     p->combo_printer_bed->SetMinSize(FromDIP(wxSize(18,-1))); // ORCA show only arrow
     p->combo_printer_bed->SetMaxSize(FromDIP(wxSize(18,-1))); // ORCA show only arrow
+    if (p->panel_nozzle_rack != nullptr)
+        p->panel_nozzle_rack->msw_rescale();
     bool isDual     = static_cast<wxBoxSizer *>(p->panel_printer_preset->GetSizer())->GetOrientation() == wxVERTICAL;
     auto image_path = get_cur_select_bed_image();
     p->image_printer_bed->SetBitmap(create_scaled_bitmap(image_path, this, PRINTER_THUMBNAIL_SIZE.GetHeight()));

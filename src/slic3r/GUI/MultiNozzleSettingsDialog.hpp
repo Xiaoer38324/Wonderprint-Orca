@@ -6,7 +6,6 @@
 #include <wx/scrolwin.h>
 
 #include "GUI_Utils.hpp"
-#include "Widgets/CheckBox.hpp"
 #include "Widgets/ComboBox.hpp"
 #include "Widgets/DialogButtons.hpp"
 #include "Widgets/Label.hpp"
@@ -14,16 +13,12 @@
 namespace Slic3r {
 namespace GUI {
 
-// Multi nozzle diameter configuration.
+// Nozzle settings page.
 //
-// Every extruder carries exactly one nozzle. The two parameters of that nozzle are its size (0.2 / 0.4 /
-// 0.6 / 0.8 mm) and its flow type (Standard / High Flow):
-//   nozzle_diameter     - one value per extruder, stored in the edited printer preset
-//   nozzle_volume_type  - one NozzleVolumeType per extruder, a project option in this fork
-// The project also keeps the mode switch, a mirrored one-slot-per-extruder description
-// (extruder_nozzle_count / extruder_nozzle_diameter) for the ported multi-diameter helpers, and the optional
-// per-filament size override (filament_diameter_map: empty = Auto = the mapped extruder's size). Which
-// extruder a filament prints with is decided by the filament map.
+// One nozzle per extruder: the dialog edits the diameter and the flow type of every nozzle. There is no
+// mode switch any more: the multi nozzle diameter mode follows the diameters (different sizes enable it,
+// all equal sizes disable it) and a warning dialog explains the consequence of a change. Filaments do not
+// choose a nozzle: filament N is printed with nozzle N.
 class MultiNozzleSettingsDialog : public DPIDialog
 {
 public:
@@ -42,23 +37,17 @@ private:
     void on_ok(wxCommandEvent &evt);
 
     void build_ui();
-    void build_extruder_rows(wxWindow *parent, int extruder_count, const std::vector<double> &diameters,
-                             const std::vector<int> &flow_types);
-    // Per filament nozzle size override. Auto (the first entry) uses the nozzle size of the extruder the
-    // filament is mapped to; any other entry overrides it for that filament only.
-    void build_filament_rows(wxWindow *parent, const std::vector<std::string> &stored_map,
-                             const std::vector<double> &extruder_diameters, const std::vector<int> &filament_map);
+    void build_extruder_rows(wxWindow *parent, const std::vector<double> &diameters, const std::vector<int> &flow_types);
+    // Live status: the mode the current combo selection will lead to.
+    void update_mode_status();
     void apply_to_config();
 
     wxScrolledWindow *m_content{ nullptr };
     wxBoxSizer       *m_content_sizer{ nullptr };
-    CheckBox         *m_mode_checkbox{ nullptr };
+    Label            *m_mode_status{ nullptr };
+    Label            *m_mode_detail{ nullptr };
 
     std::vector<ExtruderRow> m_extruder_rows;
-    std::vector<ComboBox *>  m_filament_size_combos;
-    // Nozzle sizes of the extruders when the dialog opened. Used to carry a per-filament override over
-    // when its extruder's size is changed, instead of leaving the stale size behind.
-    std::vector<double>      m_original_extruder_diameters;
 };
 
 } // namespace GUI

@@ -3276,13 +3276,16 @@ void MainFrame::init_menubar_as_editor()
             wxGetApp().open_preferences();
         },
         "", nullptr, []() { return true; }, this, 1);
-    append_menu_item(
-        parent_menu, wxID_ANY, _L("Multi nozzle diameter settings..."), "",
-        [this](wxCommandEvent &) {
-            MultiNozzleSettingsDialog dlg(this);
-            dlg.ShowModal();
-        },
-        "", nullptr, []() { return true; }, this, 2);
+    // The nozzle settings page is a developer entry now: regular users edit the nozzles with the tabbed
+    // editor below the printer card.
+    if (wxGetApp().get_mode() == comDevelop)
+        append_menu_item(
+            parent_menu, wxID_ANY, _L("Multi nozzle diameter settings..."), "",
+            [this](wxCommandEvent &) {
+                MultiNozzleSettingsDialog dlg(this);
+                dlg.ShowModal();
+            },
+            "", nullptr, []() { return true; }, this, 2);
     //parent_menu->Insert(1, preference_item);
 #endif
     // Help menu
@@ -3303,16 +3306,17 @@ void MainFrame::init_menubar_as_editor()
             wxGetApp().open_preferences();
         },
         "", nullptr, []() { return true; }, this);
-    // Multi nozzle: the port has no nozzle rack UI of the upstream branch yet, so the rack and the
-    // per filament nozzle selection are edited in a configuration driven dialog.
-    append_menu_item(
-        m_topbar->GetTopMenu(), wxID_ANY, _L("Multi nozzle diameter settings..."),
-        _L("Configure the size and flow type of the nozzle each extruder carries."),
-        [this](wxCommandEvent &) {
-            MultiNozzleSettingsDialog dlg(this);
-            dlg.ShowModal();
-        },
-        "", nullptr, []() { return true; }, this);
+    // The nozzle settings page is a developer entry now: regular users edit the nozzles with the tabbed
+    // editor below the printer card.
+    if (wxGetApp().get_mode() == comDevelop)
+        append_menu_item(
+            m_topbar->GetTopMenu(), wxID_ANY, _L("Multi nozzle diameter settings..."),
+            _L("Configure the size and flow type of the nozzle each extruder carries."),
+            [this](wxCommandEvent &) {
+                MultiNozzleSettingsDialog dlg(this);
+                dlg.ShowModal();
+            },
+            "", nullptr, []() { return true; }, this);
     //m_topbar->AddDropDownMenuItem(preference_item);
     //m_topbar->AddDropDownMenuItem(printer_item);
     //m_topbar->AddDropDownMenuItem(language_item);

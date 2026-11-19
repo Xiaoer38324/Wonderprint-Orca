@@ -598,7 +598,24 @@ bool has_authoritative_per_slot_nozzle_diameters(bool handle_hotend_as_extruder,
 bool multi_nozzle_diameter_mode_enabled(const ConfigOptionResolver &config)
 {
     const ConfigOptionBool *mode = config.option<ConfigOptionBool>("multi_nozzle_diameter_mode");
-    return mode != nullptr && mode->value;
+    if (mode == nullptr || ! mode->value)
+        return false;
+    // The mode is a property of the nozzle set, not an independent switch: mixed nozzle printing only makes
+    // sense when the machine actually carries nozzles of different diameters. The project flag is kept for
+    // serialization, but a stale flag must never slice an all-equal nozzle set as a mixed one.
+    if (const ConfigOptionFloats *nozzles = config.option<ConfigOptionFloats>("nozzle_diameter")) {
+        double first = 0.;
+        for (double diameter : nozzles->values) {
+            if (diameter <= EPSILON)
+                continue;
+            if (first <= EPSILON)
+                first = diameter;
+            else if (std::abs(diameter - first) > EPSILON)
+                return true;
+        }
+        return false;
+    }
+    return true;
 }
 
 std::string printer_nozzle_diameter_mode_tag(const ConfigBase &config)
@@ -616,14 +633,16 @@ static bool handle_hotend_as_extruder_enabled(const ConfigBase &config)
 
 const std::vector<double> *configured_nozzle_diameters(const ConfigBase &config)
 {
+    // The printer preset's nozzle_diameter is the authoritative per-extruder list: it is what the nozzle
+    // editor and the printer settings page write, and what the slicer reads.
+    if (const ConfigOptionFloats *per_extruder = config.option<ConfigOptionFloats>("nozzle_diameter"); per_extruder != nullptr && ! per_extruder->values.empty())
+        return &per_extruder->values;
+    // Legacy project rack fallback (3MFs written before the per nozzle editor).
     const ConfigOptionFloats *slot_diameters = config.option<ConfigOptionFloats>("extruder_nozzle_diameter");
     const ConfigOptionInts   *slot_counts    = config.option<ConfigOptionInts>("extruder_nozzle_count");
     if (slot_diameters != nullptr && slot_counts != nullptr &&
         has_authoritative_per_slot_nozzle_diameters(handle_hotend_as_extruder_enabled(config), slot_counts->values, slot_diameters->values))
         return &slot_diameters->values;
-    // Old profiles only carry one diameter per extruder; that list is still the machine's nozzle list.
-    if (const ConfigOptionFloats *per_extruder = config.option<ConfigOptionFloats>("nozzle_diameter"); per_extruder != nullptr && ! per_extruder->values.empty())
-        return &per_extruder->values;
     return nullptr;
 }
 
@@ -681,32 +700,13 @@ int layer_grid_subdivision(const ConfigBase &config)
 
 float nozzle_diameter_for_filament(const ConfigBase &config, unsigned int filament_id)
 {
-    const ConfigOptionStrings *diameter_map = config.option<ConfigOptionStrings>("filament_diameter_map");
-    if (filament_id != 0 && diameter_map != nullptr && filament_id - 1 < diameter_map->values.size()) {
-        const std::string &selected = diameter_map->values[filament_id - 1];
-        // A slot may advertise the list of diameters it is available with; that is not a selection.
-        if (! selected.empty() && selected.find(';') == std::string::npos) {
-            const double diameter = string_to_double_decimal_point(selected);
-            if (diameter > EPSILON)
-                return float(diameter);
-        }
-    }
-
-    // One nozzle per extruder: the filament map decides which extruder prints the filament, and that
-    // extruder's nozzle diameter is the one to use. Without a valid mapping fall back to the filament index
-    // itself (historic behaviour); get_at() clamps to the first nozzle, which is what a single extruder
-    // machine with several filaments needs.
-    unsigned int extruder_index = filament_id == 0 ? 0 : filament_id - 1;
-    if (filament_id != 0) {
-        if (const ConfigOptionInts *filament_map = config.option<ConfigOptionInts>("filament_map"); filament_map != nullptr &&
-            filament_id - 1 < filament_map->values.size()) {
-            const int extruder_id = filament_map->values[filament_id - 1];
-            if (extruder_id > 0)
-                extruder_index = unsigned(extruder_id - 1);
-        }
-    }
+    // One nozzle per extruder and one extruder per filament slot: filament N is printed with nozzle N.
+    // The legacy per-filament override (filament_diameter_map) and the filament-to-extruder map are ignored
+    // here on purpose: the nozzle size belongs to the nozzle, not to the filament.
+    // get_at() clamps to the first nozzle, which is what a single nozzle machine with several filaments needs.
+    const unsigned int nozzle_index = filament_id == 0 ? 0 : filament_id - 1;
     const ConfigOptionFloats *nozzles = config.option<ConfigOptionFloats>("nozzle_diameter");
-    return nozzles != nullptr ? float(nozzles->get_at(extruder_index)) : 0.f;
+    return nozzles != nullptr ? float(nozzles->get_at(nozzle_index)) : 0.f;
 }
 
 std::string format_nozzle_diameter_to_str(double diameter, int precision)
@@ -8387,13 +8387,10 @@ void DynamicPrintConfig::normalize_fdm(int used_filaments)
         */
     }
 
-    // Multi nozzle diameter ("multi-diameter"): with the mode off the machine is treated as offering a single
-    // nozzle diameter, so a per-filament selection left over from a project sliced with the mode on must not
-    // leak into this slice. The rack data (extruder_nozzle_*) is machine capability and is kept.
-    if (! multi_nozzle_diameter_mode_enabled(*this)) {
-        if (ConfigOptionStrings *map = this->option<ConfigOptionStrings>("filament_diameter_map", false); map != nullptr)
-            map->values.clear();
-    }
+    // Nozzle sizes belong to the nozzles now: filament N prints with nozzle N. The old per-filament override
+    // is obsolete, so a value left over from a project written by an older build must not survive a load.
+    if (ConfigOptionStrings *map = this->option<ConfigOptionStrings>("filament_diameter_map", false); map != nullptr)
+        map->values.clear();
 }
 
 //BBS:divide normalize_fdm to 2 steps and call them one by one in Print::Apply
