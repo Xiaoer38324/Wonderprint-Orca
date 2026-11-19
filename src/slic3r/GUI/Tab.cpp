@@ -4468,9 +4468,8 @@ void TabPrinter::build_fff()
         optgroup->append_single_option_line("support_chamber_temp_control", "printer_basic_information_accessory#support-controlling-chamber-temperature");
         optgroup->append_single_option_line("support_air_filtration", "printer_basic_information_accessory#support-air-filtration");
 
-        // Multi nozzle diameter: the fork has no nozzle rack panel of the upstream branch, so the rack and the
-        // per filament nozzle assignment are edited in a dedicated dialog. Put the entry on the page the user
-        // opens to configure the machine, otherwise it is only reachable from the top bar menu.
+        // Nozzle settings page. The same per-nozzle editor is embedded below the printer card in the sidebar;
+        // this entry keeps it reachable from the printer settings page as well.
         optgroup = page->new_optgroup(L("Multi nozzle"), "param_extruder_size");
         {
             // A bare Line: the entry is a button only, it does not bind any configuration option (binding an
