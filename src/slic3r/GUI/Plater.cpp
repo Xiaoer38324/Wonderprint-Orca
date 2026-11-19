@@ -176,6 +176,7 @@
 #include "FilamentMapDialog.hpp"
 #include "CloneDialog.hpp"
 #include "NozzleRackPanel.hpp"
+#include "NozzleConfig.hpp"
 
 #include "DeviceCore/DevFilaSystem.h"
 #include "DeviceCore/DevManager.h"
@@ -440,6 +441,8 @@ struct Sidebar::priv
     PlaterPresetComboBox *combo_printer       = nullptr;
     ScalableButton *      btn_edit_printer    = nullptr;
     ScalableButton *      btn_connect_printer = nullptr;
+    // Fetches the nozzle data of the printer server (mocked by the debug panel for now).
+    ScalableButton *      m_printer_server_refresh = nullptr;
     // Nozzle editor below the printer card: one tab per print head.
     NozzleRackPanel *     panel_nozzle_rack   = nullptr;
 
@@ -1689,6 +1692,19 @@ Sidebar::Sidebar(Plater *parent)
             dlg.ShowModal();
         });
 
+        // "Update from printer server": read the nozzle data the server reports (mocked by the debug
+        // panel's Mock Server JSON for now) and apply the reported nozzle diameters to the printer.
+        p->m_printer_server_refresh = new ScalableButton(p->m_panel_printer_title, wxID_ANY, "fan_poppingup_refresh");
+        p->m_printer_server_refresh->SetToolTip(_L("Update nozzle data from the printer server"));
+        p->m_printer_server_refresh->Bind(wxEVT_BUTTON, [this](wxCommandEvent &) {
+            GUI::update_nozzle_configuration_from_server(this);
+            if (p->panel_nozzle_rack != nullptr)
+                p->panel_nozzle_rack->reload();
+        });
+        // Debug-only entry until the real printer-server request replaces the mock.
+        p->m_printer_server_refresh->Show(wxGetApp().app_config != nullptr &&
+                                          wxGetApp().app_config->get_bool("developer_mode"));
+
         // ORCA use sync button on titlebar
         p->m_printer_bbl_sync = new ScalableButton(p->m_panel_printer_title, wxID_ANY, "printer_sync_not");
         p->m_printer_bbl_sync->SetToolTip(_L("Synchronize nozzle information and the number of AMS"));
@@ -1709,6 +1725,7 @@ Sidebar::Sidebar(Plater *parent)
         h_sizer_title->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
         h_sizer_title->Add(p->m_text_printer_settings, 0, wxALIGN_CENTER);
         h_sizer_title->AddStretchSpacer();
+        h_sizer_title->Add(p->m_printer_server_refresh, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::WideSpacing()));
         h_sizer_title->Add(p->m_printer_connect , 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::WideSpacing())); // used larger margin to prevent accidental clicks
         h_sizer_title->Add(p->m_printer_bbl_sync, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::WideSpacing())); // used larger margin to prevent accidental clicks
         h_sizer_title->Add(p->m_printer_setting, 0, wxALIGN_CENTER);
@@ -2984,6 +3001,7 @@ void Sidebar::msw_rescale()
     p->m_panel_filament_title->GetSizer()
         ->SetMinSize(-1, 3 * wxGetApp().em_unit());
     p->m_printer_icon->msw_rescale();
+    p->m_printer_server_refresh->msw_rescale();
     p->m_printer_connect->msw_rescale();
     p->m_printer_bbl_sync->msw_rescale();
     p->m_printer_icon->msw_rescale();
@@ -3100,6 +3118,7 @@ void Sidebar::sys_color_changed()
 #endif
     //p->btn_sync_printer->SetIcon("printer_sync");
     p->m_printer_bbl_sync->msw_rescale();
+    p->m_printer_server_refresh->msw_rescale();
     p->m_printer_connect->msw_rescale();
     // for (wxWindow* btn : std::vector<wxWindow*>{ p->btn_reslice, p->btn_export_gcode })
     //    wxGetApp().UpdateDarkUI(btn, true);
@@ -4837,6 +4856,16 @@ void Sidebar::update_ui_from_settings()
 {
     // BBS
     //p->object_manipulation->update_ui_from_settings();
+    // The printer-server refresh is a debug entry: follow the developer mode live so toggling it in the
+    // preferences does not require a restart.
+    if (p->m_printer_server_refresh != nullptr) {
+        const bool developer_mode = wxGetApp().app_config != nullptr && wxGetApp().app_config->get_bool("developer_mode");
+        if (p->m_printer_server_refresh->IsShown() != developer_mode) {
+            p->m_printer_server_refresh->Show(developer_mode);
+            if (p->m_panel_printer_title != nullptr)
+                p->m_panel_printer_title->Layout();
+        }
+    }
     // update Cut gizmo, if it's open
     p->plater->canvas3D()->update_gizmos_on_off_state();
     p->plater->set_current_canvas_as_dirty();
@@ -11002,6 +11031,10 @@ void Plater::priv::on_action_print_plate(SimpleEvent&)
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << ":received print plate event\n" ;
     }
 
+    // Nozzle settings have to match the printer server before anything is sent to the printer.
+    if (!GUI::validate_nozzle_configuration_against_server(q))
+        return;
+
     PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
     if (preset_bundle.use_bbl_network()) {
         // BBS
@@ -11077,6 +11110,9 @@ int Plater::priv::update_print_required_data(Slic3r::DynamicPrintConfig config, 
 
 void Plater::priv::on_action_send_to_printer(bool isall)
 {
+    // Nozzle settings have to match the printer server before anything is sent to the printer.
+    if (!GUI::validate_nozzle_configuration_against_server(q))
+        return;
 	if (!m_send_to_sdcard_dlg) m_send_to_sdcard_dlg = new SendToPrinterDialog(q);
     if (isall) {
         m_send_to_sdcard_dlg->prepare(PLATE_ALL_IDX);
@@ -11103,6 +11139,10 @@ void Plater::priv::on_action_print_all(SimpleEvent&)
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << ":received print all event\n" ;
     }
 
+    // Nozzle settings have to match the printer server before anything is sent to the printer.
+    if (!GUI::validate_nozzle_configuration_against_server(q))
+        return;
+
     PresetBundle& preset_bundle = *wxGetApp().preset_bundle;
     if (preset_bundle.use_bbl_network()) {
         // BBS
@@ -11128,6 +11168,8 @@ void Plater::priv::on_action_send_gcode(SimpleEvent&)
 {
     if (q != nullptr) {
         BOOST_LOG_TRIVIAL(debug) << __FUNCTION__ << ":received export gcode event\n" ;
+        if (!GUI::validate_nozzle_configuration_against_server(q))
+            return;
         q->send_gcode_legacy();
     }
 }
@@ -15651,6 +15693,10 @@ void Plater::export_gcode(bool prefer_removable)
     if (p->model.objects.empty())
         return;
 
+    // Nozzle settings have to match the printer server before a print file is produced.
+    if (!GUI::validate_nozzle_configuration_against_server(this))
+        return;
+
     //if (get_view3D_canvas3D()->get_gizmos_manager().is_in_editing_mode(true))
     //    return;
 
@@ -15747,6 +15793,8 @@ void Plater::export_gcode(bool prefer_removable)
 
 void Plater::send_to_printer(bool isall)
 {
+    if (!GUI::validate_nozzle_configuration_against_server(this))
+        return;
     p->on_action_send_to_printer(isall);
 }
 

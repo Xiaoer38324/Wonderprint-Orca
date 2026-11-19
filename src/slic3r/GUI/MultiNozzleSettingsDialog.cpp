@@ -6,6 +6,7 @@
 #include <wx/sizer.h>
 
 #include "GUI_App.hpp"
+#include "GUI.hpp"
 #include "I18N.hpp"
 #include "MainFrame.hpp"
 #include "NozzleConfig.hpp"
@@ -32,13 +33,13 @@ int nearest_nozzle_size_index(double diameter)
 
 MultiNozzleSettingsDialog::MultiNozzleSettingsDialog(wxWindow *parent)
     : DPIDialog(parent ? parent : static_cast<wxWindow *>(wxGetApp().mainframe), wxID_ANY,
-                _L("Nozzle settings"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
+                _L("Multi-head mixed printing Debug panel"), wxDefaultPosition, wxDefaultSize, wxCAPTION | wxCLOSE_BOX)
 {
     SetBackgroundColour(*wxWHITE);
     SetFont(Label::Body_14);
     build_ui();
     SetMinSize(wxSize(FromDIP(560), FromDIP(320)));
-    SetSize(wxSize(FromDIP(660), FromDIP(460)));
+    SetSize(wxSize(FromDIP(660), FromDIP(560)));
     Layout();
     CentreOnScreen();
 }
@@ -93,6 +94,21 @@ void MultiNozzleSettingsDialog::build_ui()
     m_content->Layout();
     m_content->FitInside();
     main_sizer->Add(m_content, 1, wxEXPAND | wxALL, FromDIP(10));
+
+    // Debug mock server: JSON the printer server would answer with. The "update from printer server"
+    // action reads this text; it is persisted in the application config so it survives a restart.
+    auto *mock_label = new Label(this, _L("Mock Server (fake server)"));
+    mock_label->SetFont(Label::Body_14);
+    main_sizer->Add(mock_label, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(15));
+
+    m_mock_server_text = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(mock_server_json().c_str()),
+                                        wxDefaultPosition, wxSize(-1, FromDIP(70)), wxTE_MULTILINE);
+    m_mock_server_text->SetToolTip(
+        _L("Enter the JSON the printer server would return, for example: {\"nozzle_diameter\":[0.4,0.4,0.8,0.4]}"));
+    m_mock_server_text->Bind(wxEVT_TEXT, [this](wxCommandEvent &) {
+        set_mock_server_json(into_u8(m_mock_server_text->GetValue()));
+    });
+    main_sizer->Add(m_mock_server_text, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(15));
 
     auto *buttons = new DialogButtons(this, { "OK", "Cancel" });
     main_sizer->Add(buttons, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10));
