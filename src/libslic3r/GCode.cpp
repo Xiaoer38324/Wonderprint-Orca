@@ -1493,7 +1493,11 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         // Local-Z pass starts and must reach the tower before the toolchange.
         WipeTower::ToolChangeResult tcr = planned_tcr;
         tcr.force_travel = true;
-        gcode += this->append_tcr2(gcodegen, tcr, extruder_id, tower_z);
+        // Multi nozzle diameter: the tower layer Z is decoupled from the model layer, so use the Z the
+        // tower planner stored in the TCR instead of the model layer Z the caller knows.
+        const double local_z_tower_z = multi_nozzle_diameter_mode_enabled(gcodegen.config()) ?
+            double(planned_tcr.print_z) + gcodegen.config().z_offset.value : tower_z;
+        gcode += this->append_tcr2(gcodegen, tcr, extruder_id, local_z_tower_z);
         ++m_local_z_tool_change_idx;
         return gcode;
     }
@@ -1511,11 +1515,16 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
                     if (!(size_t(m_tool_change_idx) < m_tool_changes[m_layer_idx].size()))
                         throw Slic3r::RuntimeError("Wipe tower generation failed, possibly due to empty first layer.");
 
-                    // Calculate where the wipe tower layer will be printed. -1 means that print z will not change,
-                    // resulting in a wipe tower with sparse layers.
+                    // Multi nozzle diameter: the tower layer Z is planned by ToolOrdering and may differ
+                    // from the model layer Z. Without multi-diameter the historical z=-1 (current model z)
+                    // is kept, and wipe_tower_no_sparse_layers accumulates the tower top as before.
+                    const bool multi_diameter = multi_nozzle_diameter_mode_enabled(gcodegen.config());
                     double wipe_tower_z  = -1;
                     bool   ignore_sparse = false;
-                    if (gcodegen.config().wipe_tower_no_sparse_layers.value) {
+                    const size_t tcr_idx = size_t(m_tool_change_idx);
+                    if (multi_diameter && tcr_idx < m_tool_changes[m_layer_idx].size())
+                        wipe_tower_z = m_tool_changes[m_layer_idx][tcr_idx].print_z + gcodegen.config().z_offset.value;
+                    if (gcodegen.config().wipe_tower_no_sparse_layers.value && !multi_diameter) {
                         wipe_tower_z  = m_last_wipe_tower_print_z;
                         ignore_sparse = (m_tool_changes[m_layer_idx].size() == 1 &&
                                          m_tool_changes[m_layer_idx].front().initial_tool == m_tool_changes[m_layer_idx].front().new_tool &&
@@ -1531,11 +1540,17 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
                 }
             }
         } else {
-            // Calculate where the wipe tower layer will be printed. -1 means that print z will not change,
-            // resulting in a wipe tower with sparse layers.
+            // Multi nozzle diameter keeps the tower Z decoupled from the model Z: the tower layer is
+            // printed at the Z the ToolOrdering scheduler planned, not at the model layer's Z. Without
+            // multi-diameter the historical z=-1 (current model z) is kept bit for bit.
+            // wipe_tower_no_sparse_layers still has to accumulate the tower top from the previous visit.
+            const bool multi_diameter = multi_nozzle_diameter_mode_enabled(gcodegen.config());
             double wipe_tower_z  = -1;
             bool   ignore_sparse = false;
-            if (gcodegen.config().wipe_tower_no_sparse_layers.value) {
+            size_t tcr_idx       = size_t(m_tool_change_idx);
+            if (multi_diameter && tcr_idx < m_tool_changes[m_layer_idx].size())
+                wipe_tower_z = m_tool_changes[m_layer_idx][tcr_idx].print_z + gcodegen.config().z_offset.value;
+            if (gcodegen.config().wipe_tower_no_sparse_layers.value && !multi_diameter) {
                 wipe_tower_z  = m_last_wipe_tower_print_z;
                 ignore_sparse = (m_tool_changes[m_layer_idx].size() == 1 &&
                                  m_tool_changes[m_layer_idx].front().initial_tool == m_tool_changes[m_layer_idx].front().new_tool);
@@ -1544,7 +1559,10 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
             }
 
             if ((m_enable_timelapse_print || m_enable_wrapping_detection) && m_is_first_print) {
-                gcode += append_tcr(gcodegen, m_tool_changes[m_layer_idx][0], m_tool_changes[m_layer_idx][0].new_tool, wipe_tower_z);
+                const double first_tcr_z = multi_diameter ?
+                    m_tool_changes[m_layer_idx][0].print_z + gcodegen.config().z_offset.value : -1.;
+                gcode += append_tcr(gcodegen, m_tool_changes[m_layer_idx][0], m_tool_changes[m_layer_idx][0].new_tool,
+                                    first_tcr_z);
                 m_tool_change_idx++;
                 m_is_first_print = false;
             }
@@ -1570,7 +1588,8 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
             return true;
 
         bool   ignore_sparse = false;
-        if (gcodegen.config().wipe_tower_no_sparse_layers.value) {
+        if (gcodegen.config().wipe_tower_no_sparse_layers.value &&
+            !multi_nozzle_diameter_mode_enabled(gcodegen.config())) {
             ignore_sparse = (m_tool_changes[m_layer_idx].size() == 1 && m_tool_changes[m_layer_idx].front().initial_tool == m_tool_changes[m_layer_idx].front().new_tool);
         }
 
@@ -1595,9 +1614,16 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
     {
         std::string gcode;
         if (gcodegen.wipe_tower_type() == WipeTowerType::Type2) {
-            if (std::abs(gcodegen.writer().get_position().z() - m_final_purge.print_z) > EPSILON)
-                gcode += gcodegen.change_layer(m_final_purge.print_z);
-            gcode += append_tcr2(gcodegen, m_final_purge, -1);
+            if (multi_nozzle_diameter_mode_enabled(gcodegen.config())) {
+                // Multi nozzle diameter: the final purge sits on the scheduled tower top, which is not
+                // necessarily a model layer Z. Travel there directly instead of changing the model layer.
+                gcode += append_tcr2(gcodegen, m_final_purge, -1,
+                                     double(m_final_purge.print_z) + gcodegen.config().z_offset.value);
+            } else {
+                if (std::abs(gcodegen.writer().get_position().z() - m_final_purge.print_z) > EPSILON)
+                    gcode += gcodegen.change_layer(m_final_purge.print_z);
+                gcode += append_tcr2(gcodegen, m_final_purge, -1);
+            }
         }
 
         return gcode;

@@ -183,6 +183,11 @@ public:
 	// Set the extruder properties.
     void set_extruder(size_t idx, const PrintConfig& config);
 
+    // Multi nozzle diameter: every filament may be printed through a nozzle of its own diameter. This
+    // recomputes the tower planning width from the widest participating nozzle. Must be called after all
+    // set_extruder() calls and before plan_toolchange().
+    void finalize_nozzle_widths();
+
 	// Appends into internal structure m_plan containing info about the future wipe tower
 	// to be used before building begins. The entries must be added ordered in z.
 	void plan_toolchange(float z_par, float layer_height_par, unsigned int old_tool, unsigned int new_tool, float wipe_volume = 0.f, float prime_volume = 0.f);
@@ -396,6 +401,16 @@ public:
     ToolChangeResult   finish_layer_new(bool extrude_perimeter = true, bool extrude_fill = true, bool extrude_fill_wall = true);
     ToolChangeResult   finish_block(const WipeTowerBlock &block, int filament_id, bool extrude_fill = true);
     ToolChangeResult   finish_block_solid(const WipeTowerBlock &block, int filament_id, bool extrude_fill = true ,bool interface_solid =false);
+
+    // One vertical sub-pass of the routines above. A multi nozzle diameter tower layer may be thicker than
+    // the current tool's nozzle can print in one go; the public routines split it into k sub-passes and
+    // concatenate the results, each pass ending exactly on the next sub-layer Z.
+    ToolChangeResult   finish_layer_new_single(bool extrude_perimeter, bool extrude_fill, bool extrude_fill_wall);
+    ToolChangeResult   finish_block_single(const WipeTowerBlock &block, int filament_id, bool extrude_fill);
+    ToolChangeResult   finish_block_solid_single(const WipeTowerBlock &block, int filament_id, bool extrude_fill, bool interface_solid);
+    // Concatenate the sub-pass results into one ToolChangeResult that reports the full tower layer.
+    ToolChangeResult   concat_subpass_tcrs(std::vector<ToolChangeResult> &passes, float print_z, float layer_height);
+    bool               subpass_is_last() const { return m_subpass_index + 1 >= m_subpass_count; }
     void toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinates &cleaning_box, float wipe_length,bool solid_toolchange=false);
     Vec2f              get_rib_offset() const { return m_rib_offset; }
 
@@ -430,7 +445,9 @@ private:
 	float  m_y_shift			= 0.f;  // y shift passed to writer
 	float  m_z_pos 				= 0.f;  // Current Z position.
 	float  m_layer_height 		= 0.f; 	// Current layer height.
-	size_t m_max_color_changes 	= 0; 	// Maximum number of color changes per layer.
+    // Absolute Z shift of the emitted G-code. The tower plan works in plate coordinates; the sub-pass Z
+    // moves inside a layer have to carry the same offset the rest of the G-code uses.
+    float  m_z_offset           = 0.f;	size_t m_max_color_changes 	= 0; 	// Maximum number of color changes per layer.
     int    m_old_temperature    = -1;   // To keep track of what was the last temp that we set (so we don't issue the command when not neccessary)
     float  m_travel_speed       = 0.f;
     float  m_first_layer_speed  = 0.f;
@@ -475,8 +492,48 @@ private:
     float m_nozzle_change_perimeter_width = 0.4f * Width_To_Nozzle_Ratio;
 	float m_extrusion_flow = 0.038f; //0.029f;// Extrusion flow is derived from m_perimeter_width, layer height and filament diameter.
 
+    // Multi nozzle diameter sub-pass state of the layer currently being generated.
+    int   m_subpass_index = 0;   // 0 based index of the vertical pass inside the tower layer
+    int   m_subpass_count = 1;   // number of vertical passes the current tool needs for this layer
+    float m_layer_top_z   = 0.f; // top of the full tower layer (all sub-passes finish there)
+
+    // Multi nozzle diameter. m_plan_perimeter_width is the width the tower layout was planned with (the
+    // widest nozzle). The generation routines temporarily set m_perimeter_width / m_extrusion_flow to the
+    // nozzle of the tool that is currently extruding, so a 0.2 mm nozzle never has to lay a 0.6 mm bead.
+    float m_plan_perimeter_width = 0.4f * Width_To_Nozzle_Ratio;
+
 	// Extruder specific parameters.
     std::vector<FilamentParameters> m_filpar;
+
+    // -- Multi nozzle diameter tool helpers ------------------------------------------------
+    // Nozzle diameter of one filament slot (0.4 when the slot is unknown).
+    float tool_nozzle_diameter(size_t tool) const
+    {
+        return tool < m_filpar.size() && m_filpar[tool].nozzle_diameter > WT_EPSILON ? m_filpar[tool].nozzle_diameter : 0.4f;
+    }
+    // Line width this tool lays down in the tower.
+    float tool_line_width(size_t tool) const { return Width_To_Nozzle_Ratio * tool_nozzle_diameter(tool); }
+    // Thinnest / thickest tower layer this tool can print.
+    float tool_min_layer_height(size_t tool) const { return 0.20f * tool_nozzle_diameter(tool); }
+    float tool_max_layer_height(size_t tool) const { return 0.70f * tool_nozzle_diameter(tool); }
+    // Extrusion flow for a bead of `layer_height` laid by this tool.
+    float tool_extrusion_flow(size_t tool, float layer_height) const
+    {
+        if (tool >= m_filpar.size() || m_filpar[tool].filament_area <= WT_EPSILON)
+            return 0.f;
+        const float width = tool_line_width(tool);
+        return layer_height * (width - layer_height * (1.f - float(M_PI) / 4.f)) / m_filpar[tool].filament_area;
+    }
+    // How many vertical sub-passes this tool needs to build a tower layer of `layer_height`.
+    // h_max / h_min = 3.5, so ceil(layer_height / h_max) always lands the sub-pass height inside the
+    // printable window of the nozzle.
+    int tool_subpass_count(size_t tool, float layer_height) const
+    {
+        const float h_max = tool_max_layer_height(tool);
+        if (h_max <= WT_EPSILON || layer_height <= h_max + WT_EPSILON)
+            return 1;
+        return std::max(1, int(std::ceil(layer_height / h_max - WT_EPSILON)));
+    }
 
 
 	// State of the wipe tower generator.

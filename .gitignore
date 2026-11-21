@@ -47,3 +47,4 @@ internal_docs/
 *.flatpak
 /flatpak-repo/
 /docs/
+/tools/
