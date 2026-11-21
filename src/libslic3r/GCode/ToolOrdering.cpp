@@ -663,6 +663,12 @@ void ToolOrdering::collect_extruders(const PrintObject &object, const std::vecto
 
     // Collect the object extruders.
     for (auto layer : object.layers()) {
+        // A layer swallowed by a multi-diameter adaptive band prints nothing: its material is extruded on
+        // the band top. It must not contribute tools, first-layer filaments or wipe tower bookkeeping.
+        // layerCount is deliberately not advanced for it, so the band top is treated as the first layer.
+        if (layer->is_adaptive_merged_out())
+            continue;
+
         LayerTools &layer_tools = this->tools_for_layer(layer->print_z);
 
         // Override extruder with the next
@@ -917,9 +923,128 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
     coordf_t wipe_tower_print_z_last = 0.;
     for (LayerTools &lt : m_layer_tools)
         if (lt.has_wipe_tower) {
-            lt.wipe_tower_layer_height = lt.print_z - wipe_tower_print_z_last;
-            wipe_tower_print_z_last = lt.print_z;
+            lt.wipe_tower_print_z       = lt.print_z;
+            lt.wipe_tower_layer_height  = lt.print_z - wipe_tower_print_z_last;
+            wipe_tower_print_z_last     = lt.print_z;
         }
+
+    // Multi nozzle diameter: the tower layer height has to be printable by every nozzle that extrudes on
+    // it, which is not necessarily the model layer height. plan_wipe_tower_z() replaces the values above
+    // with a Z schedule that is decoupled from the model layer Z. Both tower implementations read the
+    // scheduled values (Type1 in Print::_make_wipe_tower, Type2 in the same function's WipeTower2 branch
+    // and in WipeTowerIntegration::tool_change()).
+    if (multi_nozzle_diameter_mode_enabled(config))
+        this->plan_wipe_tower_z(config);
+}
+
+// Multi nozzle diameter wipe tower Z planner.
+//
+// The tower is physically separate from the model, so a tower layer does not have to be printed at the
+// model layer's Z. This lets a coarse nozzle own a thick tower layer while the model is still sliced on the
+// fine grid, and it keeps a fine nozzle from having to purge a layer thicker than it can print.
+//
+// For every tower layer i:
+//   H_min[i] = max over the nozzles extruding there of 0.2 * D   (what the coarsest nozzle must have)
+//   H_pref[i] = the model layer delta, clamped into the printable windows
+// A backward pass reserves room for the following coarse layers, a forward pass advances the tower, and
+// two guard rails bound the lag / lead between the tower and the model. A lag larger than the limit is
+// caught up in the same layer; WipeTower splits such a thick layer into sub-passes, so no extra tower
+// layer has to be inserted into the tool ordering.
+void ToolOrdering::plan_wipe_tower_z(const PrintConfig &config)
+{
+    constexpr double tower_h_min_factor = 0.20; // 0.2 D is the thinnest bead a nozzle can lay down
+    constexpr double tower_h_max_factor = 0.70; // 0.7 D is the thickest one
+    constexpr double max_z_lag          = 1.5;  // never let the tower fall further behind the model
+    constexpr double max_z_lead         = 0.25; // and never let it run far ahead of it
+
+    std::vector<size_t> layers;
+    layers.reserve(m_layer_tools.size());
+    for (size_t i = 0; i < m_layer_tools.size(); ++i)
+        if (m_layer_tools[i].has_wipe_tower)
+            layers.push_back(i);
+    if (layers.empty())
+        return;
+
+    auto nozzle_of = [&config](unsigned int filament_id) -> double {
+        const double diameter = double(nozzle_diameter_for_filament(config, filament_id + 1));
+        return diameter > EPSILON ? diameter : 0.4;
+    };
+
+    // Nozzles that may extrude on the tower at this layer. The model tools are a good superset: the
+    // finish layer uses one of them as well. A layer with no tools of its own (a raft layer or a band
+    // swallow layer) inherits the previous layer's set.
+    auto tools_of = [this, &layers](size_t k) -> std::vector<unsigned int> {
+        std::vector<unsigned int> tools = m_layer_tools[layers[k]].extruders;
+        // The finish wall / sparse fill of this layer may be printed by the tool that was already in the
+        // machine, i.e. the last tool of the previous tower layer. It has to fit the layer height as well.
+        if (k > 0 && !m_layer_tools[layers[k - 1]].extruders.empty())
+            tools.push_back(m_layer_tools[layers[k - 1]].extruders.back());
+        for (size_t back = k; tools.empty() && back > 0; --back)
+            tools = m_layer_tools[layers[back - 1]].extruders;
+        if (tools.empty())
+            for (size_t forward = k + 1; tools.empty() && forward < layers.size(); ++forward)
+                tools = m_layer_tools[layers[forward]].extruders;
+        return tools;
+    };
+
+    const size_t n = layers.size();
+    std::vector<double> model_z(n), h_min(n), h_max(n), upper(n), tower_z(n);
+    for (size_t k = 0; k < n; ++k) {
+        model_z[k] = double(m_layer_tools[layers[k]].print_z);
+        h_min[k]   = tower_h_min_factor;
+        h_max[k]   = tower_h_max_factor;
+        const std::vector<unsigned int> tools = tools_of(k);
+        if (! tools.empty()) {
+            h_min[k] = 0.;
+            h_max[k] = 0.;
+            for (unsigned int tool : tools) {
+                h_min[k] = std::max(h_min[k], tower_h_min_factor * nozzle_of(tool));
+                h_max[k] = std::max(h_max[k], tower_h_max_factor * nozzle_of(tool));
+            }
+        }
+        if (h_min[k] <= EPSILON)
+            h_min[k] = 0.04;
+        if (h_max[k] < h_min[k])
+            h_max[k] = h_min[k];
+    }
+
+    // Backward pass: keep enough room for the following layer's minimum thickness.
+    upper[n - 1] = model_z[n - 1] + max_z_lead;
+    for (size_t k = n - 1; k > 0; --k)
+        upper[k - 1] = std::min(model_z[k - 1], upper[k] - h_min[k]);
+
+    // Forward pass: the first tower layer rests on the bed (or on the raft, exactly like the model's
+    // first printed layer), every later layer advances by the model delta clamped into the nozzle windows.
+    tower_z[0] = model_z[0];
+    for (size_t k = 1; k < n; ++k) {
+        const double model_delta = std::max(0., model_z[k] - model_z[k - 1]);
+        const double preferred   = std::clamp(model_delta, h_min[k], h_max[k]);
+        double       z           = tower_z[k - 1] + preferred;
+
+        // Room reserved by the backward pass, but never below the coarsest nozzle's minimum.
+        z = std::min(z, upper[k]);
+        z = std::max(z, tower_z[k - 1] + h_min[k]);
+
+        // Guard rail: catch up a large lag in this layer. WipeTower splits the resulting thick tower layer
+        // into per-tool sub-passes, so this stays printable for every nozzle.
+        const double lag_floor = model_z[k] - max_z_lag;
+        if (z < lag_floor)
+            z = std::max(tower_z[k - 1] + h_min[k], lag_floor);
+
+        // Guard rail: do not run ahead of the model by more than the nozzle clearance.
+        const double lead_cap = model_z[k] + max_z_lead;
+        if (z > lead_cap)
+            z = std::max(tower_z[k - 1] + h_min[k], lead_cap);
+
+        tower_z[k] = z;
+    }
+
+    for (size_t k = 0; k < n; ++k) {
+        LayerTools &lt               = m_layer_tools[layers[k]];
+        const double previous_z      = k == 0 ? 0. : tower_z[k - 1];
+        lt.wipe_tower_print_z        = tower_z[k];
+        lt.wipe_tower_layer_height   = tower_z[k] - previous_z;
+    }
 }
 
 void ToolOrdering::collect_extruder_statistics(bool prime_multi_material)

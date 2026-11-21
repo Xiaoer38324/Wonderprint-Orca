@@ -164,6 +164,11 @@ public:
     // and to support the wipe tower partitions above this one.
     size_t                      wipe_tower_partitions = 0;
     coordf_t 					wipe_tower_layer_height = 0.;
+    // Multi nozzle diameter: the Z the wipe tower layer is printed at. It is decoupled from print_z,
+    // because a coarse nozzle needs a thicker tower layer than the model grid and a fine nozzle may not
+    // be able to print it in one pass. plan_wipe_tower_z() fills it; outside multi-diameter mode it is
+    // simply print_z.
+    coordf_t                    wipe_tower_print_z = 0.;
     // Custom G-code (color change, extruder switch, pause) to be performed before this layer starts to print.
     const CustomGCode::Item    *custom_gcode = nullptr;
 
@@ -258,6 +263,9 @@ private:
     void				initialize_layers(std::vector<coordf_t> &zs);
     void 				collect_extruders(const PrintObject &object, const std::vector<std::pair<double, unsigned int>> &per_layer_extruder_switches);
     void 				fill_wipe_tower_partitions(const PrintConfig &config, coordf_t object_bottom_z, coordf_t max_layer_height);
+    // Multi nozzle diameter: plan the decoupled wipe tower Z / layer height of every tower layer.
+    // Runs after fill_wipe_tower_partitions() has decided which layers carry a tower layer.
+    void                plan_wipe_tower_z(const PrintConfig &config);
     bool                insert_wipe_tower_extruder();
     void                mark_skirt_layers(const PrintConfig &config, coordf_t max_layer_height);
     void 				collect_extruder_statistics(bool prime_multi_material);
@@ -277,7 +285,7 @@ private:
     const DynamicPrintConfig*  m_print_full_config = nullptr;
     const PrintConfig*         m_print_config_ptr = nullptr;
     const PrintObject*         m_print_object_ptr = nullptr;
-    Print*                     m_print;
+    Print*                     m_print = nullptr;
     bool                       m_sorted = false;
 
     FilamentChangeStats        m_stats_by_single_extruder;
