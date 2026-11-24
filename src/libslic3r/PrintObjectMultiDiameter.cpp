@@ -826,6 +826,74 @@ void PrintObject::compute_adaptive_merge_groups()
                         kept.emplace_back(surface, std::move(expolygon));
                 region->slices.set(std::move(kept));
             }
+
+    // Multi-diameter normalization: a merged band extrudes one anchor contour over its whole Z span.
+    // A region printed by a finer nozzle on the same layers still carries its own per-layer contour,
+    // and where the model slopes that contour can reach into the coarse band's constant footprint.
+    // At the band top the coarse patch already owns the footprint, but the finer region's lower
+    // layers were never trimmed, so the two regions interpenetrate and the finer colour - the
+    // background filament around a gradient, for example - leaks through the band in alternating
+    // teeth. Trim every fixed-grid (unmerged) region inside a coarser band by that band's footprint
+    // on all layers of the band, which is exactly what the first band already does above.
+    {
+        struct BandFootprint {
+            const ExPolygons *area;
+            double            nozzle;
+        };
+        std::vector<std::vector<BandFootprint>> footprints(layer_count);
+        for (size_t region_id = 0; region_id < region_count; ++region_id) {
+            const double nozzle = region_nozzles[region_id];
+            if (nozzle <= EPSILON)
+                continue;
+            for (size_t layer_idx = 0; layer_idx < layer_count; ++layer_idx)
+                for (const AdaptiveMergePatch &patch : m_layers[layer_idx]->get_region(region_id)->adaptive_merge_patches)
+                    if (! patch.area().empty())
+                        footprints[layer_idx].push_back({ &patch.area(), nozzle });
+        }
+
+        for (size_t layer_idx = 0; layer_idx < layer_count; ++layer_idx) {
+            if (footprints[layer_idx].empty())
+                continue;
+            for (size_t region_id = 0; region_id < region_count; ++region_id) {
+                LayerRegion *region = m_layers[layer_idx]->get_region(region_id);
+                if (region == nullptr || ! region->adaptive_merge_patches.empty() ||
+                    (region->slices.empty() && region->raw_slices.empty()))
+                    continue;
+                const double nozzle = region_nozzles[region_id];
+                if (nozzle <= EPSILON)
+                    continue;
+
+                ExPolygons trim;
+                for (const BandFootprint &footprint : footprints[layer_idx])
+                    if (footprint.nozzle > nozzle + EPSILON) {
+                        if (trim.empty())
+                            trim = *footprint.area;
+                        else
+                            append(trim, *footprint.area);
+                    }
+                if (trim.empty())
+                    continue;
+                if (trim.size() > 1)
+                    trim = union_ex(trim);
+
+                Surfaces kept;
+                for (const Surface &surface : region->slices.surfaces)
+                    for (ExPolygon &expolygon : diff_ex(ExPolygons{ surface.expolygon }, trim))
+                        kept.emplace_back(surface, std::move(expolygon));
+                region->slices.set(std::move(kept));
+
+                // prepare_infill() restores the untyped slices from this backup, so the trim has to
+                // survive there as well or the finer region's fill would cover the band again.
+                if (! region->raw_slices.empty()) {
+                    ExPolygons raw_kept;
+                    for (const ExPolygon &expolygon : region->raw_slices)
+                        for (ExPolygon &piece : diff_ex(ExPolygons{ expolygon }, trim))
+                            raw_kept.emplace_back(std::move(piece));
+                    region->raw_slices = std::move(raw_kept);
+                }
+            }
+        }
+    }
 }
 
 // Real overhangs of a merged span are already typed on the physical layers by detect_surfaces_type()

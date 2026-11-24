@@ -80,6 +80,11 @@ struct SubLayerPlan
     double z_hi { 0.0 };
     double print_z { 0.0 };
     double flow_height { 0.0 };
+    // Intended component A share of the gradient at this layer, before the Local-Z pass heights
+    // are clamped to the printable window. Multi nozzle diameter rebuilds the passes for the whole
+    // band and must use this ratio; the clamped pass heights of a single grid layer would collapse
+    // to a 50/50 split.
+    float  gradient_ratio_a { 0.f };
     size_t dependency_group { 0 };
     size_t dependency_order { 0 };
     std::vector<ExPolygons> painted_masks_by_extruder;

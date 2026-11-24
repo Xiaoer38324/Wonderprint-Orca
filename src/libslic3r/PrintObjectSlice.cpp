@@ -6,6 +6,7 @@
 #include <map>
 #include <sstream>
 
+#include "AdaptiveLayerMerge.hpp"
 #include "ClipperUtils.hpp"
 #include "ElephantFootCompensation.hpp"
 #include "Exception.hpp"
@@ -1313,6 +1314,11 @@ static void build_local_z_plan(PrintObject &print_object,
                     requested_b = layer.height * (preferred_b / preferred_sum);
                 }
             }
+            // Keep the requested blend independently of the pass-height clamp below: in multi
+            // nozzle diameter mode the band passes rescale this ratio to the full band height.
+            const double intended_ratio_a = (requested_a + requested_b > EPSILON)
+                ? std::clamp(requested_a / (requested_a + requested_b), 0.01, 0.99)
+                : 0.5;
 
             double h_a = 0.0;
             double h_b = 0.0;
@@ -1350,6 +1356,7 @@ static void build_local_z_plan(PrintObject &print_object,
                 plan.z_hi              = pass_z_hi;
                 plan.print_z           = pass_z_hi;
                 plan.flow_height       = pass_height;
+                plan.gradient_ratio_a  = float(intended_ratio_a);
                 plan.dependency_group  = int(row_idx);
                 plan.dependency_order  = pass_idx;
                 plan.painted_masks_by_extruder.assign(num_physical, ExPolygons());
@@ -1421,29 +1428,169 @@ static void build_local_z_plan(PrintObject &print_object,
     print_object.set_local_z_plan(std::move(intervals), std::move(plans));
 }
 
+namespace {
+
+// Nozzle a Colour Mixing row is actually printed with, matching PrintObjectMultiDiameter.cpp's
+// nozzle_of_filament(): a row is treated as printed through the finest nozzle among all of its
+// physical components.
+double mixed_row_band_nozzle(const PrintConfig &print_config,
+                             const MixedFilamentManager &mixed_mgr,
+                             unsigned int filament_id,
+                             size_t num_physical)
+{
+    std::vector<int> components{ int(filament_id) };
+    mixed_mgr.expand_virtual_extruder_ids(components, num_physical);
+    double nozzle = 0.;
+    for (int component : components) {
+        if (component <= 0)
+            continue;
+        const double candidate = nozzle_diameter_for_filament(print_config, unsigned(component));
+        if (candidate > EPSILON && (nozzle <= EPSILON || candidate < nozzle))
+            nozzle = candidate;
+    }
+    return nozzle;
+}
+
+// Multi nozzle diameter prints one band of several slicing grid layers as a single, thicker
+// extrusion on the band top. A Colour Mixing cadence is expressed in *printed* layers, so every
+// grid layer swallowed by the same band must resolve to the same component. Otherwise the band
+// top selects one component and the components assigned to the swallowed layers below it are
+// never extruded (the component disappears exactly when the other physical filament is painted
+// on those layers, and a two-colour gradient ends up splitting a single grid layer instead of a
+// whole band).
+//
+// Returns, for every grid layer, the index the mixed cadence must be evaluated at. All layers of
+// one band share the band's ordinal, and the ordinal advances once per printed band. Without
+// multi-diameter band merging the identity mapping is returned.
+std::vector<int> mixed_band_cadence_indices(const PrintObject &print_object, double nozzle_diameter)
+{
+    const size_t layer_count = print_object.layer_count();
+    std::vector<int> indices(layer_count);
+    for (size_t layer_idx = 0; layer_idx < layer_count; ++layer_idx)
+        indices[layer_idx] = int(layer_idx);
+
+    const Print *print = print_object.print();
+    if (print == nullptr || layer_count < 2 || nozzle_diameter <= EPSILON ||
+        ! print->uses_multiple_nozzle_diameters())
+        return indices;
+
+    // compute_adaptive_merge_groups() measures the ladder against the same anchor and base layer
+    // height, so the cadence bands and the printed bands cannot drift apart.
+    const double min_nozzle        = layer_grid_nozzle_diameter(print->full_print_config());
+    const double base_layer_height = print_object.slicing_parameters().layer_height;
+    if (min_nozzle <= EPSILON || base_layer_height <= EPSILON)
+        return indices;
+
+    const size_t band_size = adaptive_layer_band_size(nozzle_diameter, min_nozzle, base_layer_height);
+    if (band_size < 2)
+        return indices;
+
+    std::vector<double> layer_heights;
+    layer_heights.reserve(layer_count);
+    for (size_t layer_idx = 0; layer_idx < layer_count; ++layer_idx)
+        layer_heights.emplace_back(print_object.get_layer(int(layer_idx))->height);
+
+    const std::vector<AdaptiveLayerBand> bands = build_adaptive_layer_bands(
+        layer_heights, band_size, adaptive_layer_height_range(nozzle_diameter));
+    if (bands.empty())
+        return indices;
+
+    std::vector<int> band_of_layer(layer_count, -1);
+    for (size_t band_idx = 0; band_idx < bands.size(); ++band_idx)
+        for (size_t layer_idx = bands[band_idx].bottom_idx;
+             layer_idx <= bands[band_idx].top_idx && layer_idx < layer_count; ++layer_idx)
+            band_of_layer[layer_idx] = int(band_idx);
+
+    // A layer the ladder left out (a single-step tail or an unprintable gap) is printed together
+    // with the band below it, if at all, so it keeps that band's cadence.
+    int  cadence   = 0;
+    bool have_band = false;
+    for (size_t layer_idx = 0; layer_idx < layer_count; ++layer_idx) {
+        if (band_of_layer[layer_idx] >= 0) {
+            cadence   = band_of_layer[layer_idx];
+            have_band = true;
+        } else if (! have_band) {
+            cadence = int(layer_idx);
+        }
+        indices[layer_idx] = cadence;
+    }
+    return indices;
+}
+
+// Physical filament of the layer region that owns a painted mask. The mask is a subset of that
+// region's slices, so the region with the largest overlap is its parent. Used to keep a Local-Z
+// gradient region from resolving to the same filament as the surrounding background: in that case
+// apply_mm_segmentation() would merge the two geometries and the background's fill would run
+// straight through the gradient rectangle.
+int mixed_parent_filament(const Layer &layer, const ExPolygons &mask)
+{
+    int    best_filament = -1;
+    double best_overlap  = -1.;
+    const BoundingBox mask_bbox = get_extents(mask);
+    for (int region_idx = 0; region_idx < layer.region_count(); ++region_idx) {
+        const LayerRegion *region = layer.get_region(region_idx);
+        if (region == nullptr || region->slices.empty())
+            continue;
+        if (!get_extents(region->slices.surfaces).overlap(mask_bbox))
+            continue;
+        const ExPolygons overlap = intersection_ex(to_expolygons(region->slices.surfaces), mask);
+        if (overlap.empty())
+            continue;
+        const double overlap_area = ::Slic3r::area(overlap);
+        if (overlap_area > best_overlap) {
+            best_overlap  = overlap_area;
+            best_filament = region->region().config().wall_filament.value;
+        }
+    }
+    return best_filament;
+}
+
+} // namespace
+
 template<typename ThrowOnCancel>
 static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<std::vector<ExPolygons>> segmentation, ThrowOnCancel throw_on_cancel)
 {
     // Returns MM segmentation based on painting in MM segmentation gizmo
     assert(segmentation.size() == print_object.layer_count());
+    // Orca: physical filaments are the real ones. Color Mixing entries are painted as extra
+    // virtual channels after them and are collapsed onto a physical component per layer.
+    const MixedFilamentManager &mixed_mgr    = print_object.print()->mixed_filament_manager();
+    const PrintConfig          &print_cfg    = print_object.print()->config();
+    const size_t                num_physical = print_cfg.filament_colour.size();
+    const size_t                num_channels = mixed_mgr.total_filaments(num_physical);
+    const bool                  multi_diameter = print_object.print()->uses_multiple_nozzle_diameters();
+    const bool                  local_z_gradient_active =
+        mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value) &&
+        (!print_cfg.enable_prime_tower.value ||
+         (print_object.print()->wipe_tower_type() == WipeTowerType::Type2 &&
+          print_cfg.print_sequence == PrintSequence::ByLayer));
+    const bool                  local_z_enabled = ! multi_diameter && local_z_gradient_active;
+
+    // Multi nozzle diameter: a merged band prints on its top grid layer only, so the Colour
+    // Mixing cadence has to be evaluated per printed band instead of per slicing grid layer.
+    std::map<double, std::vector<int>> mixed_cadence_by_nozzle;
+    if (multi_diameter) {
+        for (size_t channel = num_physical; channel < num_channels; ++channel) {
+            const unsigned int   state_id = unsigned(channel) + 1;
+            const MixedFilament *mixed_row = mixed_mgr.mixed_filament_from_id(state_id, num_physical);
+            if (mixed_row == nullptr ||
+                mixed_filament_mixes_nozzle_diameters(*mixed_row, print_cfg.nozzle_diameter.values))
+                continue;
+            const double nozzle = mixed_row_band_nozzle(print_cfg, mixed_mgr, state_id, num_physical);
+            if (nozzle <= EPSILON || mixed_cadence_by_nozzle.find(nozzle) != mixed_cadence_by_nozzle.end())
+                continue;
+            mixed_cadence_by_nozzle.emplace(nozzle, mixed_band_cadence_indices(print_object, nozzle));
+        }
+    }
+
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, segmentation.size(), std::max(segmentation.size() / 128, size_t(1))),
-        [&print_object, &segmentation, throw_on_cancel](const tbb::blocked_range<size_t> &range) {
+        [&print_object, &segmentation, &mixed_mgr, &print_cfg, &mixed_cadence_by_nozzle,
+         num_physical, num_channels, multi_diameter, local_z_enabled, local_z_gradient_active,
+         throw_on_cancel](const tbb::blocked_range<size_t> &range) {
             const auto  &layer_ranges   = print_object.shared_regions()->layer_ranges;
             double       z              = print_object.get_layer(int(range.begin()))->slice_z;
             auto         it_layer_range = layer_range_first(layer_ranges, z);
-            // Orca: physical filaments are the real ones. Color Mixing entries are painted as extra
-            // virtual channels after them and are collapsed onto a physical component per layer.
-            const MixedFilamentManager &mixed_mgr   = print_object.print()->mixed_filament_manager();
-            const PrintConfig          &print_cfg   = print_object.print()->config();
-            const size_t                num_physical = print_object.print()->config().filament_colour.size();
-            const size_t                num_channels = mixed_mgr.total_filaments(num_physical);
-            const bool                  local_z_enabled =
-                !print_object.print()->uses_multiple_nozzle_diameters() && 
-                mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value) &&
-                (!print_cfg.enable_prime_tower.value ||
-                 (print_object.print()->wipe_tower_type() == WipeTowerType::Type2 &&
-                  print_cfg.print_sequence == PrintSequence::ByLayer));
 
             struct ByExtruder {
                 ExPolygons  expolygons;
@@ -1502,8 +1649,40 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
                         }
                         continue;
                     }
-                    const unsigned int resolved = mixed_mgr.resolve(state_id, num_physical,
-                                                                    int(layer_id), float(layer.print_z), float(layer.height));
+                    unsigned int resolved = 0;
+                    // A Local-Z gradient must keep its rectangle as an independent painted
+                    // region on every band. If the cadence resolved it to the same physical
+                    // filament as the surrounding background, apply_mm_segmentation() merged the
+                    // two geometries and the background fill ran straight through the gradient;
+                    // the Local-Z passes then clipped that fill and printed it in gradient
+                    // colours. Fix such rows to the component that differs from the parent
+                    // region's filament instead; Local-Z still supplies both colours through the
+                    // band passes.
+                    if (multi_diameter && mixed_row != nullptr && is_simple_gradient(*mixed_row) &&
+                        local_z_gradient_active) {
+                        unsigned int fixed = mixed_row->component_a;
+                        if (fixed < 1 || fixed > num_physical)
+                            fixed = mixed_row->component_b;
+                        const int parent_filament = mixed_parent_filament(layer, segmentation[layer_id][ch]);
+                        if (int(fixed) == parent_filament &&
+                            mixed_row->component_b >= 1 && mixed_row->component_b <= num_physical)
+                            fixed = mixed_row->component_b;
+                        if (fixed >= 1 && fixed <= num_physical)
+                            resolved = fixed;
+                    }
+                    if (resolved == 0) {
+                        // A band is one printed layer for its nozzle: evaluate the cadence at the
+                        // band ordinal so the whole band resolves to the same physical component.
+                        int cadence_layer = int(layer_id);
+                        if (multi_diameter && mixed_row != nullptr) {
+                            const double nozzle = mixed_row_band_nozzle(print_cfg, mixed_mgr, state_id, num_physical);
+                            const auto   it     = mixed_cadence_by_nozzle.find(nozzle);
+                            if (it != mixed_cadence_by_nozzle.end() && layer_id < it->second.size())
+                                cadence_layer = it->second[layer_id];
+                        }
+                        resolved = mixed_mgr.resolve(state_id, num_physical, cadence_layer,
+                                                     float(layer.print_z), float(layer.height));
+                    }
                     if (resolved < 1 || resolved > num_physical)
                         continue;
                     const size_t component = size_t(resolved) - 1;

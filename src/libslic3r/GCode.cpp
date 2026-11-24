@@ -4404,20 +4404,6 @@ void append_local_z_share_passes(const std::vector<double> &boundaries, size_t f
     }
 }
 
-// True when the painted mask of one gradient row is (almost) completely inside the given band geometry.
-bool local_z_mask_covered_by_band(const ExPolygons &row_mask, const ExPolygons &band_mask)
-{
-    if (row_mask.empty())
-        return true;
-    if (band_mask.empty())
-        return false;
-    const ExPolygons outside      = diff_ex(row_mask, band_mask);
-    const double    scale2       = SCALING_FACTOR * SCALING_FACTOR;
-    const double    row_area     = ::Slic3r::area(row_mask) * scale2;
-    const double    outside_area = ::Slic3r::area(outside) * scale2;
-    return outside_area <= std::max(1e-3, row_area * 0.01);
-}
-
 struct LocalZRowBand
 {
     bool   found { false };
@@ -4426,48 +4412,53 @@ struct LocalZRowBand
     size_t top_idx { 0 };
 };
 
-// Find the band patch that contains one painted row. A region can own several disjoint patches on the same
+// Find the band patch that owns one painted row. A region can own several disjoint patches on the same
 // group-top layer, each with its own span (a thin footprint that could not be merged is left as a
-// single-layer band). The paint belongs to exactly one of them, so the band has to be chosen by
-// containment. Layer::effective_print_height() is the tallest band of the whole layer and would mis-classify
-// paint that belongs to a shorter band - or to a region that is not merged at all, which used to print the
-// same 0.1 mm layer twice and looked like overlapping passes.
+// single-layer band), and a row can be split between them by the occupancy of the neighbouring colours.
+// Requiring one patch to cover the whole row therefore missed exactly the split rows and fell back to
+// per-grid-layer passes, which put two colours inside one background layer. Pick the patch that owns most
+// of the row instead; on a tie prefer a real merged band over a single-layer marker.
 LocalZRowBand local_z_row_band(const Layer &layer, const ExPolygons &row_mask, size_t layer_index)
 {
     LocalZRowBand result;
     if (row_mask.empty())
         return result;
+
+    const double row_area = ::Slic3r::area(row_mask);
+    if (row_area <= 0.)
+        return result;
+
+    double best_overlap = -1.;
     for (const LayerRegion *region : layer.regions()) {
         for (const AdaptiveMergePatch &patch : region->adaptive_merge_patches) {
             if (! patch.group_top || patch.area().empty() || patch.top_idx != layer_index)
                 continue;
-            if (! local_z_mask_covered_by_band(row_mask, patch.area()))
+            const ExPolygons overlap = intersection_ex(row_mask, patch.area());
+            if (overlap.empty())
                 continue;
-            if (! result.found || patch.merged_height < result.height) {
+            const double overlap_area = ::Slic3r::area(overlap);
+            if (overlap_area <= 0.)
+                continue;
+            const bool merged         = patch.merged_height > layer.height + EPSILON;
+            const bool current_merged = result.found && result.height > layer.height + EPSILON;
+            // Incidental contact with a big neighbouring band must not steal the row.
+            if (merged && overlap_area < row_area * 0.01)
+                continue;
+            const bool larger_overlap = overlap_area > best_overlap + 1e-6;
+            const bool tied_overlap   = std::abs(overlap_area - best_overlap) <= 1e-6;
+            if (! result.found || larger_overlap ||
+                (tied_overlap &&
+                 ((merged && ! current_merged) ||
+                  (merged == current_merged && patch.merged_height > result.height)))) {
                 result.found      = true;
                 result.height     = patch.merged_height;
                 result.bottom_idx = patch.bottom_idx;
                 result.top_idx    = patch.top_idx;
+                best_overlap      = overlap_area;
             }
         }
     }
     return result;
-}
-
-// Append the passes planned for one gradient row without rebuilding them for a band. Used when the paint
-// belongs to a single-layer band, where rebuilding by a band height would double the material.
-void append_local_z_row_passes(const PrintObject &print_object, const LocalZInterval &interval,
-                               const std::vector<size_t> &row_plans, std::vector<LocalZPassSpan> &spans)
-{
-    const std::vector<SubLayerPlan> &plans = print_object.local_z_sublayer_plan();
-    for (size_t plan_idx : row_plans) {
-        const SubLayerPlan &plan = plans[plan_idx];
-        if (! plan.split_interval || plan.flow_height <= EPSILON)
-            continue;
-        if (plan.z_lo < interval.z_lo - 1e-4 || plan.print_z > interval.z_hi + 1e-4)
-            continue;
-        spans.push_back(LocalZPassSpan{ plan_idx, plan.print_z, plan.flow_height });
-    }
 }
 
 // Rebuild the passes of a merged band. Every gradient row painted on the band becomes a run of consecutive
@@ -4519,7 +4510,6 @@ bool build_local_z_band_passes(const PrintObject &print_object, const Layer &lay
             rows[plans[plan_idx].dependency_group].push_back(plan_idx);
 
     std::vector<LocalZPassSpan> band_spans;
-    bool                        appended = false;
     for (auto &row : rows) {
         std::vector<size_t> &row_plans = row.second;
         if (row_plans.size() < 2)
@@ -4537,44 +4527,60 @@ bool build_local_z_band_passes(const PrintObject &print_object, const Layer &lay
         const ExPolygons row_mask = local_z_plan_paint_mask(bottom_plan);
         const LocalZRowBand row_band = local_z_row_band(layer, row_mask, layer_index);
         if (! row_band.found || row_band.height <= layer.height + EPSILON) {
-            // Single-layer band (or paint outside every band): keep the per grid layer pass heights. Re-cutting
-            // by a band height here would print the same grid layer twice.
-            const size_t before = spans.size();
-            append_local_z_row_passes(print_object, interval, row_plans, spans);
-            appended = appended || spans.size() > before;
+            // No real merged band owns this row (a single-layer marker or paint outside every band).
+            // In multi nozzle diameter mode a grid layer is already one printed layer: keeping the
+            // per-grid-layer passes would split it into two sub-grid colours, which is what put two
+            // colours inside one background layer. Leave the row to its normal resolved geometry.
             if (local_z_debug_enabled())
                 std::cerr << "[localz-band] layer=" << layer_index << " z=" << band_top << " row=" << row.first
-                          << " band=" << (row_band.found ? row_band.height : 0.) << " -> ordinary passes\n";
+                          << " band=" << (row_band.found ? row_band.height : 0.) << " -> single resolved colour\n";
             continue;
         }
 
         std::vector<double> boundaries;
-        if (! local_z_band_boundaries(print_object, row_band.bottom_idx, row_band.top_idx, row_band.height, boundaries)) {
-            const size_t before = spans.size();
-            append_local_z_row_passes(print_object, interval, row_plans, spans);
-            appended = appended || spans.size() > before;
+        if (! local_z_band_boundaries(print_object, row_band.bottom_idx, row_band.top_idx, row_band.height, boundaries))
             continue;
-        }
         const double band_height = row_band.height;
 
         const double requested_sum = bottom_plan.flow_height + top_plan.flow_height;
-        if (requested_sum <= EPSILON) {
-            const size_t before = spans.size();
-            append_local_z_row_passes(print_object, interval, row_plans, spans);
-            appended = appended || spans.size() > before;
+        if (requested_sum <= EPSILON)
             continue;
-        }
-        const double requested_bottom = band_height * (bottom_plan.flow_height / requested_sum);
+        // The planner stores the blend ratio before its single-grid-layer pass heights are clamped.
+        // Rescale that ratio to the band height; the clamped grid-layer heights would otherwise
+        // always be a 50/50 split on a two-layer band.
+        const double requested_bottom = top_plan.gradient_ratio_a > EPSILON
+            ? band_height * (1.0 - double(top_plan.gradient_ratio_a))
+            : band_height * (bottom_plan.flow_height / requested_sum);
 
         double lo_bottom = 0., hi_bottom = 0., lo_top = 0., hi_top = 0.;
         nozzle_bounds(bottom_extruder, lo_bottom, hi_bottom);
         nozzle_bounds(top_extruder, lo_top, hi_top);
+        const double band_bottom = band_top - band_height;
+
+        // The passes are area masks, so the split does not have to land on a grid boundary. Any Z
+        // inside the user's Local-Z height window is printable, which is what lets the blend ratio
+        // follow the height instead of collapsing onto the single 0.1/0.1 boundary of a two-layer
+        // band. These are the same bounds build_local_z_plan() uses for a single-diameter layer.
+        const double split_lo = std::max(config_lo, band_height - config_hi);
+        const double split_hi = std::min(config_hi, band_height - config_lo);
+        if (split_lo <= split_hi + EPSILON) {
+            const double split = std::clamp(requested_bottom, split_lo, split_hi);
+            if (split > EPSILON && band_height - split > EPSILON) {
+                band_spans.push_back({ row_plans.front(), band_bottom + split, split });
+                band_spans.push_back({ row_plans.back(), band_top, band_height - split });
+                if (local_z_debug_enabled())
+                    std::cerr << "[localz-band] layer=" << layer_index << " z=" << band_top << " row=" << row.first
+                              << " band=" << band_height << " split=" << split << " ratio="
+                              << (1.0 - split / band_height) << "\n";
+                continue;
+            }
+        }
 
         bool   found         = false;
         size_t best_boundary = 0;
         double best_distance = std::numeric_limits<double>::max();
-        // Candidate splits are the internal grid boundaries. Each side must be splittable into passes that
-        // fit its own nozzle window; the split closest to the requested ratio wins.
+        // Fallback for bands too tall for a single pass on each side: cover them with grid-aligned
+        // passes, each side still inside its own nozzle window.
         const size_t layer_count = boundaries.size() - 1;
         for (size_t k = 1; k < layer_count; ++k) {
             if (! local_z_share_splittable(boundaries, 0, k, lo_bottom, hi_bottom) ||
@@ -4601,14 +4607,13 @@ bool build_local_z_band_passes(const PrintObject &print_object, const Layer &lay
                       << " band=" << band_height << " span=[" << row_band.bottom_idx << "," << row_band.top_idx
                       << "] split=" << best_boundary << "/" << layer_count << "\n";
 
-        const double band_bottom = band_top - band_height;
         append_local_z_share_passes(boundaries, 0, best_boundary, hi_bottom, band_bottom,
                                     row_plans.front(), band_spans);
         append_local_z_share_passes(boundaries, best_boundary, layer_count, hi_top, band_bottom,
                                     row_plans.back(), band_spans);
     }
     if (band_spans.empty())
-        return appended;
+        return false;
 
     // Print bottom up. Rows never overlap in XY, so passes of different rows may share a Z.
     std::sort(band_spans.begin(), band_spans.end(), [](const LocalZPassSpan &lhs, const LocalZPassSpan &rhs) {
@@ -4649,6 +4654,11 @@ bool resolve_local_z_layer_passes(const Layer &layer, const PrintObject &print_o
     const double band_top           = layer.print_z;
     const double band_merged_height = layer.effective_print_height();
     if (band_merged_height <= layer.height + EPSILON) {
+        // Multi nozzle diameter: a grid layer that no band swallowed is one printed layer. Splitting
+        // it into two sub-grid Local-Z passes would put two colours inside one background layer and
+        // leave the seam the background filament shows through, so print its resolved colour whole.
+        if (print_object.print()->uses_multiple_nozzle_diameters())
+            return false;
         // Ordinary layer: emit the passes planned for it.
         if (own_interval == nullptr || !own_interval->has_mixed_paint)
             return false;
