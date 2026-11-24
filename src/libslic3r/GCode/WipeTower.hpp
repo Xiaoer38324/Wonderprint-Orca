@@ -411,7 +411,8 @@ public:
     // Concatenate the sub-pass results into one ToolChangeResult that reports the full tower layer.
     ToolChangeResult   concat_subpass_tcrs(std::vector<ToolChangeResult> &passes, float print_z, float layer_height);
     bool               subpass_is_last() const { return m_subpass_index + 1 >= m_subpass_count; }
-    void toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinates &cleaning_box, float wipe_length,bool solid_toolchange=false);
+    void toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinates &cleaning_box, float wipe_length,bool solid_toolchange=false,
+                             float extra_extrusion_mm = 0.f);
     Vec2f              get_rib_offset() const { return m_rib_offset; }
 
 private:
@@ -504,6 +505,9 @@ private:
 
 	// Extruder specific parameters.
     std::vector<FilamentParameters> m_filpar;
+    // First appearance of a tool on the tower: toolchangers do not run a filament load (no E10), so the
+    // first wipe line gets a small extra extrusion to fill the cavity left by oozing during preheat.
+    std::vector<unsigned char>      m_tool_appeared;
 
     // -- Multi nozzle diameter tool helpers ------------------------------------------------
     // Nozzle diameter of one filament slot (0.4 when the slot is unknown).

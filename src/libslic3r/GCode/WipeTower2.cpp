@@ -788,6 +788,18 @@ public:
 	WipeTowerWriter2& travel(const Vec2f &dest, float f = 0.f) 
 		{ return extrude_explicit(dest.x(), dest.y(), 0.f, f); }
 
+    // Fast travel between tower blocks: a short retract, F30000 and a deretract. Without this the
+    // oozing filament after CP TOOLCHANGE END catches the tower on the next move.
+    WipeTowerWriter2& fast_travel(const Vec2f &dest, float retract_len = 0.4f)
+    {
+        if (retract_len > 0.f)
+            load(-retract_len, 1800.f);
+        travel(dest, 30000.f);
+        if (retract_len > 0.f)
+            load(retract_len, 1800.f);
+        return *this;
+    }
+
 	// Extrude a line from current position to x, y with the extrusion amount given by m_extrusion_flow.
 	WipeTowerWriter2& extrude(float x, float y, float f = 0.f)
 	{
@@ -1480,6 +1492,7 @@ void WipeTower2::set_extruder(size_t idx, const PrintConfig& config)
     }
 
     m_used_filament_length.resize(std::max(m_used_filament_length.size(), idx + 1)); // makes sure that the vector is big enough so we don't have to check later
+    m_tool_appeared.resize(std::max(m_tool_appeared.size(), idx + 1), 0);
 
     m_filpar[idx].retract_length = config.retraction_length.get_at(idx);
     m_filpar[idx].retract_speed  = config.retraction_speed.get_at(idx);
@@ -1634,6 +1647,13 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
     // Multi nozzle diameter: ramming uses the old nozzle's width, the purge wipe the new one, and the
     // layer is built as k vertical sub-passes when it is thicker than the new nozzle's maximum bead.
     const size_t new_tool    = tool != (unsigned int)(-1) ? tool : old_tool;
+    // A toolchanger does not run a filament load (no E10) the first time a nozzle appears, so its first
+    // wipe line is under-extruded by the oozing during preheat. Add a small extra extrusion there.
+    const bool  first_appearance = tool != (unsigned int)(-1) && new_tool < m_tool_appeared.size() &&
+                                   m_tool_appeared[new_tool] == 0;
+    if (new_tool < m_tool_appeared.size())
+        m_tool_appeared[new_tool] = 1;
+    const float first_wipe_extra = (first_appearance && !m_semm) ? 0.75f : 0.f;
     const float  saved_width = m_perimeter_width;
     const float  saved_height = m_layer_height;
     const float  saved_flow   = m_extrusion_flow;
@@ -1721,7 +1741,18 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
         m_extrusion_flow  = tool_extrusion_flow(new_tool, layer_height);
         writer.set_extrusion_flow(m_extrusion_flow);
         toolchange_Load(writer, cleaning_box);
-        writer.travel(writer.x(), writer.y()-m_perimeter_width); // cooling and loading were done a bit down the road
+        // Ramming leaves the nozzle one row above the strip start ("a bit down the road"), which the
+        // back-off below compensates. Without ramming the unload/load block did not move the nozzle at all:
+        // start the strip at the cleaning box origin, half a bead above the reserved depth, exactly as
+        // make_toolchange() planned it. Reusing the ramming offset shifted every purge row upwards by more
+        // than half a line width (the offset was even computed with the old tool's width) and pushed the
+        // last row into the sparse fill.
+        const bool do_ramming = (m_semm && m_enable_filament_ramming) || m_filpar[old_tool].multitool_ramming;
+        if (do_ramming)
+            writer.fast_travel(Vec2f(writer.x(), writer.y() - m_perimeter_width));
+        else
+            writer.fast_travel(Vec2f(cleaning_box.ld.x(),
+                                     cleaning_box.ld.y() + m_depth_traversed + 0.5f * m_perimeter_width * m_extra_flow));
         int base_temp = is_first_layer() ? m_filpar[tool].first_layer_temperature : m_filpar[tool].temperature;
         if (interface_layer) {
             int interface_temp = m_filpar[tool].interface_print_temperature;
@@ -1762,7 +1793,8 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
             writer.travel_z(m_z_pos + m_z_offset)
                   .change_analyzer_layer_height(sub_height)
                   .change_analyzer_line_width(m_perimeter_width);
-            toolchange_Wipe(writer, cleaning_box, wipe_volume / float(subpasses), interface_layer);     // Wipe the newly loaded filament until the end of the assigned wipe area.
+            toolchange_Wipe(writer, cleaning_box, wipe_volume / float(subpasses), interface_layer,
+                            m_subpass_index == 0 ? first_wipe_extra : 0.f);     // Wipe the newly loaded filament until the end of the assigned wipe area.
         }
         m_layer_height   = layer_height;
         m_extrusion_flow = saved_flow;
@@ -1831,8 +1863,9 @@ void WipeTower2::set_ramming_pressure_advance(WipeTowerWriter2 &writer)
         return;
     }
 
-    writer.set_pressure_advance(m_wipe_tower_ramming_pressure_advance, pa_tool);
-    writer.append("; Wipe tower pressure advance override\n");
+    // Do not emit a fixed ramming pressure advance (the old fixed ADVANCE=0.06 override was wrong for most
+    // filaments): keep the filament/printer pressure advance active on the tower ramming moves.
+    return;
 }
 
 // Ram the hot material out of the melt zone, retract the filament into the cooling tubes and let it cool.
@@ -2043,8 +2076,11 @@ void WipeTower2::toolchange_Unload(
     Vec2f pos = Vec2f(end_of_ramming.x(), end_of_ramming.y() + (y_step/m_extra_spacing_ramming-m_perimeter_width) / 2.f + m_perimeter_width);
     if (do_ramming)
         writer.travel(pos, 2400.f);
-    else
-        writer.set_position(pos);
+    else {
+        // Without ramming nothing moved the nozzle inside the strip: put it back to the strip origin. The
+        // y-step above only belongs to the ramming rows and must not shift the purge rows upwards.
+        writer.set_position(Vec2f(cleaning_box.ld.x(), cleaning_box.ld.y() + m_depth_traversed));
+    }
 
     writer.resume_preview()
           .flush_planner_queue();
@@ -2123,7 +2159,8 @@ void WipeTower2::toolchange_Wipe(
 	WipeTowerWriter2 &writer,
 	const WipeTower::box_coordinates  &cleaning_box,
 	float wipe_volume,
-    bool interface_layer)
+    bool interface_layer,
+    float extra_extrusion_mm)
 {
 	// Increase flow on first layer, slow down print.
     writer.set_extrusion_flow(m_extrusion_flow * (is_first_layer() ? 1.18f : 1.f))
@@ -2148,6 +2185,9 @@ void WipeTower2::toolchange_Wipe(
     // Multi nozzle diameter: clamp the wipe speed to this tool's max volumetric speed at the current bead.
     if (m_extrusion_flow > WT_EPSILON && m_current_tool < m_filpar.size())
         target_speed = std::min(target_speed, 60.f * m_filpar[m_current_tool].max_e_speed / m_extrusion_flow);
+    // Wide/flat beads (large nozzle, thin layer) cannot be wiped fast without tearing the bead.
+    if (m_layer_height > WT_EPSILON && line_width / m_layer_height > 4.0f)
+        target_speed = std::min(target_speed, 2400.f);
     float wipe_speed = 0.33f * target_speed;
 
     // if there is less than 2.5*line_width to the edge, advance straightaway (there is likely a blob anyway)
@@ -2174,12 +2214,28 @@ void WipeTower2::toolchange_Wipe(
 		else
             writer.extrude(xl + (i % 4 == 1 ? 0 : 1.5f*line_width), writer.y(), wipe_speed);
 
+        // First appearance of a toolchanger nozzle: top up the first line to compensate the oozing that
+        // happened during preheat (there was no E10 load to prime the nozzle). Deposit it along a short
+        // segment of the same line so it does not create a single blob.
+        if (i == 0 && extra_extrusion_mm > 0.f) {
+            const Vec2f end = writer.pos();
+            const float dir = m_left_to_right ? -1.f : 1.f;
+            const float back = std::min(5.0f, std::abs(end.x() - (m_left_to_right ? xl : xr)));
+            if (back > 0.1f) {
+                writer.travel(end + Vec2f(dir * back, 0.f), 30000.f);
+                writer.extrude_explicit(end.x(), end.y(), extra_extrusion_mm, wipe_speed, false, false);
+            }
+        }
+
         if (i == 0 && do_ironing && ironing_area > 0.f) {
             writer.travel(writer.x(), writer.y(), 600.f);
             writer.spiral_flat_ironing(writer.pos(), ironing_area, m_perimeter_width, 10.f * 60.f);
         }
 
-        if (writer.y()+float(EPSILON) > cleaning_box.lu.y()-0.5f*line_width)
+        // Test the row that is about to be printed, not the one already on the tower: otherwise the row
+        // that crosses the top of the cleaning box is still printed and the purge strips spill into the
+        // sparse fill of the next layer.
+        if (writer.y() + dy + float(EPSILON) > cleaning_box.lu.y() - 0.5f*line_width)
             break;		// in case next line would not fit
 
 		traversed_x -= writer.x();
@@ -2340,7 +2396,7 @@ WipeTower::ToolChangeResult WipeTower2::finish_layer_single()
     float right = fill_box.ru.x() - 2 * m_perimeter_width;
     if (dy > m_perimeter_width)
     {
-        writer.travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
+        writer.fast_travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
             .append(";--------------------\n"
                     "; CP EMPTY GRID START\n")
             .comment_with_value(" layer #", m_num_layer_changes + 1);
@@ -2587,8 +2643,15 @@ WipeTower2::WipeTowerInfo::ToolChange WipeTower2::make_toolchange(unsigned int o
     // Orca: Set ramming depth to 0 if ramming is disabled.
     float ramming_depth = do_ramming ? ((int(length_to_extrude / width) + 1) * (ramming_width * m_filpar[old_tool].ramming_step_multiplicator) * m_extra_spacing_ramming) : 0;
     float first_wipe_line = - (width*((length_to_extrude / width)-int(length_to_extrude / width)) - width);
+    if (! do_ramming) {
+        // The partial first wipe line only exists when a ramming sequence stopped in the middle of the
+        // strip. Without ramming the wipe starts at the left edge of the cleaning box and its first row is
+        // a full line, so reserving the partial volume under-sizes the strip by up to one row and pushes
+        // the last row into the sparse fill.
+        first_wipe_line = 0.f;
+    }
 
-    float first_wipe_volume = length_to_volume(first_wipe_line, new_tool_width * m_extra_flow, layer_height_par);
+    float first_wipe_volume = do_ramming ? length_to_volume(first_wipe_line, new_tool_width * m_extra_flow, layer_height_par) : 0.f;
 
     // ORCA: Keep wipe-depth planning consistent with toolchange_Wipe().
     // ORCA: On the first layer, toolchange_Wipe() advances purge rows using
@@ -2720,6 +2783,10 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
 	if (m_plan.empty())
         return;
 
+    // The depth post-pass below simulates toolchanges; do not let it consume the "first appearance" flags
+    // that drive the first-wipe extrusion compensation in the real generation.
+    std::fill(m_tool_appeared.begin(), m_tool_appeared.end(), 0);
+
 	plan_tower();
 #if 1
     // The depth post-pass measures a single full-height layer; with mixed nozzle diameters the generation
@@ -2732,6 +2799,10 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
         }
     }
 #endif
+
+    // save_on_last_wipe() above simulates toolchanges; reset the flags so the real generation still
+    // applies the first-appearance compensation.
+    std::fill(m_tool_appeared.begin(), m_tool_appeared.end(), 0);
 
     m_rib_length = std::max({m_rib_length, sqrt(m_wipe_tower_depth * m_wipe_tower_depth + m_wipe_tower_width * m_wipe_tower_width)});
     m_rib_length += m_extra_rib_length;
@@ -2749,6 +2820,12 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
             break;
         }
     }
+
+    // The initial tool already printed on this plate (it was primed by the start G-code), so its first
+    // re-selection in the tower is not a "first appearance". Without this, the toolchange that switches
+    // back to the starting tool adds the ooze compensation on a nozzle that is already primed.
+    if (m_current_tool < m_tool_appeared.size())
+        m_tool_appeared[m_current_tool] = 1;
 
     m_used_filament_length.assign(m_used_filament_length.size(), 0.f); // reset used filament stats
     assert(m_used_filament_length_until_layer.empty());

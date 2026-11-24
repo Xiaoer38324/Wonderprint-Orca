@@ -1126,10 +1126,11 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
 
         std::string tcr_rotated_gcode = post_process_wipe_tower_moves(tcr, wipe_tower_offset, wipe_tower_rotation);
 
-        gcode += gcodegen.writer().unlift(); // Make sure there is no z-hop (in most cases, there isn't).
-
-        double current_z = gcodegen.writer().get_position().z();
-
+        // The writer may still hold the z-hop of the retraction that ended the last extrusion / the last
+        // layer. Work with the nominal Z (the Z without the hop) so the tower layer Z is not shifted by it,
+        // but keep the hop active while travelling: lowering the nozzle back to the layer Z above the model
+        // is exactly what used to burn / catch the model on every toolchange.
+        const double current_z = gcodegen.writer().get_position().z() - gcodegen.writer().get_zhop();
 
         if (z == -1.) // in case no specific z was provided, print at current_z pos
             z = current_z;
@@ -1139,27 +1140,47 @@ static std::vector<Vec2d> get_path_of_change_filament(const Print& print)
         const bool is_ramming       = (gcodegen.config().single_extruder_multi_material) ||
                                 (!gcodegen.config().single_extruder_multi_material &&
                                  gcodegen.config().filament_multitool_ramming.get_at(tcr.initial_tool));
-        const bool should_travel_to_tower = !tcr.priming && (tcr.force_travel     // wipe tower says so
-                                                             || !needs_toolchange // this is just finishing the tower with no toolchange
-                                                             || will_go_down // Make sure to move to prime tower before moving down
-                                                             || is_ramming);
+        // A toolchange has to run its gcode (CP TOOLCHANGE UNLOAD, the dwell and the Tn command) over the
+        // wipe tower, never above the model. The old "change the tool in place" shortcut for multiextruder
+        // printers without ramming was taken whenever the tower layer Z matched the model layer Z, so the
+        // hot nozzle was parked on the model for every single toolchange. Priming is the only case that is
+        // executed elsewhere: it runs at the start of the print, where the head is not above the model.
+        const bool should_travel_to_tower = !tcr.priming;
+        // The wipe tower extrudes before the change only when the old filament is rammed (single extruder
+        // multi material / multitool ramming). A plain toolchange does not touch the filament until
+        // set_extruder() retracts it, so the head can stay retracted while it travels: unretracting here
+        // would push ~0.8 mm of filament into the melt zone and leave a blob exactly where the head waits
+        // for the change (very visible with a 0.2 mm nozzle).
+        const bool extrude_before_change = !needs_toolchange || is_ramming;
 
         if (should_travel_to_tower || gcodegen.m_need_change_layer_lift_z) {
-            // FIXME: It would be better if the wipe tower set the force_travel flag for all toolchanges,
-            // then we could simplify the condition and make it more readable.
             gcode += gcodegen.retract();
             gcodegen.m_avoid_crossing_perimeters.use_external_mp_once();
-            gcode += gcodegen.travel_to(wipe_tower_point_to_object_point(gcodegen, start_pos + plate_origin_2d), erMixed, "Travel to a Wipe Tower");
-            gcode += gcodegen.unretract();
+            // Do not let a pending change-layer lift force the head down during this travel: cross to the
+            // tower at the hop height and restore the layer Z only once the nozzle is above the tower.
+            gcodegen.m_need_change_layer_lift_z = false;
+            gcode += gcodegen.travel_to(wipe_tower_point_to_object_point(gcodegen, start_pos + plate_origin_2d), erMixed,
+                                        "Travel to a Wipe Tower", current_z);
+            // Now above the tower: unlift() cancels the z-hop and any pending lazy lift, then a forced move
+            // covers the case where travel_to() already consumed the lift bookkeeping while the head was
+            // still at the hop height. Both must happen here, never above the model.
+            gcode += gcodegen.writer().unlift();
+            if (!is_approx(gcodegen.writer().get_position().z(), current_z))
+                gcode += gcodegen.writer().travel_to_z(current_z, "Restore layer Z above the wipe tower", true);
+            // Descend to the tower layer while still retracted, so nothing oozes on the tower top.
+            if (will_go_down)
+                gcode += gcodegen.writer().travel_to_z(z, "Travel down to the last wipe tower layer.");
+            if (extrude_before_change)
+                gcode += gcodegen.unretract();
         } else {
-            // When this is multiextruder printer without any ramming, we can just change
-            // the tool without travelling to the tower.
-        }
-
-        if (will_go_down) {
-            gcode += gcodegen.writer().retract();
-            gcode += gcodegen.writer().travel_to_z(z, "Travel down to the last wipe tower layer.");
-            gcode += gcodegen.writer().unretract();
+            // Priming: the head is where the start G-code left it (never above the model), so there is
+            // nothing to travel to, but the Z-hop still has to be resolved.
+            gcode += gcodegen.writer().unlift();
+            if (will_go_down) {
+                gcode += gcodegen.writer().retract();
+                gcode += gcodegen.writer().travel_to_z(z, "Travel down to the last wipe tower layer.");
+                gcode += gcodegen.writer().unretract();
+            }
         }
 
         std::string toolchange_gcode_str;

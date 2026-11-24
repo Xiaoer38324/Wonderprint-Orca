@@ -793,6 +793,18 @@ public:
 	WipeTowerWriter& travel(const Vec2f &dest, float f = 0.f)
 		{ return extrude_explicit(dest.x(), dest.y(), 0.f, f); }
 
+    // Fast travel between tower blocks: a short retract, F30000 and a deretract. Without this the
+    // oozing filament after CP TOOLCHANGE END catches the tower on the next move.
+    WipeTowerWriter& fast_travel(const Vec2f &dest, float retract_len = 0.4f)
+    {
+        if (retract_len > 0.f)
+            load(-retract_len, 1800.f);
+        travel(dest, 30000.f);
+        if (retract_len > 0.f)
+            load(retract_len, 1800.f);
+        return *this;
+    }
+
 	// Extrude a line from current position to x, y with the extrusion amount given by m_extrusion_flow.
 	WipeTowerWriter& extrude(float x, float y, float f = 0.f)
 	{
@@ -1660,6 +1672,7 @@ void WipeTower::set_extruder(size_t idx, const PrintConfig& config)
 #endif
 
     m_used_filament_length.resize(std::max(m_used_filament_length.size(), idx + 1)); // makes sure that the vector is big enough so we don't have to check later
+    m_tool_appeared.resize(std::max(m_tool_appeared.size(), idx + 1), 0);
 
     m_filpar[idx].retract_length = config.retraction_length.get_at(idx);
     m_filpar[idx].retract_speed  = config.retraction_speed.get_at(idx);
@@ -2404,7 +2417,7 @@ WipeTower::ToolChangeResult WipeTower::finish_layer(bool extrude_perimeter, bool
     std::vector<Vec2f> finish_rect_wipe_path;
     if (extruder_fill && dy > m_perimeter_width)
     {
-        writer.travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
+        writer.fast_travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
               .append(";--------------------\n"
                       "; CP EMPTY GRID START\n")
               .comment_with_value(" layer #", m_num_layer_changes + 1);
@@ -2846,6 +2859,12 @@ WipeTower::ToolChangeResult WipeTower::tool_change_new(size_t new_tool, bool sol
     // Multi nozzle diameter: print the purge strip with the nozzle of the incoming tool and split it into
     // vertical sub-passes when the tower layer is thicker than that nozzle's maximum bead.
     const size_t subpass_tool = new_tool < m_filpar.size() ? new_tool : m_current_tool;
+    // A toolchanger does not run a filament load (no E10) the first time a nozzle appears, so its first
+    // wipe line is under-extruded by the oozing during preheat. Add a small extra extrusion there.
+    const bool  first_appearance = new_tool < m_tool_appeared.size() && m_tool_appeared[new_tool] == 0;
+    if (new_tool < m_tool_appeared.size())
+        m_tool_appeared[new_tool] = 1;
+    const float first_wipe_extra = (first_appearance && !m_semm) ? 0.75f : 0.f;
     const float  saved_width  = m_perimeter_width;
     const float  saved_height = m_layer_height;
     const float  saved_flow   = m_extrusion_flow;
@@ -3008,7 +3027,8 @@ WipeTower::ToolChangeResult WipeTower::tool_change_new(size_t new_tool, bool sol
             writer.travel_z(m_z_pos + m_z_offset)
                   .change_analyzer_layer_height(sub_height)
                   .change_analyzer_line_width(m_perimeter_width);
-            toolchange_wipe_new(writer, cleaning_box, wipe_length, solid_toolchange);
+            toolchange_wipe_new(writer, cleaning_box, wipe_length, solid_toolchange,
+                                m_subpass_index == 0 ? first_wipe_extra : 0.f);
         }
         m_layer_height   = layer_height;
         m_extrusion_flow = saved_flow;
@@ -3216,7 +3236,7 @@ WipeTower::ToolChangeResult WipeTower::finish_layer_new_single(bool extrude_peri
     float              left  = fill_box.lu.x() + 2 * m_perimeter_width;
     float              right = fill_box.ru.x() - 2 * m_perimeter_width;
     if (extrude_fill && dy > m_perimeter_width) {
-        writer.travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
+        writer.fast_travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
             .append(";--------------------\n"
                     "; CP EMPTY GRID START\n")
             .comment_with_value(" layer #", m_num_layer_changes + 1);
@@ -3519,7 +3539,7 @@ WipeTower::ToolChangeResult WipeTower::finish_block_single(const WipeTowerBlock 
     float              left  = fill_box.lu.x() + 2 * m_perimeter_width;
     float              right = fill_box.ru.x() - 2 * m_perimeter_width;
     if (extrude_fill && dy > m_perimeter_width) {
-        writer.travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
+        writer.fast_travel(fill_box.ld + Vec2f(m_perimeter_width * 2, 0.f))
             .append(";--------------------\n"
                     "; CP EMPTY GRID START\n")
             .comment_with_value(" layer #", m_num_layer_changes + 1);
@@ -3698,7 +3718,8 @@ WipeTower::ToolChangeResult WipeTower::finish_block_solid_single(const WipeTower
     return construct_block_tcr(writer, false, filament_id, true, 0.f);
 }
 
-void WipeTower::toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinates &cleaning_box, float wipe_length,bool solid_tool_toolchange)
+void WipeTower::toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinates &cleaning_box, float wipe_length,bool solid_tool_toolchange,
+                                    float extra_extrusion_mm)
 {
     writer.set_extrusion_flow(m_extrusion_flow * (is_first_layer() ? 1.15f : 1.f)).append("; CP TOOLCHANGE WIPE\n");
 
@@ -3730,6 +3751,9 @@ void WipeTower::toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinat
     // Clamp to this tool's max volumetric speed at the current bead height.
     if (m_extrusion_flow > WT_EPSILON && m_current_tool < m_filpar.size())
         target_speed = std::min(target_speed, 60.f * m_filpar[m_current_tool].max_e_speed / m_extrusion_flow);
+    // Wide/flat beads (large nozzle, thin layer) cannot be wiped fast without tearing the bead.
+    if (m_layer_height > WT_EPSILON && m_perimeter_width / m_layer_height > 4.0f)
+        target_speed = std::min(target_speed, 2400.f);
     float       wipe_speed   = 0.33f * target_speed;
 
     m_left_to_right = ((m_cur_layer_id + 3) % 4 >= 2);
@@ -3794,6 +3818,19 @@ void WipeTower::toolchange_wipe_new(WipeTowerWriter &writer, const box_coordinat
                 writer.extrude(xr + wipe_tower_wall_infill_overlap * m_perimeter_width, writer.y(), wipe_speed);
             else
                 writer.extrude(xl - wipe_tower_wall_infill_overlap * m_perimeter_width, writer.y(), wipe_speed);
+        }
+
+        // First appearance of a toolchanger nozzle: top up the first line to compensate the oozing that
+        // happened during preheat (there was no E10 load to prime the nozzle). Deposit it along a short
+        // segment of the same line so it does not create a single blob.
+        if (i == 0 && extra_extrusion_mm > 0.f) {
+            const Vec2f end = writer.pos();
+            const float dir = m_left_to_right ? -1.f : 1.f;
+            const float back = std::min(5.0f, std::abs(end.x() - (m_left_to_right ? xl : xr)));
+            if (back > 0.1f) {
+                writer.travel(end + Vec2f(dir * back, 0.f), 30000.f);
+                writer.extrude_explicit(end.x(), end.y(), extra_extrusion_mm, wipe_speed, false, false);
+            }
         }
 
         // BBS: recover the flow in non-bridging area
@@ -4189,6 +4226,9 @@ void WipeTower::generate_new(std::vector<std::vector<WipeTower::ToolChangeResult
 {
     if (m_plan.empty())
         return;
+    // The "first appearance" flags drive the ooze compensation of the first wipe line. Generation runs
+    // once, but reset them so a repeated call starts from a clean state.
+    std::fill(m_tool_appeared.begin(), m_tool_appeared.end(), 0);
     // Planning always runs with the widest participating nozzle; the generation routines below switch to
     // the current tool's own width and restore this value afterwards.
     m_perimeter_width = m_plan_perimeter_width;
@@ -4204,6 +4244,11 @@ void WipeTower::generate_new(std::vector<std::vector<WipeTower::ToolChangeResult
             break;
         }
     }
+
+    // The initial tool already printed on this plate (it was primed by the start G-code), so its first
+    // re-selection in the tower is not a "first appearance" (see WipeTower2::generate()).
+    if (m_current_tool < m_tool_appeared.size())
+        m_tool_appeared[m_current_tool] = 1;
 
     for (auto &used : m_used_filament_length) // reset used filament stats
         used = 0.f;

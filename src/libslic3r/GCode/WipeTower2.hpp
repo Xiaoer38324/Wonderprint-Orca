@@ -294,6 +294,9 @@ private:
 
 	// Extruder specific parameters.
     std::vector<FilamentParameters> m_filpar;
+    // First appearance of a tool on the tower: toolchangers do not run a filament load (no E10), so the
+    // first wipe line gets a small extra extrusion to fill the cavity left by oozing during preheat.
+    std::vector<unsigned char>      m_tool_appeared;
 
     // -- Multi nozzle diameter tool helpers ------------------------------------------------
     float tool_nozzle_diameter(size_t tool) const
@@ -464,7 +467,8 @@ private:
 		WipeTowerWriter2 &writer,
 		const WipeTower::box_coordinates  &cleaning_box,
 		float wipe_volume,
-        bool interface_layer);
+        bool interface_layer,
+        float extra_extrusion_mm = 0.f);
 
 
     Polygon generate_support_rib_wall(WipeTowerWriter2&                 writer,
