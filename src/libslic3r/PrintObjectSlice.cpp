@@ -1439,6 +1439,7 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
             const size_t                num_physical = print_object.print()->config().filament_colour.size();
             const size_t                num_channels = mixed_mgr.total_filaments(num_physical);
             const bool                  local_z_enabled =
+                !print_object.print()->uses_multiple_nozzle_diameters() && 
                 mixed_mgr.local_z_gradient_enabled(print_cfg.dithering_local_z_mode.value) &&
                 (!print_cfg.enable_prime_tower.value ||
                  (print_object.print()->wipe_tower_type() == WipeTowerType::Type2 &&
