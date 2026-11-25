@@ -1564,7 +1564,6 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
         (!print_cfg.enable_prime_tower.value ||
          (print_object.print()->wipe_tower_type() == WipeTowerType::Type2 &&
           print_cfg.print_sequence == PrintSequence::ByLayer));
-    const bool                  local_z_enabled = ! multi_diameter && local_z_gradient_active;
 
     // Multi nozzle diameter: a merged band prints on its top grid layer only, so the Colour
     // Mixing cadence has to be evaluated per printed band instead of per slicing grid layer.
@@ -1586,7 +1585,7 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, segmentation.size(), std::max(segmentation.size() / 128, size_t(1))),
         [&print_object, &segmentation, &mixed_mgr, &print_cfg, &mixed_cadence_by_nozzle,
-         num_physical, num_channels, multi_diameter, local_z_enabled, local_z_gradient_active,
+         num_physical, num_channels, multi_diameter, local_z_gradient_active,
          throw_on_cancel](const tbb::blocked_range<size_t> &range) {
             const auto  &layer_ranges   = print_object.shared_regions()->layer_ranges;
             double       z              = print_object.get_layer(int(range.begin()))->slice_z;
@@ -1630,25 +1629,14 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
                         continue;
                     const unsigned int state_id = unsigned(ch) + 1;
                     const MixedFilament *mixed_row = mixed_mgr.mixed_filament_from_id(state_id, num_physical);
-                    const bool local_z_row = local_z_enabled && mixed_row != nullptr &&
+                    // Local-Z prints both components of a gradient row through its sublayer passes, so
+                    // the painted mask is folded onto one physical component exactly like every other
+                    // mixed row. Registering it in both components instead (previous behaviour) left two
+                    // LayerRegions with identical geometry, and the pass clipper in GCode::process_layer()
+                    // clips every region, so each pass extruded the same path twice at the same Z.
+                    const bool local_z_row = ! multi_diameter && local_z_gradient_active && mixed_row != nullptr &&
                         is_simple_gradient(*mixed_row) &&
                         (print_cfg.dithering_local_z_mode.value || mixed_row->local_z_max_sublayers >= 2);
-                    if (local_z_row && layer_id > 0) {
-                        // Local-Z prints both components on this layer. Keep the
-                        // painted mask in both physical regions; collapsing it to
-                        // one component gives the other pass no geometry (the
-                        // long thin stripe / missing-wall artifact).
-                        const unsigned int comps[2] = { mixed_row->component_a, mixed_row->component_b };
-                        for (unsigned int comp : comps) {
-                            if (comp < 1 || comp > num_physical)
-                                continue;
-                            ByExtruder &target = by_extruder[comp - 1];
-                            append(target.expolygons, segmentation[layer_id][ch]);
-                            target.bbox = get_extents(target.expolygons);
-                            layer_split = true;
-                        }
-                        continue;
-                    }
                     unsigned int resolved = 0;
                     // A Local-Z gradient must keep its rectangle as an independent painted
                     // region on every band. If the cadence resolved it to the same physical
@@ -1682,6 +1670,31 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
                         }
                         resolved = mixed_mgr.resolve(state_id, num_physical, cadence_layer,
                                                      float(layer.print_z), float(layer.height));
+                        if (local_z_row && mixed_row != nullptr) {
+                            // Single-diameter Local-Z keeps the gradient patch as an independent painted
+                            // region. When the cadence picks the filament of the surrounding background,
+                            // apply_mm_segmentation() merges the patch into that region, so the patch
+                            // loses its own outline (the "long thin stripe / missing wall" artifact).
+                            // Both components are printed by the Local-Z passes anyway, so fold onto the
+                            // other component instead. Only do this on a layer the planner really splits:
+                            // a layer printed as one resolved colour must keep the cadence colour,
+                            // otherwise the patch would change colour there.
+                            const int parent_filament = mixed_parent_filament(layer, segmentation[layer_id][ch]);
+                            if (resolved >= 1 && int(resolved) == parent_filament) {
+                                bool split_layer = false;
+                                for (const LocalZInterval &interval : print_object.local_z_intervals())
+                                    if (interval.layer_id == layer.id() && interval.sublayer_count > 1) {
+                                        split_layer = true;
+                                        break;
+                                    }
+                                if (split_layer) {
+                                    const unsigned int other = resolved == mixed_row->component_a ?
+                                        mixed_row->component_b : mixed_row->component_a;
+                                    if (other >= 1 && other <= num_physical)
+                                        resolved = other;
+                                }
+                            }
+                        }
                     }
                     if (resolved < 1 || resolved > num_physical)
                         continue;

@@ -48,3 +48,4 @@ internal_docs/
 /flatpak-repo/
 /docs/
 /tools/
+/.tmp_analysis/
