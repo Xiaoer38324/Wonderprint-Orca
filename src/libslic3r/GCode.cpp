@@ -3753,8 +3753,11 @@ void GCode::process_layers(
 {
     // The pipeline is variable: The vase mode filter is optional.
     size_t layer_to_print_idx = 0;
+    // Layer id handed to CoolingBuffer. It counts layers that really emit G-code, so a merged-out
+    // first band layer no longer makes the next layer jump from id 0 to 2.
+    size_t emitted_layer_id = 0;
     const auto generator = tbb::make_filter<void, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-        [this, &print, &tool_ordering, &print_object_instances_ordering, &layers_to_print, &layer_to_print_idx](tbb::flow_control& fc) -> LayerResult {
+        [this, &print, &tool_ordering, &print_object_instances_ordering, &layers_to_print, &layer_to_print_idx, &emitted_layer_id](tbb::flow_control& fc) -> LayerResult {
             if (layer_to_print_idx >= layers_to_print.size()) {
                 if (layer_to_print_idx == layers_to_print.size() + (m_pressure_equalizer ? 1 : 0)) {
                     fc.stop();
@@ -3769,12 +3772,19 @@ void GCode::process_layers(
                 const std::pair<coordf_t, std::vector<LayerToPrint>>& layer = layers_to_print[layer_to_print_idx++];
                 const LayerTools& layer_tools = tool_ordering.tools_for_layer(layer.first);
                 print.set_status(80, Slic3r::format(_(L("Generating G-code: layer %1%")), std::to_string(layer_to_print_idx)));
+                // Always advance when the tool ordering planned a tower layer, even if this model
+                // layer is merged out: the wipe tower plan index must stay aligned with the
+                // tool_changes entries. Planning already drops empty swallowed layers, so this is
+                // normally not reached for them.
                 if (m_wipe_tower && layer_tools.has_wipe_tower)
                     m_wipe_tower->next_layer();
                 //BBS
                 check_placeholder_parser_failed();
                 print.throw_if_canceled();
-                return this->process_layer(print, layer.second, layer_tools, &layer == &layers_to_print.back(), &print_object_instances_ordering, tool_ordering.get_most_used_extruder(), size_t(-1));
+                LayerResult result = this->process_layer(print, layer.second, layer_tools, &layer == &layers_to_print.back(), &print_object_instances_ordering, tool_ordering.get_most_used_extruder(), size_t(-1));
+                if (! result.gcode.empty())
+                    result.layer_id = emitted_layer_id++;
+                return result;
             }
         });
     if (m_spiral_vase) {
@@ -3783,12 +3793,12 @@ void GCode::process_layers(
         this->m_spiral_vase->set_max_xy_smoothing(max_xy_smoothing);
     }
     const auto spiral_mode = tbb::make_filter<LayerResult, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-        [&spiral_mode = *this->m_spiral_vase.get(), &layers_to_print](LayerResult in) -> LayerResult {
+        [&spiral_mode = *this->m_spiral_vase.get()](LayerResult in) -> LayerResult {
         	if (in.nop_layer_result)
                 return in;
                 
             spiral_mode.enable(in.spiral_vase_enable);
-            bool last_layer = in.layer_id == layers_to_print.size() - 1;
+            bool last_layer = in.cooling_buffer_flush;
             return { spiral_mode.process_layer(std::move(in.gcode), last_layer), in.layer_id, in.spiral_vase_enable, in.cooling_buffer_flush};
         });
     const auto pressure_equalizer = tbb::make_filter<LayerResult, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
@@ -3857,8 +3867,9 @@ void GCode::process_layers(
 {
     // The pipeline is variable: The vase mode filter is optional.
     size_t layer_to_print_idx = 0;
+    size_t emitted_layer_id   = 0;
     const auto generator = tbb::make_filter<void, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-        [this, &print, &tool_ordering, &layers_to_print, &layer_to_print_idx, single_object_idx, prime_extruder](tbb::flow_control& fc) -> LayerResult {
+        [this, &print, &tool_ordering, &layers_to_print, &layer_to_print_idx, &emitted_layer_id, single_object_idx, prime_extruder](tbb::flow_control& fc) -> LayerResult {
             if (layer_to_print_idx >= layers_to_print.size()) {
                 if (layer_to_print_idx == layers_to_print.size() + (m_pressure_equalizer ? 1 : 0)) {
                     fc.stop();
@@ -3875,7 +3886,10 @@ void GCode::process_layers(
                 //BBS
                 check_placeholder_parser_failed();
                 print.throw_if_canceled();
-                return this->process_layer(print, { std::move(layer) }, tool_ordering.tools_for_layer(layer.print_z()), &layer == &layers_to_print.back(), nullptr, tool_ordering.get_most_used_extruder(), single_object_idx, prime_extruder);
+                LayerResult result = this->process_layer(print, { std::move(layer) }, tool_ordering.tools_for_layer(layer.print_z()), &layer == &layers_to_print.back(), nullptr, tool_ordering.get_most_used_extruder(), single_object_idx, prime_extruder);
+                if (! result.gcode.empty())
+                    result.layer_id = emitted_layer_id++;
+                return result;
             }
         });
     if (m_spiral_vase) {
@@ -3884,11 +3898,11 @@ void GCode::process_layers(
         this->m_spiral_vase->set_max_xy_smoothing(max_xy_smoothing);
     }
     const auto spiral_mode = tbb::make_filter<LayerResult, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
-        [&spiral_mode = *this->m_spiral_vase.get(), &layers_to_print](LayerResult in)->LayerResult {
+        [&spiral_mode = *this->m_spiral_vase.get()](LayerResult in)->LayerResult {
             if (in.nop_layer_result)
                 return in;
             spiral_mode.enable(in.spiral_vase_enable);
-            bool last_layer = in.layer_id == layers_to_print.size() - 1;
+            bool last_layer = in.cooling_buffer_flush;
             return { spiral_mode.process_layer(std::move(in.gcode), last_layer), in.layer_id, in.spiral_vase_enable, in.cooling_buffer_flush };
         });
     const auto pressure_equalizer = tbb::make_filter<LayerResult, LayerResult>(slic3r_tbb_filtermode::serial_in_order,
@@ -5111,6 +5125,11 @@ LayerResult GCode::process_layer(
     // Bambu solves this per filament in filament_in_first_layer_phase(); this is the layer level equivalent.
     const bool           physical_first_layer = (layer.id() == 0 && abs(layer.bottom_z()) < EPSILON);
     bool                 first_layer   = physical_first_layer || layer_in_first_printing_phase(layer);
+    // The first band may be emitted at its group top, i.e. a layer whose id is 1. CoolingBuffer uses
+    // this id to keep the fan off for close_fan_the_first_x_layers layers; passing the physical id
+    // made it treat the merged first layer as the second one and switch the fan on immediately.
+    if (first_layer)
+        result.layer_id = 0;
     m_writer.set_is_first_layer(first_layer);
     unsigned int         first_extruder_id = layer_tools.extruders.front();
 
@@ -6022,7 +6041,14 @@ LayerResult GCode::process_layer(
                 }
                 if (std::abs(m_writer.get_position().z() - pass_z) > EPSILON) {
                     gcode += this->retract(false, false, LiftType::NormalLift);
-                    gcode += m_writer.travel_to_z(pass_z, "Local-Z sublayer pass");
+                    // Only descend to the pass Z when the head is already at or below it. If the
+                    // previous action ended above the pass (typically on top of the wipe tower),
+                    // a raw travel_to_z() here would drive the nozzle straight down into the
+                    // tower before the pending Z-hop is applied. Leave the lift pending: the next
+                    // travel to the first extrusion applies the hop, moves over the model and only
+                    // then descends to the pass Z.
+                    if (m_writer.get_position().z() <= pass_z + EPSILON)
+                        gcode += m_writer.travel_to_z(pass_z, "Local-Z sublayer pass");
                 }
                 if (!has_geometry)
                     continue;

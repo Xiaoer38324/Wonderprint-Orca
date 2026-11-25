@@ -97,6 +97,11 @@ public:
 		bool is_last_layer)
 	{
 		m_z_pos 				= print_z;
+		// The first tower layer must rest on whatever is below it (the bed or the raft), not start
+		// one swallowed grid step above it. The plan may contain a leading layer below the first
+		// really printed one; stretch the first generated layer down to the already printed height.
+		if (m_first_tower_layer && print_z > m_current_height + WT_EPSILON)
+			layer_height = print_z - m_current_height;
 		m_layer_height			= layer_height;
 		m_depth_traversed  = 0.f;
         m_current_layer_finished = false;
@@ -110,7 +115,7 @@ public:
 
 		//m_current_shape = (! this->is_first_layer() && m_current_shape == SHAPE_NORMAL) ? SHAPE_REVERSED : SHAPE_NORMAL;
         m_current_shape = SHAPE_NORMAL;
-		if (this->is_first_layer()) {
+		if (m_first_tower_layer || this->is_first_layer()) {
             m_num_layer_changes = 0;
             m_num_tool_changes 	= 0;
         } else
@@ -335,6 +340,11 @@ private:
 	// State of the wipe tower generator.
 	unsigned int m_num_layer_changes = 0; // Layer change counter for the output statistics.
 	unsigned int m_num_tool_changes  = 0; // Tool change change counter for the output statistics.
+	// Multi-diameter grid layers swallowed by the first band can create a tower plan entry below the
+	// first really printed layer. The generator then starts on plan entry 1 and no longer recognizes
+	// its first layer, which used to leave a thin, sparse tower base. This flag makes the first layer
+	// that is actually generated span from the bed and use the first-layer solid infill.
+	bool         m_first_tower_layer = true;
 
 	// A fill-in direction (positive Y, negative Y) alternates with each layer.
 	wipe_shape   	m_current_shape = SHAPE_NORMAL;
@@ -353,6 +363,10 @@ private:
     float           m_wipe_tower_ramming_pressure_advance = 0.02f;
 
     bool is_first_layer() const { return size_t(m_layer_info - m_plan.begin()) == m_first_layer_idx; }
+    // The plan may contain a swallowed grid layer below the first really printed tower layer, so
+    // is_first_layer() alone is false during the actual first layer. All first-layer behaviour
+    // (speed, spacing, temperatures, fan) has to use this combined test.
+    bool is_effective_first_layer() const { return m_first_tower_layer || is_first_layer(); }
 
 	// Calculates extrusion flow needed to produce required line width for given layer height
 	float extrusion_flow(float layer_height = -1.f) const	// negative layer_height - return current m_extrusion_flow

@@ -1728,13 +1728,13 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
 
     // Ram the hot material out of the melt zone, retract the filament into the cooling tubes and let it cool.
     if (tool != (unsigned int)-1){ 			// This is not the last change.
-        auto new_tool_temp = is_first_layer() ? m_filpar[tool].first_layer_temperature : m_filpar[tool].temperature;
+        auto new_tool_temp = is_effective_first_layer() ? m_filpar[tool].first_layer_temperature : m_filpar[tool].temperature;
         // Ramming is done by the old nozzle; its planned depth used the old tool's line width.
         m_perimeter_width = tool_line_width(old_tool);
         m_extrusion_flow  = tool_extrusion_flow(old_tool, layer_height);
         writer.set_extrusion_flow(m_extrusion_flow);
         toolchange_Unload(writer, cleaning_box, m_filpar[m_current_tool].material,
-                          (is_first_layer() ? m_filpar[m_current_tool].first_layer_temperature : m_filpar[m_current_tool].temperature),
+                          (is_effective_first_layer() ? m_filpar[m_current_tool].first_layer_temperature : m_filpar[m_current_tool].temperature),
                           new_tool_temp);
         toolchange_Change(writer, tool, m_filpar[tool].material); // Change the tool, set a speed override for soluble and flex materials.
         m_perimeter_width = tool_line_width(new_tool);
@@ -1753,7 +1753,7 @@ WipeTower::ToolChangeResult WipeTower2::tool_change(size_t tool)
         else
             writer.fast_travel(Vec2f(cleaning_box.ld.x(),
                                      cleaning_box.ld.y() + m_depth_traversed + 0.5f * m_perimeter_width * m_extra_flow));
-        int base_temp = is_first_layer() ? m_filpar[tool].first_layer_temperature : m_filpar[tool].temperature;
+        int base_temp = is_effective_first_layer() ? m_filpar[tool].first_layer_temperature : m_filpar[tool].temperature;
         if (interface_layer) {
             int interface_temp = m_filpar[tool].interface_print_temperature;
             if (interface_temp > 0 && interface_temp != base_temp)
@@ -1995,7 +1995,7 @@ void WipeTower2::toolchange_Unload(
     // be already set and there is no need to change anything. Also, the temperature could be changed
     // for wrong extruder.
     if (m_semm) {
-        if (new_temperature != 0 && (new_temperature != m_old_temperature || is_first_layer() || cold_ramming) ) { 	// Set the extruder temperature, but don't wait.
+        if (new_temperature != 0 && (new_temperature != m_old_temperature || is_effective_first_layer() || cold_ramming) ) { 	// Set the extruder temperature, but don't wait.
             // If the required temperature is the same as last time, don't emit the M104 again (if user adjusted the value, it would be reset)
             // However, always change temperatures on the first layer (this is to avoid issues with priming lines turned off).
             if (cold_ramming && cooling_will_happen)
@@ -2163,7 +2163,7 @@ void WipeTower2::toolchange_Wipe(
     float extra_extrusion_mm)
 {
 	// Increase flow on first layer, slow down print.
-    writer.set_extrusion_flow(m_extrusion_flow * (is_first_layer() ? 1.18f : 1.f))
+    writer.set_extrusion_flow(m_extrusion_flow * (is_effective_first_layer() ? 1.18f : 1.f))
 		  .append("; CP TOOLCHANGE WIPE\n");
 	const float& xl = cleaning_box.ld.x();
 	const float& xr = cleaning_box.rd.x();
@@ -2177,11 +2177,11 @@ void WipeTower2::toolchange_Wipe(
     // wipe until the end of the assigned area.
 
 	float x_to_wipe = volume_to_length(wipe_volume, m_perimeter_width, m_layer_height) / m_extra_flow;
-	float dy = (is_first_layer() ? m_extra_flow : m_extra_spacing_wipe) * m_perimeter_width; // Don't use the extra spacing for the first layer, but do use the spacing resulting from increased flow.
+	float dy = (is_effective_first_layer() ? m_extra_flow : m_extra_spacing_wipe) * m_perimeter_width; // Don't use the extra spacing for the first layer, but do use the spacing resulting from increased flow.
     // All the calculations in all other places take the spacing into account for all the layers.
 
 	// If spare layers are excluded->if 1 or less toolchange has been done, it must be sill the first layer, too.So slow down.
-    float target_speed = is_first_layer() || (m_num_tool_changes <= 1 && m_no_sparse_layers) ? m_first_layer_speed * 60.f : std::min(m_wipe_tower_max_purge_speed * 60.f, m_infill_speed * 60.f);
+    float target_speed = is_effective_first_layer() || (m_num_tool_changes <= 1 && m_no_sparse_layers) ? m_first_layer_speed * 60.f : std::min(m_wipe_tower_max_purge_speed * 60.f, m_infill_speed * 60.f);
     // Multi nozzle diameter: clamp the wipe speed to this tool's max volumetric speed at the current bead.
     if (m_extrusion_flow > WT_EPSILON && m_current_tool < m_filpar.size())
         target_speed = std::min(target_speed, 60.f * m_filpar[m_current_tool].max_e_speed / m_extrusion_flow);
@@ -2280,7 +2280,7 @@ WipeTower::ToolChangeResult WipeTower2::finish_layer()
     const float  layer_top    = m_z_pos;
     const float  layer_height = m_layer_height;
     const float  layer_bottom = layer_top - layer_height;
-    const bool   first_layer  = is_first_layer() || (m_num_tool_changes <= 1 && m_no_sparse_layers);
+    const bool   first_layer  = m_first_tower_layer || is_first_layer() || (m_num_tool_changes <= 1 && m_no_sparse_layers);
     const bool   add_height   = ! m_no_sparse_layers ||
                                 m_layer_info->toolchanges_depth() > WT_EPSILON ||
                                 first_layer;
@@ -2307,7 +2307,16 @@ WipeTower::ToolChangeResult WipeTower2::finish_layer()
     m_subpass_count   = 1;
     if (add_height)
         m_current_height += layer_height;
-    return concat_subpass_tcrs(passes, layer_top, layer_height);
+    WipeTower::ToolChangeResult result = concat_subpass_tcrs(passes, layer_top, layer_height);
+    // The sub-passes changed the analyzer's layer height / line width to their own values. Restore
+    // the real tower layer values so the following model layer is not tagged with the sub-height.
+    result.gcode += ";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Height) +
+                    Slic3r::float_to_string_decimal_point(layer_height, 3) + "\n";
+    result.gcode += ";" + GCodeProcessor::reserved_tag(GCodeProcessor::ETags::Width) +
+                    Slic3r::float_to_string_decimal_point(m_perimeter_width, 3) + "\n";
+    if (! passes.empty())
+        m_first_tower_layer = false;
+    return result;
 }
 
 WipeTower::ToolChangeResult WipeTower2::concat_subpass_tcrs(std::vector<WipeTower::ToolChangeResult> &passes,
@@ -2331,6 +2340,8 @@ WipeTower::ToolChangeResult WipeTower2::concat_subpass_tcrs(std::vector<WipeTowe
 
     result.start_pos = passes.front().start_pos;
     result.end_pos   = passes.back().end_pos;
+    // The move between sub-passes is still a first-layer move; do not use the normal purge speed.
+    const float subpass_travel_speed = is_effective_first_layer() ? m_first_layer_speed * 60.f : 5400.f;
     for (size_t i = 0; i < passes.size(); ++i) {
         WipeTower::ToolChangeResult &pass = passes[i];
         // The single pass assumed the nozzle already sat at its own start and Z. Move over at the layer
@@ -2339,7 +2350,8 @@ WipeTower::ToolChangeResult WipeTower2::concat_subpass_tcrs(std::vector<WipeTowe
             result.gcode += "G1 Z" + Slic3r::float_to_string_decimal_point(print_z + m_z_offset, 3) +
                             WipeTower::never_skip_tag() + "\n";
             result.gcode += "G1 X" + Slic3r::float_to_string_decimal_point(pass.start_pos.x(), 3) +
-                            " Y" + Slic3r::float_to_string_decimal_point(pass.start_pos.y(), 3) + " F5400" +
+                            " Y" + Slic3r::float_to_string_decimal_point(pass.start_pos.y(), 3) +
+                            " F" + std::to_string(int(std::lround(subpass_travel_speed))) +
                             WipeTower::never_skip_tag() + "\n";
         }
         result.gcode += "G1 Z" + Slic3r::float_to_string_decimal_point(pass.print_z + m_z_offset, 3) +
@@ -2365,7 +2377,7 @@ WipeTower::ToolChangeResult WipeTower2::finish_layer_single()
 
     // Slow down on the 1st layer.
     // If spare layers are excluded -> if 1 or less toolchange has been done, it must be still the first layer, too. So slow down.
-    bool first_layer = is_first_layer() || (m_num_tool_changes <= 1 && m_no_sparse_layers);
+    bool first_layer = m_first_tower_layer || is_first_layer() || (m_num_tool_changes <= 1 && m_no_sparse_layers);
     float                      feedrate      = first_layer ? m_first_layer_speed * 60.f : std::min(m_wipe_tower_max_purge_speed * 60.f, m_infill_speed * 60.f);
     if (m_enable_tower_interface_features && m_prev_layer_had_interface)
         feedrate = std::min(feedrate, 20.f * 60.f);
@@ -2484,8 +2496,9 @@ WipeTower::ToolChangeResult WipeTower2::finish_layer_single()
         }
     }
 
-    // brim (first layer only)
-    if (first_layer) {
+    // brim (first layer only, and only on its first sub-pass: a 0.2mm first layer printed by a
+    // 0.2mm nozzle is split into two 0.1mm passes and must not lay the brim twice)
+    if (first_layer && m_subpass_index == 0) {
         writer.append("; WIPE_TOWER_BRIM_START\n");
             float brim_width = m_wipe_tower_brim_width;
         if (brim_width < 0.f)
@@ -2675,6 +2688,7 @@ void WipeTower2::plan_tower()
 		layer.depth = 0.f;
     m_wipe_tower_height = m_plan.empty() ? 0.f : m_plan.back().z;
     m_current_height = 0.f;
+    m_first_tower_layer = true;
 	
     for (int layer_index = int(m_plan.size()) - 1; layer_index >= 0; --layer_index)
 	{
@@ -2812,6 +2826,7 @@ void WipeTower2::generate(std::vector<std::vector<WipeTower::ToolChangeResult>> 
 
     m_layer_info = m_plan.begin();
     m_current_height = 0.f;
+    m_first_tower_layer = true;
 
     // we don't know which extruder to start with - we'll set it according to the first toolchange
     for (const auto& layer : m_plan) {

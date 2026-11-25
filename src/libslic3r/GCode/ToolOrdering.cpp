@@ -177,9 +177,18 @@ void ToolOrdering::handle_dontcare_extruder(const std::vector<unsigned int>& too
     if(m_layer_tools.empty() || tool_order_layer0.empty())
         return;
 
-    // Reorder the extruders of first layer
+    // The first printed layer is the first layer with an extruder. Multi-diameter may leave grid
+    // layers swallowed by the first band at the front with an empty extruder list; those must not
+    // receive the first-layer order (or a fake don't-care extruder).
+    size_t first_idx = 0;
+    while (first_idx < m_layer_tools.size() && m_layer_tools[first_idx].extruders.empty())
+        ++first_idx;
+    if (first_idx == m_layer_tools.size())
+        return;
+
+    // Reorder the extruders of the first printed layer
     {
-        LayerTools& lt = m_layer_tools[0];
+        LayerTools& lt = m_layer_tools[first_idx];
         std::vector<unsigned int> layer0_extruders = lt.extruders;
         lt.extruders.clear();
         for (unsigned int extruder_id : tool_order_layer0) {
@@ -204,8 +213,8 @@ void ToolOrdering::handle_dontcare_extruder(const std::vector<unsigned int>& too
         }
     }
 
-    int last_extruder_id = m_layer_tools[0].extruders.back();
-    for (int i = 1; i < m_layer_tools.size(); i++) {
+    unsigned int last_extruder_id = m_layer_tools[first_idx].extruders.back();
+    for (size_t i = first_idx + 1; i < m_layer_tools.size(); i++) {
         LayerTools& lt = m_layer_tools[i];
 
         if (lt.extruders.empty())
@@ -261,6 +270,7 @@ void ToolOrdering::handle_dontcare_extruder(unsigned int last_extruder_id)
         ++ last_extruder_id;
     }
 
+    bool is_first_printed_layer = true;
     for (LayerTools &lt : m_layer_tools) {
         if (lt.extruders.empty())
             continue;
@@ -279,7 +289,7 @@ void ToolOrdering::handle_dontcare_extruder(unsigned int last_extruder_id)
                     break;
                 }
 
-            if (lt == m_layer_tools[0]) {
+            if (is_first_printed_layer) {
                 // On first layer with wipe tower, prefer a soluble extruder
                 // at the beginning, so it is not wiped on the first layer.
                 if (m_print_config_ptr && m_print_config_ptr->enable_prime_tower) {
@@ -295,6 +305,7 @@ void ToolOrdering::handle_dontcare_extruder(unsigned int last_extruder_id)
             }
 
         }
+        is_first_printed_layer = false;
         last_extruder_id = lt.extruders.back();
     }
 
@@ -317,7 +328,7 @@ bool ToolOrdering::insert_wipe_tower_extruder()
     bool changed = false;
     const unsigned int wipe_extruder = (unsigned int)(m_print_config_ptr->wipe_tower_filament - 1);
     for (LayerTools &lt : m_layer_tools) {
-        if (lt.wipe_tower_partitions > 0) {
+        if (lt.has_wipe_tower && lt.wipe_tower_partitions > 0) {
             if (std::find(lt.extruders.begin(), lt.extruders.end(), wipe_extruder) == lt.extruders.end()) {
                 lt.extruders.emplace_back(wipe_extruder);
                 changed = true;
@@ -340,7 +351,9 @@ void ToolOrdering::sort_and_build_data(const Print& print, unsigned int first_ex
     for (const auto& object : print.objects()) {
         for (const Layer* layer : object->layers()) {
             if (layer->has_extrusions()) {
-                object_bottom_z = layer->print_z - layer->height;
+                // The first printed layer may be a multi-diameter band group top whose grid
+                // height is smaller than the merged span it really prints.
+                object_bottom_z = layer->print_z - layer->effective_print_height();
                 break;
             }
         }
@@ -368,10 +381,11 @@ void ToolOrdering::sort_and_build_data(const PrintObject& object , unsigned int 
 
     double max_layer_height = calc_max_layer_height(object.print()->config(), object.config().layer_height);
 
-    this->fill_wipe_tower_partitions(object.print()->config(), object.layers().front()->print_z - object.layers().front()->height, max_layer_height);
+    const coordf_t object_bottom_z = object.layers().front()->print_z - object.layers().front()->effective_print_height();
+    this->fill_wipe_tower_partitions(object.print()->config(), object_bottom_z, max_layer_height);
     if (this->insert_wipe_tower_extruder()) {
         reorder_extruders_for_minimum_flush_volume(reorder_first_layer);
-        this->fill_wipe_tower_partitions(object.print()->config(), object.layers().front()->print_z - object.layers().front()->height, max_layer_height);
+        this->fill_wipe_tower_partitions(object.print()->config(), object_bottom_z, max_layer_height);
     }
 
     this->collect_extruder_statistics(prime_multi_material);
@@ -837,6 +851,16 @@ void ToolOrdering::fill_wipe_tower_partitions(const PrintConfig &config, coordf_
         // them.
         lt.has_wipe_tower |= (lt.has_object || lt.has_support || lt.print_z < object_bottom_z + EPSILON) && tower_needed;
     }
+
+    // A grid layer swallowed by a multi-diameter band keeps its geometry only as merge markers and is
+    // returned early by GCode::process_layer(). It must not own a wipe tower layer: the tower plan would
+    // contain an entry at the swallowed Z, process_layers() would advance the tower and then skip it, and
+    // the first layer actually printed would be the next plan entry (sparse, with a height measured from
+    // the swallowed Z). Drop those empty non-object layers from the tower plan; the band top above them
+    // then becomes the first tower layer with its full height.
+    for (LayerTools &lt : m_layer_tools)
+        if (lt.has_wipe_tower && lt.extruders.empty())
+            lt.has_wipe_tower = false;
 
     // Test for a raft, insert additional wipe tower layer to fill in the raft separation gap.
     for (size_t i = 0; i + 1 < m_layer_tools.size(); ++ i) {
@@ -1454,13 +1478,16 @@ void ToolOrdering::reorder_extruders_for_minimum_flush_volume(bool reorder_first
         other_layers_seqs = get_other_layers_print_sequence(sequence_nums, print_sequence);
     }
 
+    size_t first_layer_idx = 0;
+    while (first_layer_idx < m_layer_tools.size() && m_layer_tools[first_layer_idx].extruders.empty())
+        ++first_layer_idx;
     std::vector<unsigned int>first_layer_filaments;
-    if (!m_layer_tools.empty())
-        first_layer_filaments = m_layer_tools[0].extruders;
+    if (first_layer_idx < m_layer_tools.size())
+        first_layer_filaments = m_layer_tools[first_layer_idx].extruders;
 
     // other_layers_seq: the layer_idx and extruder_idx are base on 1
-    auto get_custom_seq = [&other_layers_seqs, &reorder_first_layer, &first_layer_filaments](int layer_idx, std::vector<int>& out_seq) -> bool {
-        if (!reorder_first_layer && layer_idx == 0) {
+    auto get_custom_seq = [&other_layers_seqs, &reorder_first_layer, &first_layer_filaments, first_layer_idx](int layer_idx, std::vector<int>& out_seq) -> bool {
+        if (!reorder_first_layer && layer_idx == int(first_layer_idx)) {
             out_seq.resize(first_layer_filaments.size());
             std::transform(first_layer_filaments.begin(), first_layer_filaments.end(), out_seq.begin(), [](auto item) {return item + 1; });
             return true;
@@ -1538,13 +1565,16 @@ void ToolOrdering::mark_skirt_layers(const PrintConfig &config, coordf_t max_lay
     if (m_layer_tools.empty())
         return;
 
-    if (m_layer_tools.front().extruders.empty()) {
-        // Empty first layer, no skirt will be printed.
+    size_t first_idx = 0;
+    while (first_idx < m_layer_tools.size() && m_layer_tools[first_idx].extruders.empty())
+        ++first_idx;
+    if (first_idx == m_layer_tools.size()) {
+        // No printed layer, no skirt will be printed.
         //FIXME throw an exception?
         return;
     }
 
-    size_t i = 0;
+    size_t i = first_idx;
     for (;;) {
         m_layer_tools[i].has_skirt = true;
         size_t j = i + 1;

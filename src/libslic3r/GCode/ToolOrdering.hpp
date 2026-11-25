@@ -238,7 +238,15 @@ public:
     std::vector<LayerTools>::const_iterator end()   const { return m_layer_tools.end(); }
     bool 				empty()       const { return m_layer_tools.empty(); }
     std::vector<LayerTools>& layer_tools() { return m_layer_tools; }
-    bool 				has_wipe_tower() const { return ! m_layer_tools.empty() && m_first_printing_extruder != (unsigned int)-1 && m_layer_tools.front().has_wipe_tower; }
+    // The first entries are not necessarily printed layers: a multi-diameter adaptive band swallows the
+    // grid layers below its top, and those LayerTools keep no extruders and no wipe tower layer. The
+    // tower exists as soon as any layer owns a tower layer; front() would report no tower for the whole
+    // print and both Print::_make_wipe_tower() and GCode::_do_export() would then drop it.
+    bool 				has_wipe_tower() const {
+        return ! m_layer_tools.empty() && m_first_printing_extruder != (unsigned int)-1 &&
+               std::any_of(m_layer_tools.begin(), m_layer_tools.end(),
+                           [](const LayerTools &lt) { return lt.has_wipe_tower; });
+    }
 
     int                 get_most_used_extruder() const { return most_used_extruder; }
     /*

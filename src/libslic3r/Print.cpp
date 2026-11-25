@@ -2524,7 +2524,7 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 for (size_t idx = 0; idx < tool_ordering.layer_tools().size(); ++idx) {
                     auto& layer_filament = tool_ordering.layer_tools()[idx].extruders;
                     all_filaments.emplace_back(layer_filament);
-                    if (idx == 0)
+                    if (first_layer_used_filaments.empty() && ! layer_filament.empty())
                         first_layer_used_filaments.insert(first_layer_used_filaments.end(), layer_filament.begin(), layer_filament.end());
                 }
             }
@@ -2551,7 +2551,13 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
                 tool_ordering = ToolOrdering(*(*print_object_instance_sequential_active)->print_object, initial_extruder_id);
                 tool_ordering.sort_and_build_data(*(*print_object_instance_sequential_active)->print_object, initial_extruder_id);
                 if ((initial_extruder_id = tool_ordering.first_extruder()) != static_cast<unsigned int>(-1)) {
-                    append(printExtruders, tool_ordering.tools_for_layer(layers_to_print.front().first).extruders);
+                    // The first grid layers may be swallowed by the first multi-diameter band and carry no
+                    // extruders, so the brim has to use the tools of the first printed layer.
+                    for (const LayerTools &lt : tool_ordering.layer_tools())
+                        if (! lt.extruders.empty()) {
+                            append(printExtruders, lt.extruders);
+                            break;
+                        }
                 }
             }
         }
@@ -2560,14 +2566,23 @@ void Print::process(long long *time_cost_with_cache, bool use_cache)
             tool_ordering.assign_custom_gcodes(*this);
 
             std::vector<unsigned int> first_layer_used_filaments;
-            if (!tool_ordering.layer_tools().empty())
-                first_layer_used_filaments = tool_ordering.layer_tools().front().extruders;
+            for (const LayerTools &lt : tool_ordering.layer_tools()) {
+                if (! lt.extruders.empty()) {
+                    first_layer_used_filaments = lt.extruders;
+                    break;
+                }
+            }
 
             this->set_slice_used_filaments(first_layer_used_filaments, tool_ordering.all_extruders());
             has_wipe_tower = this->has_wipe_tower() && tool_ordering.has_wipe_tower();
             initial_extruder_id = tool_ordering.first_extruder();
             print_object_instances_ordering = chain_print_object_instances(*this);
-            append(printExtruders, tool_ordering.tools_for_layer(layers_to_print.front().first).extruders);
+            for (const LayerTools &lt : tool_ordering.layer_tools()) {
+                if (! lt.extruders.empty()) {
+                    append(printExtruders, lt.extruders);
+                    break;
+                }
+            }
         }
 
         auto objectExtruderMap = getObjectExtruderMap(*this);
@@ -3431,7 +3446,6 @@ void Print::_make_wipe_tower()
 
         for (auto& layer_tools : m_wipe_tower_data.tool_ordering.layer_tools()) { // for all layers
             if (!layer_tools.has_wipe_tower) continue;
-            bool first_layer = &layer_tools == &m_wipe_tower_data.tool_ordering.front();
             wipe_tower.plan_toolchange(tower_print_z(layer_tools), tower_layer_h(layer_tools), current_filament_id, current_filament_id);
 
             used_filament_ids.insert(layer_tools.extruders.begin(), layer_tools.extruders.end());
@@ -3637,6 +3651,7 @@ void Print::_make_wipe_tower()
             };
 
             unsigned int current_extruder_id = m_wipe_tower_data.tool_ordering.all_extruders().back();
+            bool         first_tower_layer = true;
             for (auto &layer_tools : m_wipe_tower_data.tool_ordering.layer_tools()) { // for all layers
                 const std::vector<unsigned int> *local_z_sequence = find_local_z_sequence(layer_tools.print_z);
                 if (!layer_tools.has_wipe_tower) {
@@ -3654,7 +3669,10 @@ void Print::_make_wipe_tower()
                         current_extruder_id = layer_tools.extruders.back();
                     continue;
                 }
-                bool first_layer = &layer_tools == &m_wipe_tower_data.tool_ordering.front();
+                // The first tower layer is the first layer with has_wipe_tower, not necessarily
+                // tool_ordering.front(): empty grid layers swallowed by the first band are dropped.
+                const bool first_layer = first_tower_layer;
+                first_tower_layer = false;
                 wipe_tower.plan_toolchange(tower_print_z(layer_tools), tower_layer_h(layer_tools), current_extruder_id,
                                            current_extruder_id, false);
 
