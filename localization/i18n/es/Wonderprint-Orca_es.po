@@ -23012,7 +23012,7 @@ msgstr "Tipo de renderizador de vista previa"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Seleccione el renderizador utilizado para la vista previa del código G "
-"cortado.\n"
+"cortado."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -23057,6 +23057,174 @@ msgstr "Tuberia nueva"
 
 msgid "New pipeline"
 msgstr "Nuevo oleoducto"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Los filamentos mixtos contienen tipos de materiales o diámetros de "
+"boquilla incompatibles. Corrige los ajustes de los filamentos mixtos antes de "
+"laminar."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Los filamentos impresos con diferentes diámetros de boquilla no pueden "
+"mezclarse. Por favor, seleccione filamentos que usen el mismo tamaño de "
+"boquilla."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Las filas de mezcla de color no pueden combinar filamentos impresos "
+"con diferentes diámetros de boquilla. Por favor, seleccione filamentos que "
+"usen el mismo tamaño de boquilla."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Ajustes de diámetro de boquilla múltiples..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Abre la configuración de diámetro de boquillas múltiples."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "entrada de diámetro_de_boquilla %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "La entrada %d de nozzle_diameter no es un número."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "El valor %.4g de la entrada %d de nozzle_diameter está fuera del "
+"rango."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter valor de entrada %d %.4g mm no es un diámetro de "
+"tobera soportado (solo 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Actualizar los datos de la boquilla desde el servidor de impresoras"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Error de datos del servidor de impresión mixta con múltiples cabezales"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "La configuración de la boquilla no coincide con la del servidor: el "
+"servidor informa de boquillas %d ("
+
+msgid "), the current configuration has"
+msgstr "), la configuración actual tiene"
+
+msgid "nozzles ("
+msgstr "boquillas ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "La configuración de la boquilla no coincide con la del servidor; La "
+"impresión fue bloqueada.\n\nBoquillas de servidor:"
+
+msgid "\nCurrent configuration:"
+msgstr "Configuración actual:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Haga clic en \"Actualizar desde el servidor de impresora\" para "
+"sincronizar los datos de la boquilla o corregir manualmente los diámetros de "
+"las boquillas antes de imprimir."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "El servidor informa de boquillas %d pero la impresora transporta %d; "
+"Los recuentos no coinciden."
+
+msgid "Nozzle diameter changed"
+msgstr "Diámetro de la boquilla cambiado"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Los diámetros de las boquillas no son todos los mismos. El modo de "
+"diámetro de boquilla múltiple estará activado: la placa se corta en la "
+"rejilla de capas de la boquilla más pequeña y cada boquilla fusiona las capas "
+"que cubre en una extrusión más gruesa."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Todos los diámetros de las boquillas son iguales ahora. El modo de "
+"diámetro de tobera múltiple se desactivará y la placa se cortará de nuevo con "
+"un diámetro de tobera único."
+
+msgid "Mixed nozzle diameters"
+msgstr "Diámetros de boquilla mixtos"
+
+msgid "Nozzle diameters are equal"
+msgstr "Los diámetros de las boquillas son iguales."
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Los filamentos mixtos contienen tipos de materiales o diámetros de "
+"boquilla incompatibles."
+
+msgid "Do not ask me again"
+msgstr "no me vuelvas a preguntar"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "La respuesta del servidor no tiene el campo boquilla_diámetro."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "boquilla_diámetro debe ser una matriz, por ejemplo [0,4, 0,4, 0,8, "
+"0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "La matriz de diámetro_boquilla está vacía; no se puede aplicar ningún "
+"diámetro de boquilla."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "La matriz de diámetro_boquilla tiene %d entradas, más de las %d "
+"boquillas que una máquina puede transportar."
+
+msgid "\") is not a valid number."
+msgstr "\") no es un número válido."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "No se puede analizar el JSON del servidor simulado:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "No se puede analizar el JSON del servidor:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "La respuesta del servidor debe ser un objeto JSON que contenga una "
+"matriz de diámetro_boquilla."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "El modo de diámetro de boquilla múltiple con material de soporte es "
+"experimental: las capas de soporte aún no se han fusionado en las bandas de "
+"capas adaptativas."
+
+msgid "Quick Load"
+msgstr "Carga rápida"
+
+msgid "Quick Change"
+msgstr "Cambio rápido"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Seleccione un ajuste preestablecido de impresora para usarlo siempre "
+"al cargar un archivo. Cuando se selecciona un ajuste preestablecido, se "
+"fuerza el cambio rápido y las advertencias de sustitución de "
+"versión/parámetro se omiten durante la carga. Seleccione Ninguno para "
+"desactivarlo."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Si está habilitado, las configuraciones de proceso modificadas se "
+"transfieren automáticamente al ajuste preestablecido recién seleccionado, "
+"mientras que las configuraciones modificadas de impresora y filamento se "
+"descartan. No se muestra el cuadro de diálogo de cambios no guardados. Esta "
+"opción se fuerza mientras Carga rápida está configurada en un ajuste "
+"preestablecido de impresora."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si desea probar Wonderprint-Orca Beta, puede hacer clic para"

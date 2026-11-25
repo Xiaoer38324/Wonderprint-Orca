@@ -22567,7 +22567,7 @@ msgstr "Type voorvertoning van renderer"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Selecteer de renderer die wordt gebruikt voor het gesneden "
-"G-codevoorbeeld.\n"
+"G-codevoorbeeld."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22609,6 +22609,174 @@ msgstr "Nieuwe pijp"
 
 msgid "New pipeline"
 msgstr "Nieuwe pijpleiding"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Gemengde filamenten bevatten incompatibele materiaaltypen of "
+"mondstukdiameters. Corrigeer alsjeblieft de gemengde filamentinstellingen "
+"voordat je snijdt."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filamenten die met verschillende nozzlediameters zijn gedrukt, kunnen "
+"niet worden gemengd. Selecteer filamenten die dezelfde nozzlegrootte "
+"gebruiken."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Kleurmengrijen kunnen filamenten die met verschillende nozzlediameters "
+"zijn geprint, niet combineren. Selecteer filamenten die dezelfde "
+"nozzlegrootte gebruiken."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Instellingen voor meerdere nozzlediameters..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Open de diameterinstellingen voor meerdere nozzles."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "invoer spuitmonddiameter %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "Invoer voor nozzle_diameter %d is geen getal."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "De waarde %.4g van de invoer %d voor spuitmonddiameter ligt buiten het "
+"bereik."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter invoerwaarde %d %.4g mm is geen ondersteunde "
+"nozzlediameter (slechts 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Werk nozzlegegevens bij vanaf de printerserver"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Multi-head mixed printing servergegevensfout"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "De nozzleconfiguratie komt niet overeen met de server: de server "
+"rapporteert %d nozzles ("
+
+msgid "), the current configuration has"
+msgstr "), de huidige configuratie heeft"
+
+msgid "nozzles ("
+msgstr "nozzles ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "De mondstukconfiguratie komt niet overeen met de server; De printing "
+"was geblokkeerd.\n\nServermondstukken:"
+
+msgid "\nCurrent configuration:"
+msgstr "Huidige configuratie:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Klik op \"Bijwerken vanaf printerserver\" om de nozzlegegevens te "
+"synchroniseren, of om de nozzlediameters handmatig te corrigeren voordat je "
+"gaat printen."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "De server meldt %d spuitmonden, maar de printer heeft er %d; de "
+"aantallen komen niet overeen."
+
+msgid "Nozzle diameter changed"
+msgstr "Nozzlediameter gewijzigd"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "De diameters van de mondstuk zijn niet allemaal hetzelfde. "
+"Multi-nozzle diameter modus wordt ingeschakeld: de plaat wordt doorgesneden "
+"op het laagrooster van de kleinste nozzle en elke nozzle voegt de bedekte "
+"lagen samen tot één dikkere extrusie."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Alle nozzlediameters zijn nu hetzelfde. De multinozzle-diameter modus "
+"wordt uitgeschakeld en de plaat wordt opnieuw met één nozzlediameter "
+"doorgesneden."
+
+msgid "Mixed nozzle diameters"
+msgstr "Gemengde spuitmonddiameters"
+
+msgid "Nozzle diameters are equal"
+msgstr "De diameters van de spuitmonden zijn gelijk"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Gemengde filamenten bevatten incompatibele materiaalsoorten of "
+"mondstukdiameters."
+
+msgid "Do not ask me again"
+msgstr "Vraag het mij niet nog een keer"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Het serverantwoord bevat geen veld nozzle_diameter."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "nozzle_diameter moet een array zijn, bijvoorbeeld [0,4, 0,4, 0,8, "
+"0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "De array nozzle_diameter is leeg; er kan geen spuitmonddiameter worden "
+"toegepast."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "De array nozzle_diameter bevat %d vermeldingen, meer dan de %d nozzles "
+"die een machine kan vervoeren."
+
+msgid "\") is not a valid number."
+msgstr "\") is geen geldig nummer."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Kan de Mock Server-JSON niet parseren:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Kan de server-JSON niet parseren:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Het serverantwoord moet een JSON-object zijn dat een array "
+"nozzle_diameter bevat."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "De modus met meerdere spuitmonddiameters met ondersteuningsmateriaal "
+"is experimenteel: ondersteuningslagen zijn nog niet samengevoegd in de "
+"adaptieve laagbanden."
+
+msgid "Quick Load"
+msgstr "Snel laden"
+
+msgid "Quick Change"
+msgstr "Snelle verandering"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Selecteer een printervoorinstelling die u altijd wilt gebruiken bij "
+"het laden van een bestand. Wanneer een voorinstelling wordt geselecteerd, "
+"wordt Quick Change geforceerd ingeschakeld en worden de waarschuwingen voor "
+"versie-/parametervervanging overgeslagen tijdens het laden. Selecteer Geen om "
+"uit te schakelen."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Indien ingeschakeld, worden gewijzigde procesinstellingen automatisch "
+"overgebracht naar de nieuw geselecteerde voorinstelling, terwijl gewijzigde "
+"printer- en filamentinstellingen worden genegeerd. Het dialoogvenster voor "
+"niet-opgeslagen wijzigingen wordt niet weergegeven. Deze optie wordt "
+"geforceerd ingeschakeld terwijl Snel laden is ingesteld op een "
+"printervoorinstelling."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"

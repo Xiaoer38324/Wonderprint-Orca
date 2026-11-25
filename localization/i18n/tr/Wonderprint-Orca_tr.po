@@ -22558,7 +22558,7 @@ msgid "Preview renderer type"
 msgstr "Oluşturucu türünü önizleyin"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Dilimlenmiş G kodu önizlemesi için kullanılan oluşturucuyu seçin.\n"
+msgstr "Dilimlenmiş G kodu önizlemesi için kullanılan oluşturucuyu seçin."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22601,6 +22601,162 @@ msgstr "Yeni boru"
 
 msgid "New pipeline"
 msgstr "Yeni boru hattı"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Karışık filamentler, uyumsuz malzeme türleri veya nozul çapları "
+"içerir. Lütfen karışık filament ayarlarını kesmeden önce düzeltin."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Farklı nozül çaplarıyla basılan filamentler karıştırılamaz. Lütfen "
+"aynı nozul boyutunu kullanan filamentleri seçin."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Renk Karıştırma satırları, farklı nozul çaplarıyla basılan "
+"filamentleri birleştiremez. Lütfen aynı nozul boyutunu kullanan filamentleri "
+"seçin."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Çoklu nozul çapı ayarları..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Çoklu nozul çapı ayarlarını açın."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "nozzle_diameter girişi %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "nozzle_diameter girişi %d bir sayı değil."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter girişi %d değeri %.4g aralık dışındadır."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter girişi %d değeri %.4g mm desteklenen bir nozül çapı "
+"değildir (sadece 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Yazıcı sunucusundan nozul verilerini güncelleyin"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Çok başlı karışık baskı sunucusu veri hatası"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Nozul yapılandırması sunucuyla eşleşmiyor: sunucu %d nozül raporu ("
+
+msgid "), the current configuration has"
+msgstr "), mevcut konfigürasyon"
+
+msgid "nozzles ("
+msgstr "memeler ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Nozul yapılandırması sunucuyla eşleşmiyor; baskı engellendi.\n\nSunucu "
+"nozülleri:"
+
+msgid "\nCurrent configuration:"
+msgstr "Mevcut yapılandırma:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "\"Yazıcı sunucusundan güncelle\" seçeneğine tıklayarak nozül "
+"verilerini senkronize edin veya yazdırmadan önce meme çaplarını manuel olarak "
+"düzeltin."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Sunucu %d nozul bildirir ancak yazıcı %d taşır; sayılar uyuşmuyor."
+
+msgid "Nozzle diameter changed"
+msgstr "Nozul çapı değiştirildi"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Nozul çapları tamamen aynı değildir. Çoklu meme çapı modu "
+"etkinleştirilecektir: plaka, en küçük memeliğin katman ızgarasına dilimlenir "
+"ve her meme, kapladığı katmanları birleştirerek daha kalın bir ekstrüzyona "
+"dönüştürülür."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Artık tüm meme çapları aynı. Çoklu nozul çapı modu devre dışı "
+"bırakılır ve plaka tekrar tek bir nozul çapıyla dilimlenir."
+
+msgid "Mixed nozzle diameters"
+msgstr "Karışık nozul çapları"
+
+msgid "Nozzle diameters are equal"
+msgstr "Meme çapları eşittir"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Karışık filamentler uyumsuz malzeme türleri veya nozül çapları içerir."
+
+msgid "Do not ask me again"
+msgstr "Bana bir daha sorma"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Sunucu yanıtında nozzle_diameter alanı yok."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "nozzle_diameter bir dizi olmalıdır; örneğin [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "nozzle_diameter dizisi boş; nozul çapı uygulanamaz."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "nozzle_diameter dizisinde, bir makinenin taşıyabileceği %d püskürtme "
+"ucundan daha fazla, %d girişi var."
+
+msgid "\") is not a valid number."
+msgstr "\") geçerli bir sayı değil."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Sahte Sunucu JSON'u ayrıştırılamıyor:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Sunucu JSON'u ayrıştırılamıyor:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Sunucu yanıtı, nozzle_diameter dizisini içeren bir JSON nesnesi "
+"olmalıdır."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Destek malzemeli çoklu nozul çapı modu deneyseldir: destek katmanları "
+"henüz uyarlanabilir katman bantlarıyla birleştirilmemiştir."
+
+msgid "Quick Load"
+msgstr "Hızlı Yükleme"
+
+msgid "Quick Change"
+msgstr "Hızlı Değişim"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Dosya yüklerken her zaman kullanılacak bir yazıcı ön ayarı seçin. Bir "
+"ön ayar seçildiğinde Hızlı Değişim etkinleştirilir ve yükleme sırasında "
+"sürüm/parametre değiştirme uyarıları atlanır. Devre dışı bırakmak için "
+"Hiçbiri'ni seçin."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Etkinleştirilirse, değiştirilen işlem ayarları otomatik olarak yeni "
+"seçilen ön ayara aktarılırken, değiştirilen yazıcı ve filament ayarları "
+"atılır. Kaydedilmemiş değişiklikler iletişim kutusu gösterilmez. Hızlı "
+"Yükleme bir yazıcı ön ayarına ayarlandığında bu seçenek zorunlu olarak "
+"açılır."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"

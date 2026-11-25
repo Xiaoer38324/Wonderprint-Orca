@@ -21829,7 +21829,7 @@ msgid "Preview renderer type"
 msgstr "Podgląd typu modułu renderującego"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Wybierz moduł renderujący używany do podglądu pokrojonego kodu G.\n"
+msgstr "Wybierz moduł renderujący używany do podglądu pokrojonego kodu G."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -21871,6 +21871,164 @@ msgstr "Nowa rura"
 
 msgid "New pipeline"
 msgstr "Nowy rurociąg"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Filamenty mieszane zawierają niekompatybilne typy materiałów lub "
+"średnice dysz. Proszę poprawić ustawienia mieszanych filamentów przed "
+"krojeniem."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filamenty drukowane o różnych średnicach dysz nie mogą być mieszane. "
+"Proszę wybierać filamenty o tym samym rozmiarze dysz."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Wiersze do mieszania kolorów nie mogą łączyć filamentów drukowanych o "
+"różnych średnicach dysz. Proszę wybierać filamenty o tym samym rozmiarze "
+"dysz."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Ustawienia wielowymiarowe dysz..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Otwórz ustawienia średnicy wielu dysz."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "wpis dotyczący średnicy dyszy %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "Wartość wprowadzona w polu nozzle_diameter %d nie jest liczbą."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter wartość wpisu %d %.4g jest poza zakresem."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter wartość wpisu %d %.4g mm nie jest podpartą średnicą "
+"dyszy (tylko 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Aktualizuj dane o dyszy z serwera drukarki"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Błąd danych serwera drukowania mieszanego przy mieszaniu wielu głowic"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Konfiguracja dysz nie odpowiada serwerowi: serwer zgłasza %d dysz ("
+
+msgid "), the current configuration has"
+msgstr "), obecna konfiguracja ma"
+
+msgid "nozzles ("
+msgstr "dysze ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Konfiguracja dysz nie odpowiada serwerowi; drukowanie zostało "
+"zablokowane.\n\nDysze serwerowe:"
+
+msgid "\nCurrent configuration:"
+msgstr "Aktualna konfiguracja:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Kliknij \"Aktualizuj z serwera drukarki\", aby zsynchronizować dane o "
+"dyszach lub ręcznie poprawić średnice dysz przed drukowaniem."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Serwer zgłasza %d dysz, ale drukarka przenosi %d; liczby się nie "
+"zgadzają."
+
+msgid "Nozzle diameter changed"
+msgstr "Zmieniona średnica dyszy"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Średnice dysz nie są wszystkie takie same. Tryb wielośrednicowej dyszy "
+"zostanie włączony: płyta jest cięta na siatce warstw najmniejszej dyszy i "
+"każda dysza łączy warstwy, które pokrywa, w jedną grubszą ekstrudację."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Wszystkie średnice dysz są teraz takie same. Tryb wielośrednicowej "
+"dyszy zostanie wyłączony, a płyta ponownie przecięta z jedną średnicą dyszy."
+
+msgid "Mixed nozzle diameters"
+msgstr "Mieszane średnice dysz"
+
+msgid "Nozzle diameters are equal"
+msgstr "Średnice dysz są równe"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Mieszane włókna zawierają niezgodne typy materiałów lub średnice dysz."
+
+msgid "Do not ask me again"
+msgstr "Nie pytaj mnie ponownie"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Odpowiedź serwera nie zawiera pola średnica dyszy."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "średnica_dyszy musi być tablicą, na przykład [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Tablica średnica dyszy jest pusta; nie można zastosować żadnej "
+"średnicy dyszy."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Tablica średnica_dysz zawiera %d wpisów, czyli więcej niż %d dysz, "
+"które może pomieścić maszyna."
+
+msgid "\") is not a valid number."
+msgstr "\") nie jest prawidłowym numerem."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Nie można przeanalizować JSON próbnego serwera:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Nie można przeanalizować JSON serwera:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Odpowiedź serwera musi być obiektem JSON zawierającym tablicę średnica "
+"dyszy."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Tryb średnicy wielu dysz z materiałem podporowym jest eksperymentalny: "
+"warstwy podporowe nie są jeszcze połączone w pasma warstw adaptacyjnych."
+
+msgid "Quick Load"
+msgstr "Szybkie ładowanie"
+
+msgid "Quick Change"
+msgstr "Szybka zmiana"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Wybierz wstępne ustawienie drukarki, które będzie zawsze używane "
+"podczas ładowania pliku. Po wybraniu ustawienia wstępnego wymuszona jest "
+"włączona funkcja Szybka zmiana, a ostrzeżenia o podstawieniu "
+"wersji/parametrów są pomijane podczas ładowania. Wybierz opcję Brak, aby "
+"wyłączyć."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Jeśli ta opcja jest włączona, zmodyfikowane ustawienia procesu są "
+"automatycznie przenoszone do nowo wybranego ustawienia wstępnego, natomiast "
+"zmodyfikowane ustawienia drukarki i żarnika są odrzucane. Okno dialogowe "
+"niezapisanych zmian nie jest wyświetlane. Opcja ta jest wymuszona, gdy "
+"ustawieniem szybkiego ładowania jest ustawienie wstępne drukarki."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

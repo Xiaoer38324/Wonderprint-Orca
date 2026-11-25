@@ -21772,7 +21772,7 @@ msgstr "Тип засобу попереднього перегляду"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Виберіть рендерер, який використовується для попереднього перегляду "
-"нарізаного G-коду.\n"
+"нарізаного G-коду."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -21814,6 +21814,163 @@ msgstr "Нова труба"
 
 msgid "New pipeline"
 msgstr "Новий трубопровід"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Змішані нитки містять несумісні типи матеріалів або діаметри сопла. "
+"Будь ласка, виправте налаштування змішаних ниток перед нарізанням."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Філаменти, надруковані з різним діаметром сопла, не можна змішувати. "
+"Будь ласка, обирайте філаменти з однаковим розміром сопла."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Ряди змішування кольорів не можуть поєднувати філаменти, надруковані з "
+"різними діаметрами сопла. Будь ласка, обирайте філаменти з однаковим розміром "
+"сопла."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Налаштування діаметра сопла..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Відкрийте налаштування діаметра кількох сопла."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "значення діаметра форсунки %d (дюймів)"
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "значення поля nozzle_diameter %d не є числом."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter значення %d %.4g виходить за межі діапазону."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter значення %d %.4g мм не є підтримуваним діаметром сопла "
+"(лише 0,2 / 0,4 / 0,6 / 0,8 мм)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Оновити дані сопла з принтерного сервера"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Помилка даних багатоголовкового змішаного друку сервера"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Конфігурація сопла не відповідає серверу: сервер повідомляє про %d "
+"сопла ("
+
+msgid "), the current configuration has"
+msgstr "), поточна конфігурація має"
+
+msgid "nozzles ("
+msgstr "сопла ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Конфігурація сопла не відповідає серверу; Друк був "
+"заблокований.\n\nСерверні сопла:"
+
+msgid "\nCurrent configuration:"
+msgstr "Поточна конфігурація:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Натисніть «Оновити з принтерного сервера», щоб синхронізувати дані "
+"сопла або вручну виправити діаметри сопел перед друком."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Сервер повідомляє про %d насадки, але принтер містить %d; Підрахунок "
+"не співпадає."
+
+msgid "Nozzle diameter changed"
+msgstr "Змінено діаметр сопла"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Діаметри сопел не всі однакові. Буде увімкнено режим діаметра кількох "
+"сосел: пластина розрізається на сітці шарів найменшого сопла, і кожне сопло "
+"об'єднує покриті шари в одну товщу екструзію."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Тепер усі діаметри сопел однакові. Режим кількох діаметрів сопел буде "
+"вимкнено, і пластину знову буде нарізано з використанням сопла одного "
+"діаметра."
+
+msgid "Mixed nozzle diameters"
+msgstr "Змішані діаметри сопел"
+
+msgid "Nozzle diameters are equal"
+msgstr "Діаметри сопел рівні"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Змішані нитки містять несумісні типи матеріалів або діаметри сопел."
+
+msgid "Do not ask me again"
+msgstr "Більше не питай мене"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "У відповіді сервера немає поля nozzle_diameter."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "nozzle_diameter має бути масивом, наприклад [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Масив nozzle_diameter порожній; не можна застосовувати діаметр сопла."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Масив nozzle_diameter містить %d записів, що перевищує %d сопел, які "
+"може мати машина."
+
+msgid "\") is not a valid number."
+msgstr "\") не є дійсним числом."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Неможливо проаналізувати JSON макетного сервера:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Неможливо проаналізувати JSON сервера:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Відповідь сервера має бути об’єктом JSON, який містить масив "
+"nozzle_diameter."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Режим із кількома діаметрами сопел із опорним матеріалом є "
+"експериментальним: опорні шари ще не об’єднані в смуги адаптивного шару."
+
+msgid "Quick Load"
+msgstr "Швидке завантаження"
+
+msgid "Quick Change"
+msgstr "Швидка зміна"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Виберіть стиль принтера, який завжди використовуватиметься під час "
+"завантаження файлу. Коли вибрано стиль, примусово вмикається швидка зміна, а "
+"попередження про заміну версії/параметра пропускаються під час завантаження. "
+"Виберіть «Немає», щоб вимкнути."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Якщо ввімкнено, змінені налаштування процесу автоматично переносяться "
+"до щойно вибраного попереднього налаштування, а змінені параметри принтера та "
+"нитки скидаються. Діалогове вікно незбережених змін не відображається. Цей "
+"параметр вмикається примусово, якщо для параметра Quick Load встановлено "
+"попередні налаштування принтера."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

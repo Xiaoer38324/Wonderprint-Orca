@@ -22713,7 +22713,7 @@ msgid "Preview renderer type"
 msgstr "Megjelenítőtípus előnézete"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt megjelenítőt.\n"
+msgstr "Válassza ki a szeletelt G-kód előnézetéhez használt megjelenítőt."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22754,6 +22754,170 @@ msgstr "Új cső"
 
 msgid "New pipeline"
 msgstr "Új csővezeték"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "A kevert filamentumok összeegyeztethetetlen anyagtípusokat vagy "
+"fúvókaátmérőt tartalmaznak. Kérjük, a szeletelés előtt javítsa ki a kevert "
+"szálak beállításait."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "A különböző fúvókaátmérővel nyomtatott filamentek nem keverhetők. "
+"Kérjük, válasszon olyan filamenteket, amelyek azonos méretű fúvókaméretet "
+"használnak."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "A színkeverő sorok nem kombinálhatják a különböző fúvókaátmérővel "
+"nyomtatott filamenteket. Kérjük, válasszon olyan filamenteket, amelyek azonos "
+"méretű fúvókaméretet használnak."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Többszörös fúvóka átmérő beállítások..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Nyissa meg a többfúvóka átmérő beállításait."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "fúvóka_átmérője bejegyzés %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "A nozzle_diameter %d. bevitele nem szám."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "A nozzle_diameter %d bejegyzésének %.4g értéke kívül esik a "
+"tartományon."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "A(z) %d bejegyzésben szereplő %.4g mm értékű fúvók átmérője nem "
+"támogatott fúvókaátmérő (csak 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Fúvókaadatok frissítése a nyomtatószerverről"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Többfejes vegyes nyomtatási szerver adathiba"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "A fúvókák konfigurációja nem egyezik a szerverrel: a szerver %d "
+"fúvókát jelez ("
+
+msgid "), the current configuration has"
+msgstr "), a jelenlegi konfiguráció"
+
+msgid "nozzles ("
+msgstr "fúvókák ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "A fúvóka konfigurációja nem egyezik a szerverrel; a nyomtatás "
+"blokkolódott.\n\nSzerverfúvókák:"
+
+msgid "\nCurrent configuration:"
+msgstr "Jelenlegi konfiguráció:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Kattintson a \"Frissítés nyomtatószerverről\" gombra a fúvóka "
+"adatainak szinkronizálásához, vagy a fúvóka átmérőjeinek kézi korrigálásához "
+"nyomtatás előtt."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "A szerver %d fúvókákat jelent, de a nyomtató %d-t hordoz; A számok nem "
+"egyeznek."
+
+msgid "Nozzle diameter changed"
+msgstr "Fúvóka átmérője változott"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "A fúvókák átmérője nem mind azonos. Többszörös fúvóka átmérős mód "
+"engedélyezve lesz: a lemezt a legkisebb fúvóka rétegrácsán szeleteljük, és "
+"minden fúvóka a lefedett rétegeket egy vastagabb extrudálásba egyesíti."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Minden fúvóka átmérője most már ugyanaz. A többfúvóka átmérőjű mód ki "
+"lesz kapcsolva, és a lemezt ismét egyetlen fúvóka átmérőjű szeleteléssel "
+"szeleteljük."
+
+msgid "Mixed nozzle diameters"
+msgstr "Vegyes fúvóka átmérők"
+
+msgid "Nozzle diameters are equal"
+msgstr "A fúvókák átmérője egyenlő"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "A kevert szálak összeférhetetlen anyagtípusokat vagy fúvókaátmérőket "
+"tartalmaznak."
+
+msgid "Do not ask me again"
+msgstr "Ne kérdezz többet"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "A szerver válaszában nincs fúvóka_átmérő mező."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "A fúvóka_átmérőjének egy tömbnek kell lennie, például [0,4, 0,4, 0,8, "
+"0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "A nozzle_diameter tömb üres; nem alkalmazható fúvókaátmérő."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "A nozzle_diameter tömb %d bejegyzést tartalmaz, több, mint amennyi %d "
+"fúvókát egy gép képes szállítani."
+
+msgid "\") is not a valid number."
+msgstr "\") nem érvényes szám."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "A Mock Server JSON nem értelmezhető:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "A kiszolgáló JSON-ja nem értelmezhető:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "A szerver válaszának egy nozzle_diameter tömböt tartalmazó "
+"JSON-objektumnak kell lennie."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "A több fúvóka átmérőjű mód hordozóanyaggal kísérleti jellegű: a "
+"hordozórétegek még nincsenek összeolvasztva az adaptív rétegsávokba."
+
+msgid "Quick Load"
+msgstr "Gyors betöltés"
+
+msgid "Quick Change"
+msgstr "Gyors Változás"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Válassza ki a nyomtató előre beállított beállítását, amelyet mindig "
+"használni szeretne a fájl betöltésekor. Egy előre beállított beállítás "
+"kiválasztásakor a Gyors módosítás be van kapcsolva, és a "
+"verzió/paramétercsere figyelmeztetések kimaradnak a betöltés során. A "
+"kikapcsoláshoz válassza a Nincs lehetőséget."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Ha engedélyezve van, a módosított folyamatbeállítások automatikusan "
+"átkerülnek az újonnan kiválasztott előbeállításra, míg a módosított nyomtató- "
+"és izzószál-beállítások elvetésre kerülnek. A nem mentett módosítások "
+"párbeszédpanel nem jelenik meg. Ez az opció be van kapcsolva, ha a "
+"Gyorsbetöltés a nyomtató előre beállított értékre van állítva."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"

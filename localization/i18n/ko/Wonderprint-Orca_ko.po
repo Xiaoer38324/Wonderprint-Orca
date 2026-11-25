@@ -21231,7 +21231,7 @@ msgid "Preview renderer type"
 msgstr "미리보기 렌더러 유형"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선택합니다.\n"
+msgstr "슬라이스된 G 코드 미리보기에 사용되는 렌더러를 선택합니다."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -21270,6 +21270,147 @@ msgstr "새 파이프"
 
 msgid "New pipeline"
 msgstr "새로운 파이프라인"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "혼합 필라멘트에는 서로 호환되지 않는 재료 유형이나 노즐 직경이 포함되어 있습니다. 슬라이스 전에 혼합된 필라멘트 설정을 "
+"수정해 주세요."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "서로 다른 노즐 직경으로 인쇄된 필라멘트는 혼합할 수 없습니다. 동일한 노즐 크기를 사용하는 필라멘트를 선택해 주십시오."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "색상 혼합 행은 서로 다른 노즐 직경으로 인쇄된 필라멘트를 결합할 수 없습니다. 동일한 노즐 크기를 사용하는 필라멘트를 선택해 "
+"주십시오."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "다중 노즐 직경 설정..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "멀티 노즐 직경 설정을 엽니다."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "노즐_직경 입력 %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "nozzle_diameter 항목 %d가 숫자가 아닙니다."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter 항목 %d 값 %.4g이(가) 범위를 벗어났습니다."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "입력 %d 값 %.4g mm nozzle_diameter 지원되는 노즐 직경이 아닙니다(0.2 / 0.4 / 0.6 / 0.8 "
+"mm만 허용)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "프린터 서버에서 노즐 데이터를 업데이트하세요"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "다중 헤드 혼합 인쇄 서버 데이터 오류"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "노즐 구성이 서버와 일치하지 않음: 서버가 %d 노즐을 보고합니다 ("
+
+msgid "), the current configuration has"
+msgstr "), 현재 구성은 다음과 같다."
+
+msgid "nozzles ("
+msgstr "노즐 ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "노즐 구성이 서버와 일치하지 않습니다; 인쇄가 막혔다.\n\n서버 노즐:"
+
+msgid "\nCurrent configuration:"
+msgstr "현재 구성:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "노즐 데이터를 동기화하려면 \"프린터 서버에서 업데이트\"를 클릭하거나, 인쇄 전에 노즐 직경을 수동으로 수정하세요."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "서버는 %d 노즐을 보고하지만 프린터는 %d을 탑재하고 있습니다; 카운트가 일치하지 않습니다."
+
+msgid "Nozzle diameter changed"
+msgstr "노즐 직경 변경됨"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "노즐 직경이 모두 같지 않습니다. 다중 노즐 직경 모드가 활성화됩니다: 플레이트가 가장 작은 노즐의 레이어 그리드 위에서 "
+"절단되고, 각 노즐은 덮고 있는 층을 하나의 더 두꺼운 압출부로 합칩니다."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "이제 모든 노즐 직경이 동일합니다. 다중 노즐 직경 모드가 비활성화되고, 플레이트는 다시 단일 노즐 직경으로 슬라이스됩니다."
+
+msgid "Mixed nozzle diameters"
+msgstr "혼합 노즐 직경"
+
+msgid "Nozzle diameters are equal"
+msgstr "노즐 직경이 동일함"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "혼합 필라멘트에는 호환되지 않는 재료 유형이나 노즐 직경이 포함되어 있습니다."
+
+msgid "Do not ask me again"
+msgstr "다시 묻지 마세요"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "서버 응답에는 Nozzle_diameter 필드가 없습니다."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "Nozzle_diameter는 배열이어야 합니다(예: [0.4, 0.4, 0.8, 0.4])."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Nozzle_diameter 배열이 비어 있습니다. 노즐 직경을 적용할 수 없습니다."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Nozzle_diameter 배열에는 기계가 운반할 수 있는 %d 노즐보다 많은 %d 항목이 있습니다."
+
+msgid "\") is not a valid number."
+msgstr "\")은 유효한 숫자가 아닙니다."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "모의 서버 JSON을 구문 분석할 수 없습니다."
+
+msgid "Cannot parse the Server JSON:"
+msgstr "서버 JSON을 구문 분석할 수 없습니다."
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "서버 응답은 Nozzle_diameter 배열을 포함하는 JSON 개체여야 합니다."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "지지 재료를 사용한 다중 노즐 직경 모드는 실험적입니다. 지지 레이어는 아직 적응형 레이어 밴드에 병합되지 않습니다."
+
+msgid "Quick Load"
+msgstr "빠른 로드"
+
+msgid "Quick Change"
+msgstr "퀵 체인지"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "파일을 로드할 때 항상 사용할 프린터 사전 설정을 선택합니다. 프리셋을 선택하면 Quick Change가 강제로 활성화되고 "
+"로드하는 동안 버전/매개변수 대체 경고가 건너뜁니다. 비활성화하려면 없음을 선택하세요."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "활성화된 경우 수정된 프로세스 설정은 새로 선택한 사전 설정으로 자동으로 전송되고 수정된 프린터 및 필라멘트 설정은 "
+"삭제됩니다. 저장되지 않은 변경 사항 대화 상자는 표시되지 않습니다. 이 옵션은 Quick Load가 프린터 사전 설정으로 설정된 동안 "
+"강제로 활성화됩니다."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"

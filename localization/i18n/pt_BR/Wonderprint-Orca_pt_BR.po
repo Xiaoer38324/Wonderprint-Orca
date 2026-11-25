@@ -22808,7 +22808,7 @@ msgstr "Tipo de renderizador de visualização"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Selecione o renderizador usado para a visualização do código G "
-"fatiado.\n"
+"fatiado."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22852,6 +22852,168 @@ msgstr "Novo tubo"
 
 msgid "New pipeline"
 msgstr "Novo pipeline"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Filamentos mistos contêm tipos de materiais ou diâmetros de bico "
+"incompatíveis. Por favor, corrija as configurações dos filamentos mistos "
+"antes de cortar."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filamentos impressos com diâmetros de bico diferentes não podem ser "
+"misturados. Por favor, selecione filamentos que usam o mesmo tamanho de bico."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "As linhas de mistura de cores não podem combinar filamentos impressos "
+"com diferentes diâmetros de bico. Por favor, selecione filamentos que usam o "
+"mesmo tamanho de bico."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Configurações de diâmetro múltiplos do bico..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Abra as configurações de diâmetro múltiplo dos bicos."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "entrada de diâmetro_do_bocal %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "A entrada %d de nozzle_diameter não é um número."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter valor %d da entrada %.4g está fora do intervalo."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter valor %d da entrada %.4g mm não é um diâmetro de bico "
+"suportado (apenas 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Atualize os dados do bico a partir do servidor da impressora"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Erro de dados de servidor de impressão mista com múltiplas cabeças"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "A configuração do bico não corresponde à do servidor: o servidor "
+"reporta %d bicos ("
+
+msgid "), the current configuration has"
+msgstr "), a configuração atual tem"
+
+msgid "nozzles ("
+msgstr "bicos ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "A configuração do bico não corresponde à do servidor; A impressão foi "
+"bloqueada.\n\nBicos de servidor:"
+
+msgid "\nCurrent configuration:"
+msgstr "Configuração atual:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Clique em \"Atualizar do servidor de impressora\" para sincronizar os "
+"dados do bico ou corrigir manualmente os diâmetros dos bicos antes da "
+"impressão."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "O servidor reporta bicos %d, mas a impressora carrega %d; As contagens "
+"não coincidem."
+
+msgid "Nozzle diameter changed"
+msgstr "Diâmetro do bico alterado"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Os diâmetros dos bicos não são todos iguais. O modo de diâmetro "
+"múltiplo de bico será ativado: a placa é cortada na grade de camadas do menor "
+"bico e cada bico funde as camadas que cobre em uma extrusão mais espessa."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Todos os diâmetros dos bicos são iguais agora. O modo de diâmetro "
+"múltiplo de bico será desativado e a placa será cortada novamente com um "
+"único diâmetro de bico."
+
+msgid "Mixed nozzle diameters"
+msgstr "Diâmetros de bico mistos"
+
+msgid "Nozzle diameters are equal"
+msgstr "Os diâmetros dos bicos são iguais"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Filamentos mistos contêm tipos de materiais ou diâmetros de bico "
+"incompatíveis."
+
+msgid "Do not ask me again"
+msgstr "Não me pergunte de novo"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "A resposta do servidor não possui o campo bocal_diameter."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "bocal_diameter deve ser uma matriz, por exemplo [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "A matriz bico_diâmetro está vazia; nenhum diâmetro de bico pode ser "
+"aplicado."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "A matriz bico_diameter possui %d entradas, mais do que %d bicos que "
+"uma máquina pode transportar."
+
+msgid "\") is not a valid number."
+msgstr "\") não é um número válido."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Não é possível analisar o JSON do servidor simulado:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Não é possível analisar o JSON do servidor:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "A resposta do servidor deve ser um objeto JSON que contém uma matriz "
+"nozzle_diameter."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "O modo de diâmetro de bocal múltiplo com material de suporte é "
+"experimental: as camadas de suporte ainda não foram mescladas nas faixas de "
+"camada adaptativa."
+
+msgid "Quick Load"
+msgstr "Carregamento rápido"
+
+msgid "Quick Change"
+msgstr "Mudança rápida"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Selecione uma predefinição de impressora para usar sempre ao carregar "
+"um arquivo. Quando uma predefinição é selecionada, a Mudança Rápida é forçada "
+"e os avisos de substituição de versão/parâmetro são ignorados durante o "
+"carregamento. Selecione Nenhum para desativar."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Se ativado, as configurações de processo modificadas são transferidas "
+"automaticamente para a predefinição recém-selecionada, enquanto as "
+"configurações modificadas de impressora e filamento são descartadas. A caixa "
+"de diálogo de alterações não salvas não é mostrada. Esta opção é ativada "
+"enquanto o Quick Load está configurado para uma predefinição de impressora."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se você gostaria de testar o Wonderprint-Orca Beta, clique para"

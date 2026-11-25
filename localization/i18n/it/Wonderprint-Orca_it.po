@@ -23050,7 +23050,7 @@ msgstr "Anteprima del tipo di renderer"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Seleziona il renderer utilizzato per l'anteprima del codice G "
-"affettata.\n"
+"affettata."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -23095,6 +23095,171 @@ msgstr "Nuova pipa"
 
 msgid "New pipeline"
 msgstr "Nuovo gasdotto"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "I filamenti misti contengono tipi di materiale o diametri degli ugelli "
+"incompatibili. Per favore correggi le impostazioni dei filamenti misti prima "
+"di tagliare."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "I filamenti stampati con diametri di ugello diversi non possono essere "
+"mischiati. Seleziona filamenti che utilizzano la stessa dimensione "
+"dell'ugello."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Le file di miscelazione dei colori non possono combinare filamenti "
+"stampati con diametri di ugello diversi. Seleziona filamenti che utilizzano "
+"la stessa dimensione dell'ugello."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Impostazioni di diametro più dell'ugello..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Apri le impostazioni per diametro multi-ugello."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "voce diametro_ugello %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "La voce nozzle_diameter %d non è un numero."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "Il valore %.4g della voce nozzle_diameter %d è fuori intervallo."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter valore %d di voce %.4g mm non corrisponde a un "
+"diametro di ugello supportato (solo 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Aggiorna i dati dell'ugello dal server della stampante"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Errore di dati del server di stampa mista multi-head"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "La configurazione degli ugelli non corrisponde a quella del server: il "
+"server segnala %d ugelli ("
+
+msgid "), the current configuration has"
+msgstr "), la configurazione attuale ha"
+
+msgid "nozzles ("
+msgstr "ugelli ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "La configurazione dell'ugello non corrisponde a quella del server; La "
+"stampa è stata bloccata.\n\nUgelli per server:"
+
+msgid "\nCurrent configuration:"
+msgstr "Configurazione attuale:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Fare clic su \"Aggiorna dal server della stampante\" per sincronizzare "
+"i dati dell'ugello oppure correggere manualmente i diametri degli ugelli "
+"prima della stampa."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Il server segnala ugelli %d ma la stampante contiene %d; I conteggi "
+"non corrispondono."
+
+msgid "Nozzle diameter changed"
+msgstr "Diametro dell'ugello cambiato"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "I diametri degli ugelli non sono tutti uguali. La modalità a diametro "
+"multi-ugello sarà abilitata: la piastra viene tagliata sulla griglia degli "
+"strati dell'ugello più piccolo e ogni ugello unisce gli strati che copre in "
+"un'estrusione più spessa."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Tutti i diametri degli ugelli sono ora uguali. La modalità a diametro "
+"più ugello sarà disabilitata e la piastra verrà nuovamente tagliata con un "
+"singolo diametro di ugello."
+
+msgid "Mixed nozzle diameters"
+msgstr "Diametri ugelli misti"
+
+msgid "Nozzle diameters are equal"
+msgstr "I diametri degli ugelli sono uguali"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "I filamenti misti contengono tipi di materiali o diametri degli ugelli "
+"incompatibili."
+
+msgid "Do not ask me again"
+msgstr "Non chiedermelo più"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "La risposta del server non ha un campo injection_diameter."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "diametro_ugello deve essere un array, ad esempio [0.4, 0.4, 0.8, 0.4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "L'array diametro_ugello è vuoto; non è possibile applicare alcun "
+"diametro dell'ugello."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "L'array diametro_ugello ha %d voci, più dei %d ugelli che una macchina "
+"può trasportare."
+
+msgid "\") is not a valid number."
+msgstr "\") non è un numero valido."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Impossibile analizzare il JSON del Mock Server:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Impossibile analizzare il server JSON:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "La risposta del server deve essere un oggetto JSON che contiene un "
+"array injection_diameter."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "La modalità con diametro multiugello con materiale di supporto è "
+"sperimentale: gli strati di supporto non sono ancora uniti nelle bande di "
+"strati adattivi."
+
+msgid "Quick Load"
+msgstr "Caricamento rapido"
+
+msgid "Quick Change"
+msgstr "Cambio rapido"
+
+msgid "Select a printer preset to always use when loading a file. When a "
+"preset is selected, Quick Change is forced on and the version/parameter "
+"substitution warnings are skipped while loading. Select None to disable."
+msgstr "Seleziona una preimpostazione della stampante da utilizzare sempre "
+"durante il caricamento di un file. Quando viene selezionato un preset, Quick "
+"Change viene forzato e gli avvisi di sostituzione di versione/parametro "
+"vengono saltati durante il caricamento. Seleziona Nessuno per disabilitare."
+
+msgid "If enabled, modified process settings are transferred to the newly "
+"selected preset automatically, while modified printer and filament settings "
+"are discarded. The unsaved changes dialog is not shown. This option is forced "
+"on while Quick Load is set to a printer preset."
+msgstr "Se abilitato, le impostazioni di processo modificate vengono "
+"trasferite automaticamente alla preimpostazione appena selezionata, mentre le "
+"impostazioni modificate della stampante e del filamento vengono scartate. La "
+"finestra di dialogo delle modifiche non salvate non viene visualizzata. "
+"Questa opzione viene forzata mentre Caricamento rapido è impostato su una "
+"preimpostazione della stampante."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se vuoi provare Wonderprint-Orca Beta, puoi cliccare su"
