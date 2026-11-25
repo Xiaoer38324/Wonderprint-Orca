@@ -299,6 +299,18 @@ protected:
     // selected action after Dialog closing
     Action m_exit_action {Action::Undef};
 
+    // Quick Change: when it is enabled in the preferences, this preset-switch dialog is answered
+    // automatically and not shown at all. Only process settings are transferred; printer and
+    // filament / SLA material settings are discarded.
+    bool m_quick_change_applies { false };
+    bool m_quick_change_applied { false };
+
+    // Type and name of the preset collection this dialog was opened for.
+    Preset::Type m_preset_type { Preset::TYPE_INVALID };
+    std::string  m_preset_name;
+    // True when m_new_selected_preset_name is a preset of the same collection (a real preset switch).
+    bool         m_target_is_same_type { false };
+
 public:
     //BBS: add project embedded preset relate logic
     struct PresetData
@@ -349,6 +361,8 @@ public:
     bool save_preset() const        { return m_exit_action == Action::Save;     }
     bool transfer_changes() const   { return m_exit_action == Action::Transfer; }
     bool discard() const            { return m_exit_action == Action::Discard;  }
+    // True if Quick Change answered this dialog automatically (the dialog was not shown).
+    bool quick_change_applied() const { return m_quick_change_applied; }
 
     // get full bundle of preset names and types for saving
     //BBS: add project embedded preset relate logic

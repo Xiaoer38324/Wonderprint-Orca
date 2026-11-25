@@ -16,6 +16,8 @@
 #include "Widgets/TabCtrl.hpp"
 #include "slic3r/Utils/bambu_networking.hpp"
 
+class wxStaticText;
+
 namespace Slic3r { namespace GUI {
 
 #define DESIGN_GRAY900_COLOR wxColour("#363636") // Label color
@@ -71,6 +73,8 @@ public:
     ::CheckBox * m_developer_mode_ckeckbox   = {nullptr};
     ::CheckBox * m_internal_developer_mode_ckeckbox = {nullptr};
     ::CheckBox * m_dark_mode_ckeckbox        = {nullptr};
+    ::CheckBox * m_quick_change_checkbox     = {nullptr};
+    wxStaticText *m_quick_change_title       = {nullptr};
     ::TextInput *m_backup_interval_textinput = {nullptr};
     ::ComboBox * m_network_version_combo     = {nullptr};
     wxBoxSizer * m_network_version_sizer     = {nullptr};
@@ -93,6 +97,8 @@ public:
     wxBoxSizer *create_item_checkbox(wxString title, wxString tooltip, std::string param, const wxString secondary_title = "");
     wxBoxSizer *create_item_darkmode(wxString title,wxString tooltip, std::string param);
     void set_dark_mode();
+    // Quick Load forces Quick Change on: keep the checkbox checked and disabled in that case.
+    void update_quick_change_state(const std::string &quick_load_printer);
     wxBoxSizer *create_item_button(wxString title, wxString title2, wxString tooltip, wxString tooltip2, std::function<void()> onclick);
     wxBoxSizer *create_item_downloads(wxString title, wxString tooltip);
     wxBoxSizer *create_item_input(wxString title, wxString title2, wxString tooltip, std::string param, std::function<void(wxString)> onchange = {});
@@ -120,7 +126,7 @@ public:
     int m_current_language_selected = {0};
 
 private:
-    std::tuple<wxBoxSizer*, ComboBox*> create_item_combobox_base(wxString title, wxString tooltip, std::string param, std::vector<wxString> vlist, unsigned int current_index);
+    std::tuple<wxBoxSizer*, ComboBox*> create_item_combobox_base(wxString title, wxString tooltip, std::string param, std::vector<wxString> vlist, unsigned int current_index, bool expand = false);
 };
 
 }} // namespace Slic3r::GUI

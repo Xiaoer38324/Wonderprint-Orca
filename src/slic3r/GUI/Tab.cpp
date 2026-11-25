@@ -6051,18 +6051,32 @@ bool Tab::may_discard_current_dirty_preset(PresetCollection *presets /*= nullptr
         if (!no_transfer && no_transfer_variant) {
             auto & options_list = wxGetApp().get_tab(presets->type())->m_options_list;
             bool has_variants = false;
+            std::vector<std::string> dropped_variant_options;
             for (auto &opt : selected_options) {
                 if (auto n = opt.find('#'); n != std::string::npos) {
                     auto iter = options_list.lower_bound(opt.substr(0, n));
                     if (iter == options_list.end() || opt.compare(0, n, iter->first)) {
                         has_variants = true;
+                        dropped_variant_options.emplace_back(opt);
                         opt.clear();
                     }
                 }
             }
             if (has_variants) {
-                auto msg = _L("Switching to a printer with different extruder types or numbers will discard or reset changes to extruder or multi-nozzle-related parameters.");
-                MessageDialog(wxGetApp().plater(), msg, _L("Use Modified Value"), wxOK | wxICON_WARNING).ShowModal();
+                // Quick Change transfers the values automatically, so don't interrupt it with this warning.
+                // The incompatible (extruder / multi-nozzle related) options are still dropped below.
+                if (!wxGetApp().app_config->is_quick_change_enabled()) {
+                    auto msg = _L("Switching to a printer with different extruder types or numbers will discard or reset changes to extruder or multi-nozzle-related parameters.");
+                    MessageDialog(wxGetApp().plater(), msg, _L("Use Modified Value"), wxOK | wxICON_WARNING).ShowModal();
+                } else {
+                    std::string dropped_keys;
+                    for (const std::string &opt : dropped_variant_options) {
+                        if (!dropped_keys.empty())
+                            dropped_keys += ", ";
+                        dropped_keys += opt;
+                    }
+                    BOOST_LOG_TRIVIAL(warning) << "Quick Change: incompatible extruder / multi-nozzle options are not transferred: " << dropped_keys;
+                }
                 selected_options.erase(std::remove(selected_options.begin(), selected_options.end(), ""), selected_options.end());
             }
         }
@@ -6084,6 +6098,14 @@ bool Tab::may_discard_current_dirty_preset(PresetCollection *presets /*= nullptr
         }
         else
             wxGetApp().get_tab(presets->type())->cache_config_diff(selected_options);
+    }
+    else if (dlg.discard() && dlg.quick_change_applied()) // Quick Change never transfers printer / filament settings
+    {
+        // Make sure the changes are really dropped, even if the newly selected preset is still compatible
+        // with the current one (in that case the preset switch alone would keep them).
+        BOOST_LOG_TRIVIAL(warning) << "Quick Change: changes of preset \"" << presets->get_edited_preset().name
+                                   << "\" are discarded instead of being transferred";
+        presets->discard_current_changes();
     }
 
     return true;

@@ -53,7 +53,7 @@ wxBoxSizer *PreferencesDialog::create_item_title(wxString title)
     return m_sizer_title;
 }
 
-std::tuple<wxBoxSizer*, ComboBox*> PreferencesDialog::create_item_combobox_base(wxString title, wxString tooltip, std::string param, std::vector<wxString> vlist, unsigned int current_index)
+std::tuple<wxBoxSizer*, ComboBox*> PreferencesDialog::create_item_combobox_base(wxString title, wxString tooltip, std::string param, std::vector<wxString> vlist, unsigned int current_index, bool expand)
 {
     wxBoxSizer *m_sizer_combox = new wxBoxSizer(wxHORIZONTAL);
     m_sizer_combox->AddSpacer(FromDIP(DESIGN_LEFT_MARGIN));
@@ -78,7 +78,16 @@ std::tuple<wxBoxSizer*, ComboBox*> PreferencesDialog::create_item_combobox_base(
 
     combobox->SetSelection(current_index);
 
-    m_sizer_combox->Add(combobox, 0, wxALIGN_CENTER | wxLEFT, FromDIP(5));
+    if (expand) {
+        // Let the combobox use all the space left by the title, so long values (e.g. printer preset names)
+        // are displayed completely instead of being clipped.
+        wxSize min_size = combobox->GetMinSize();
+        min_size.x = FromDIP(200);
+        combobox->SetMinSize(min_size);
+        m_sizer_combox->Add(combobox, 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxLEFT, FromDIP(5));
+    }
+    else
+        m_sizer_combox->Add(combobox, 0, wxALIGN_CENTER | wxLEFT, FromDIP(5));
 
     return {m_sizer_combox, combobox};
 }
@@ -929,6 +938,11 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
     checkbox->SetValue(app_config->get_bool(param));
     checkbox->SetToolTip(tip);
 
+    if (param == "quick_change") {
+        m_quick_change_checkbox = checkbox;
+        m_quick_change_title    = checkbox_title;
+    }
+
     m_sizer_checkbox->Add(checkbox_title, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, FromDIP(3));
     m_sizer_checkbox->Add(checkbox      , 0, wxALIGN_CENTER | wxRIGHT | wxLEFT, FromDIP(5));
 
@@ -1072,6 +1086,23 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
     if (param == "internal_developer_mode") { m_internal_developer_mode_ckeckbox = checkbox; }
 
     return m_sizer_checkbox;
+}
+
+void PreferencesDialog::update_quick_change_state(const std::string &quick_load_printer)
+{
+    if (m_quick_change_checkbox == nullptr)
+        return;
+
+    // Quick Load forces Quick Change on, so the checkbox is checked and cannot be changed.
+    // The user's own quick_change value is left untouched and is restored when Quick Load is set to None.
+    const bool forced = !quick_load_printer.empty();
+    m_quick_change_checkbox->SetValue(forced || app_config->get_bool("quick_change"));
+    m_quick_change_checkbox->Enable(!forced);
+
+    if (m_quick_change_title != nullptr) {
+        m_quick_change_title->SetForegroundColour(forced ? DESIGN_GRAY600_COLOR : DESIGN_GRAY900_COLOR);
+        m_quick_change_title->Refresh();
+    }
 }
 
 wxBoxSizer* PreferencesDialog::create_item_button(wxString title, wxString title2, wxString tooltip, wxString tooltip2, std::function<void()> onclick)
@@ -1403,6 +1434,58 @@ void PreferencesDialog::create_items()
 
     auto item_remember_printer = create_item_checkbox(_L("Remember printer configuration"), _L("If enabled, Wonderprint-Orca will remember and switch filament/process configuration for each printer automatically."), "remember_printer_config");
     g_sizer->Add(item_remember_printer);
+
+    // Quick Load: printer preset which is used automatically whenever a file is loaded.
+    std::vector<wxString>    quick_load_labels;
+    std::vector<std::string> quick_load_values;
+    quick_load_labels.emplace_back(_L("None"));
+    quick_load_values.emplace_back("");
+    if (wxGetApp().preset_bundle != nullptr) {
+        for (const Preset &preset : wxGetApp().preset_bundle->printers.get_presets()) {
+            if (!preset.is_visible || preset.is_default)
+                continue;
+            quick_load_labels.emplace_back(wxString::FromUTF8(preset.name));
+            quick_load_values.emplace_back(preset.name);
+        }
+    }
+
+    const std::string quick_load_printer = app_config->get("quick_load_printer");
+    unsigned int      quick_load_index   = 0;
+    bool              quick_load_found   = quick_load_printer.empty();
+    for (size_t i = 0; i < quick_load_values.size(); ++i) {
+        if (quick_load_values[i] == quick_load_printer) {
+            quick_load_index = static_cast<unsigned int>(i);
+            quick_load_found = true;
+            break;
+        }
+    }
+    if (!quick_load_found) {
+        // The stored printer preset doesn't exist anymore, fall back to "None".
+        app_config->set("quick_load_printer", "");
+        app_config->save();
+    }
+
+    auto quick_load_item = create_item_combobox_base(_L("Quick Load"),
+        _L("Select a printer preset to always use when loading a file. When a preset is selected, Quick Change is forced on and the version/parameter substitution warnings are skipped while loading. Select None to disable."),
+        "quick_load_printer", quick_load_labels, quick_load_index, true);
+    g_sizer->Add(std::get<0>(quick_load_item), 0, wxEXPAND);
+
+    ComboBox *quick_load_combobox = std::get<1>(quick_load_item);
+    quick_load_combobox->GetDropDown().SetUseContentWidth(true, true);
+    quick_load_combobox->GetDropDown().Bind(wxEVT_COMBOBOX, [this, quick_load_values](wxCommandEvent &e) {
+        const int         selection = e.GetSelection();
+        const std::string printer   = (selection >= 0 && selection < static_cast<int>(quick_load_values.size())) ? quick_load_values[selection] : std::string();
+        app_config->set("quick_load_printer", printer);
+        app_config->save();
+        this->update_quick_change_state(printer);
+        e.Skip();
+    });
+
+    auto item_quick_change = create_item_checkbox(_L("Quick Change"),
+        _L("If enabled, modified process settings are transferred to the newly selected preset automatically, while modified printer and filament settings are discarded. The unsaved changes dialog is not shown. This option is forced on while Quick Load is set to a printer preset."),
+        "quick_change");
+    g_sizer->Add(item_quick_change);
+    this->update_quick_change_state(app_config->get("quick_load_printer"));
 
     auto item_filament_preset_grouping = create_item_combobox(_L("Group user filament presets"), _L("Group user filament presets based on selection"),
         "group_filament_presets", {_L("All"), _L("None"), _L("By type"), _L("By vendor")}, [](wxString value) {wxGetApp().plater()->sidebar().update_presets(Preset::TYPE_FILAMENT);});

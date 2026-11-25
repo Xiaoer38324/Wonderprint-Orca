@@ -6633,6 +6633,38 @@ void read_binary_stl(const std::string& filename, std::string& model_id, std::st
     return;
 }
 
+// Quick Load: returns the printer preset selected in the preferences, if it still exists.
+static bool get_quick_load_printer(std::string &printer_name)
+{
+    if (wxGetApp().app_config == nullptr || wxGetApp().preset_bundle == nullptr)
+        return false;
+    const std::string name = wxGetApp().app_config->get("quick_load_printer");
+    if (name.empty() || wxGetApp().preset_bundle->printers.find_preset(name, false, true) == nullptr)
+        return false;
+    printer_name = name;
+    return true;
+}
+
+// Quick Load: after a file was loaded, switch to the printer preset chosen in the preferences and
+// make sure the Prepare page is shown.
+static void apply_quick_load_printer(const std::string &printer_name)
+{
+    if (printer_name.empty())
+        return;
+    if (wxGetApp().preset_bundle != nullptr && wxGetApp().preset_bundle->printers.get_edited_preset().name != printer_name) {
+        BOOST_LOG_TRIVIAL(warning) << "Quick Load: switching printer preset to \"" << printer_name << "\"";
+        if (Tab *printer_tab = wxGetApp().get_tab(Preset::TYPE_PRINTER))
+            printer_tab->select_preset(printer_name);
+    }
+    else
+        BOOST_LOG_TRIVIAL(warning) << "Quick Load: printer preset \"" << printer_name << "\" is already active";
+    if (wxGetApp().plater() != nullptr)
+        wxGetApp().plater()->select_view_3D("3D");
+    if (wxGetApp().mainframe != nullptr)
+        wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
+    BOOST_LOG_TRIVIAL(info) << "Quick Load: opened the Prepare page";
+}
+
 // BBS: backup & restore
 std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_files, LoadStrategy strategy, bool ask_multi)
 {
@@ -6670,6 +6702,13 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
     bool silence = strategy & LoadStrategy::Silence;
 
     BOOST_LOG_TRIVIAL(info) << __FUNCTION__ << boost::format(": load_model %1%, load_config %2%, input_files size %3%")%load_model %load_config %input_files.size();
+
+    // Quick Load: when a printer preset is selected in the preferences, use it once the file is loaded
+    // and skip the 3MF version / configuration substitution warnings.
+    std::string quick_load_printer;
+    const bool  quick_load = load_model && !silence && !(strategy & LoadStrategy::Restore) && get_quick_load_printer(quick_load_printer);
+    if (quick_load)
+        BOOST_LOG_TRIVIAL(warning) << "Quick Load: enabled, target printer preset \"" << quick_load_printer << "\"";
 
     const auto loading = _L("Loading") + dots;
     ProgressDialog dlg(loading, "", 100, find_toplevel_parent(q), wxPD_AUTO_HIDE | wxPD_CAN_ABORT | wxPD_APP_MODAL);
@@ -6818,8 +6857,12 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     if (en_3mf_file_type == En3mfType::From_Prusa) {
                         // do not reset the model config
                         load_config = false;
-                        if(load_type != LoadType::LoadGeometry)
-                            show_info(q, _L("The 3MF is not supported by Wonderprint-Orca, loading geometry data only."), _L("Load 3MF"));
+                        if (load_type != LoadType::LoadGeometry) {
+                            if (quick_load)
+                                BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped unsupported 3MF warning";
+                            else
+                                show_info(q, _L("The 3MF is not supported by Wonderprint-Orca, loading geometry data only."), _L("Load 3MF"));
+                        }
                     }
                     // else if (load_config && (file_version.maj() != app_version.maj())) {
                     //     // version mismatch, only load geometries
@@ -6848,7 +6891,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     //     }
                     // }
                     // Orca: check if the project is created with OrcaSlicer 2.3.1-alpha and use the sparse infill rotation template for non-safe infill patterns
-                    else if (load_config && (file_version < app_version) && file_version == Semver("2.3.1-alpha")) {
+                    else if (!quick_load && load_config && (file_version < app_version) && file_version == Semver("2.3.1-alpha")) {
                         if (!config_loaded.opt_string("sparse_infill_rotate_template").empty()) {
                             const auto _sparse_infill_pattern =
                                 config_loaded.option<ConfigOptionEnum<InfillPattern>>("sparse_infill_pattern")->value;
@@ -6872,6 +6915,9 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                         }
 
                     } else if (load_config && (file_version > app_version)) {
+                        if (quick_load)
+                            BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped 3MF version warning, file version " << file_version.to_string()
+                                                       << " is newer than app version " << app_version.to_string();
                         if (config_substitutions.unrecogized_keys.size() > 0) {
                             wxString text  = wxString::Format(_L("The 3MF file version %s is newer than %s's version %s, found the following unrecognized keys:"),
                                                              file_version.to_string(), std::string(SLIC3R_APP_FULL_NAME), app_version.to_string());
@@ -6891,7 +6937,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             context += "\n\n";
                             // context += into_u8(append);
                             context += append;
-                            show_info(q, context, _L("Newer 3MF version"));
+                            if (!quick_load)
+                                show_info(q, context, _L("Newer 3MF version"));
                         }
                         else {
                             //if the minor version is not matched
@@ -6899,13 +6946,17 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                 wxString text  = wxString::Format(_L("The 3MF file version %s is newer than %s's version %s, we suggest to upgrade your software."),
                                                  file_version.to_string(), std::string(SLIC3R_APP_FULL_NAME), app_version.to_string());
                                 text += "\n";
-                                show_info(q, text, _L("Newer 3MF version"));
+                                if (!quick_load)
+                                    show_info(q, text, _L("Newer 3MF version"));
                             }
                         }
                     } 
                     else if (load_config && config_loaded.empty()) {
                         load_config = false;
-                        show_info(q, _L("The 3MF file was generated by an old Wonderprint-Orca version, loading geometry data only."), _L("Load 3MF"));
+                        if (!quick_load)
+                            show_info(q, _L("The 3MF file was generated by an old Wonderprint-Orca version, loading geometry data only."), _L("Load 3MF"));
+                        else
+                            BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped old 3MF version warning";
                     }
                     else if (!load_config) {
                         // reset config except color
@@ -6971,7 +7022,13 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                         PresetsConfigSubstitutions preset_substitutions;
                         PresetBundle &             preset_bundle = *wxGetApp().preset_bundle;
                         preset_substitutions                     = preset_bundle.load_project_embedded_presets(project_presets, ForwardCompatibilitySubstitutionRule::Enable);
-                        if (!preset_substitutions.empty()) show_substitutions_info(preset_substitutions);
+                        if (!preset_substitutions.empty()) {
+                            if (quick_load)
+                                BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped configuration substitution warning for "
+                                                           << preset_substitutions.size() << " project preset(s)";
+                            else
+                                show_substitutions_info(preset_substitutions);
+                        }
                     }
                     if (project_presets.size() > 0) {
                         for (unsigned int i = 0; i < project_presets.size(); i++) { delete project_presets[i]; }
@@ -7009,7 +7066,13 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             notify_manager->bbl_show_3mf_warn_notification(error_message);
                         }
                     }
-                    if (!config_substitutions.empty()) show_substitutions_info(config_substitutions.substitutions, filename.string());
+                    if (!config_substitutions.empty()) {
+                        if (quick_load)
+                            BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped configuration substitution warning for "
+                                                       << config_substitutions.substitutions.size() << " replaced value(s)";
+                        else
+                            show_substitutions_info(config_substitutions.substitutions, filename.string());
+                    }
 
                     // BBS
                     if (load_model && !load_config) {
@@ -7367,7 +7430,13 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     PresetsConfigSubstitutions preset_substitutions;
                     PresetBundle &             preset_bundle = *wxGetApp().preset_bundle;
                     preset_substitutions                     = preset_bundle.load_project_embedded_presets(project_presets, ForwardCompatibilitySubstitutionRule::Enable);
-                    if (!preset_substitutions.empty()) show_substitutions_info(preset_substitutions);
+                    if (!preset_substitutions.empty()) {
+                        if (quick_load)
+                            BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped configuration substitution warning for "
+                                                       << preset_substitutions.size() << " project preset(s)";
+                        else
+                            show_substitutions_info(preset_substitutions);
+                    }
 
                     for (unsigned int i = 0; i < project_presets.size(); i++) { delete project_presets[i]; }
                     project_presets.clear();
@@ -7569,7 +7638,11 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                     std::string machine_type = obj->printer_type;
                     if (obj->is_support_upgrade_kit && obj->installed_upgrade_kit) machine_type = "C12";
 
-                    if (printer_preset.get_current_printer_type(preset_bundle) != machine_type || !is_approx((float) preset_nozzle_diameter, machine_nozzle_diameter)) {
+                    const bool printer_info_mismatch = printer_preset.get_current_printer_type(preset_bundle) != machine_type ||
+                                                       !is_approx((float) preset_nozzle_diameter, machine_nozzle_diameter);
+                    if (printer_info_mismatch && quick_load)
+                        BOOST_LOG_TRIVIAL(warning) << "Quick Load: skipped connected printer sync prompt, using preset \"" << quick_load_printer << "\"";
+                    if (!quick_load && printer_info_mismatch) {
                         Preset *machine_preset = get_printer_preset(obj);
                         if (machine_preset != nullptr) {
                             std::string printer_model = machine_preset->config.option<ConfigOptionString>("printer_model")->value;
@@ -7710,6 +7783,12 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
             if (msg.ShowModal() == wxID_YES) {}
         }
     }
+    // Quick Load: always use the printer preset selected in the preferences and land on the Prepare page.
+    if (quick_load) {
+        dlg.Hide();
+        apply_quick_load_printer(quick_load_printer);
+    }
+
     q->schedule_background_process(true);
     return obj_idxs;
 }
@@ -12937,6 +13016,15 @@ void Plater::load_project(wxString const& filename2,
         p->partplate_list.select_plate_view();
     }
 
+    // Quick Load always lands on the Prepare page, even for a .gcode.3mf file.
+    if (!load_restore && !(strategy & LoadStrategy::Silence)) {
+        std::string quick_load_printer_name;
+        if (get_quick_load_printer(quick_load_printer_name)) {
+            p->select_view_3D("3D");
+            wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
+        }
+    }
+
     enable_sidebar(!m_only_gcode);
 
     wxGetApp().app_config->update_last_backup_dir(model().get_backup_path());
@@ -15057,6 +15145,10 @@ bool Plater::load_files(const wxArrayString& filenames)
 
 LoadType determine_load_type(std::string filename, std::string override_setting)
 {
+    // Quick Load always opens the project directly, without asking how it should be loaded.
+    if (wxGetApp().app_config->is_quick_load_active())
+        return LoadType::OpenProject;
+
     std::string setting;
 
     if (override_setting != "") {

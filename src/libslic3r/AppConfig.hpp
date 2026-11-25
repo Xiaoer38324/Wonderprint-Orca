@@ -119,6 +119,17 @@ public:
 		{ return this->get(section, key) == "true" || this->get(key) == "1"; }
 	bool				get_bool(const std::string &key) const
 		{ return this->get_bool("app", key); }
+
+	// Quick Load: name of the printer preset which is always used when a file is loaded.
+	// It is empty when Quick Load is set to "None".
+	std::string			get_quick_load_printer() const
+		{ return this->get("quick_load_printer"); }
+	bool				is_quick_load_active() const
+		{ return !this->get_quick_load_printer().empty(); }
+
+	// Quick Change is enabled either by its own preference or forced by an active Quick Load.
+	bool				is_quick_change_enabled() const
+		{ return this->is_quick_load_active() || this->get_bool("quick_change"); }
 	void			    set(const std::string &section, const std::string &key, const std::string &value)
 	{
 #ifndef NDEBUG

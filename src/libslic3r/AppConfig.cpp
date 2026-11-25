@@ -369,6 +369,17 @@ void AppConfig::set_defaults()
         set_bool("remember_printer_config", true);
     }
 
+    // Quick Change: only modified process settings are transferred to the newly selected preset.
+    // Printer and filament settings are discarded instead of being transferred.
+    if (get("quick_change").empty()) {
+        set_bool("quick_change", false);
+    }
+
+    // Quick Load: printer preset which is always applied when a file is loaded. Empty means "None".
+    if (get("quick_load_printer").empty()) {
+        set("quick_load_printer", "");
+    }
+
     if (get("group_filament_presets").empty()) {
         set("group_filament_presets", "1"); // All "0" / None "1" / By Type "2" / By Vendor "3"
     }

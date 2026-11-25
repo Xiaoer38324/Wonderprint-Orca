@@ -5,6 +5,7 @@
 #include <vector>
 #include <boost/algorithm/string.hpp>
 #include <boost/optional.hpp>
+#include <boost/log/trivial.hpp>
 
 #include <wx/tokenzr.h>
 
@@ -812,14 +813,70 @@ UnsavedChangesDialog::UnsavedChangesDialog(Preset::Type type, PresetCollection *
 {
     if (new_selected_preset.empty() || no_transfer)
         m_buttons &= ~ActionButtons::TRANSFER;
+    // This is the "Transfer or discard changes" dialog shown while switching a preset. It is the only
+    // dialog which may be answered automatically by Quick Change.
+    m_quick_change_applies = true;
+    m_preset_type          = dependent_presets ? dependent_presets->type() : type;
+    m_preset_name          = dependent_presets ? dependent_presets->get_edited_preset().name : std::string();
+    m_target_is_same_type  = dependent_presets != nullptr && type == dependent_presets->type();
     build(type, dependent_presets, new_selected_preset);
     this->CenterOnScreen();
     wxGetApp().UpdateDlgDarkUI(this);
 }
 
 
+static const char *preset_type_name(Preset::Type type)
+{
+    switch (type) {
+        case Preset::TYPE_PRINT:            return "process";
+        case Preset::TYPE_SLA_PRINT:        return "SLA process";
+        case Preset::TYPE_FILAMENT:         return "filament";
+        case Preset::TYPE_SLA_MATERIAL:     return "SLA material";
+        case Preset::TYPE_PRINTER:          return "printer";
+        default:                            return "unknown";
+    }
+}
+
+
 inline int UnsavedChangesDialog::ShowModal()
 {
+    // Quick Change: when the preference is enabled (or forced by Quick Load), the dialog is answered
+    // automatically and not shown at all. Only process settings are transferred to the newly selected
+    // preset; printer and filament / SLA material settings are discarded.
+    // Dialog instances which are not related to switching a preset (empty target preset) are still shown.
+    if (m_quick_change_applies && !m_new_selected_preset_name.empty() && wxGetApp().app_config->is_quick_change_enabled()) {
+        const bool is_process = m_preset_type == Preset::TYPE_PRINT || m_preset_type == Preset::TYPE_SLA_PRINT;
+        Action     action     = is_process ? Action::Transfer : Action::Discard;
+        if (action == Action::Transfer && m_transfer_btn == nullptr) {
+            BOOST_LOG_TRIVIAL(warning) << "Quick Change: transfer is not available for preset \"" << m_preset_name
+                                       << "\", discarding its changes instead";
+            action = Action::Discard;
+        }
+
+        // Log which settings are transferred or skipped, so the automatic decision is traceable.
+        std::string option_keys;
+        size_t      option_count = 0;
+        for (const PresetItem &item : m_presetitems) {
+            if (item.type != m_preset_type)
+                continue;
+            ++option_count;
+            if (!option_keys.empty())
+                option_keys += ", ";
+            option_keys += item.opt_key;
+        }
+        const std::string target = m_target_is_same_type && !m_new_selected_preset_name.empty()
+                                       ? (" -> \"" + m_new_selected_preset_name + "\"")
+                                       : std::string();
+        BOOST_LOG_TRIVIAL(warning) << "Quick Change: " << (action == Action::Transfer ? "transfer" : "discard") << " "
+                                   << option_count << " " << preset_type_name(m_preset_type) << " setting(s) of preset \""
+                                   << m_preset_name << "\"" << target << "; options: "
+                                   << (option_keys.empty() ? std::string("<none>") : option_keys);
+
+        m_exit_action          = action;
+        m_quick_change_applied = true;
+        return wxID_CLOSE;
+    }
+
     auto choise_key = "save_preset_choise"; 
     auto choise     = wxGetApp().app_config->get(choise_key);
     long result = 0;
