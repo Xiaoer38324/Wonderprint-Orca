@@ -2218,23 +2218,23 @@ Sidebar::Sidebar(Plater *parent)
     update_filaments_area_height(); // ORCA
 
     bSizer38->Add(p->m_panel_filament_content, 0, wxEXPAND | wxTOP | wxBOTTOM, FromDIP(SidebarProps::ContentMarginV())); // ORCA use vertical margin on parent otherwise it shows scrollbar even on 1 filament
-
+    //Hide for this commit
     // Wonder: "Filament Mix" bar, same level as the Filament bar
-    p->m_panel_filament_mix_title = new StaticBox(p->m_panel_filament_settings_title, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
-    p->m_panel_filament_mix_title->SetBackgroundColor(title_bg);
-    p->m_panel_filament_mix_title->SetBackgroundColor2(0xF1F1F1);
-    p->m_panel_filament_mix_title->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent &e) {
-        p->m_panel_filament_mix_content->Show(!p->m_panel_filament_mix_content->IsShown());
-        p->m_panel_filament_mix_title->Layout();
-        m_scrolled_sizer->Layout();
-    });
-    wxBoxSizer* bSizer_mix = new wxBoxSizer(wxHORIZONTAL);
-    bSizer_mix->AddSpacer(FromDIP(20)); // align with the "Filament" bar icon
-    p->m_filament_mix_icon = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix");
-    bSizer_mix->Add(p->m_filament_mix_icon, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::TitlebarMargin()));
-    bSizer_mix->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
-    bSizer_mix->Add(new Label(p->m_panel_filament_mix_title, _L("Color Mixing"), LB_PROPAGATE_MOUSE_EVENT), 0, wxALIGN_CENTER);
-    bSizer_mix->AddStretchSpacer(1);
+    // p->m_panel_filament_mix_title = new StaticBox(p->m_panel_filament_settings_title, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxBORDER_NONE);
+    // p->m_panel_filament_mix_title->SetBackgroundColor(title_bg);
+    // p->m_panel_filament_mix_title->SetBackgroundColor2(0xF1F1F1);
+    // p->m_panel_filament_mix_title->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent &e) {
+    //     p->m_panel_filament_mix_content->Show(!p->m_panel_filament_mix_content->IsShown());
+    //     p->m_panel_filament_mix_title->Layout();
+    //     m_scrolled_sizer->Layout();
+    // });
+    // wxBoxSizer* bSizer_mix = new wxBoxSizer(wxHORIZONTAL);
+    // bSizer_mix->AddSpacer(FromDIP(20)); // align with the "Filament" bar icon
+    // p->m_filament_mix_icon = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix");
+    // bSizer_mix->Add(p->m_filament_mix_icon, 0, wxALIGN_CENTER | wxLEFT, FromDIP(SidebarProps::TitlebarMargin()));
+    // bSizer_mix->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
+    // bSizer_mix->Add(new Label(p->m_panel_filament_mix_title, _L("Color Mixing"), LB_PROPAGATE_MOUSE_EVENT), 0, wxALIGN_CENTER);
+    // bSizer_mix->AddStretchSpacer(1);
     //Wonder:i donot figure out what is meaning of this function .
     // Button* batch_btn = new Button(p->m_panel_filament_mix_title, _L("Batch"));
     // batch_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
@@ -2252,37 +2252,37 @@ Sidebar::Sidebar(Plater *parent)
     //     }
     // });
     // bSizer_mix->Add(batch_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(6));
-    p->m_filament_mix_add_btn = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix_add");
-    p->m_filament_mix_add_btn->SetToolTip(_L("Create a color mix"));
-    p->m_filament_mix_add_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        try {
-            MixedFilamentDialog dlg(wxGetApp().mainframe, current_filament_colours());
-            if (dlg.ShowModal() == wxID_OK)
-                add_filament_mix(dlg.GetResult());
-        } catch (const std::exception& e) {
-            wxLogError("Color Mixing: %s", e.what());
-        }
-    });
-    bSizer_mix->Add(p->m_filament_mix_add_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::TitlebarMargin()));
-    update_filament_mix_add_button();
+    // p->m_filament_mix_add_btn = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix_add");
+    // p->m_filament_mix_add_btn->SetToolTip(_L("Create a color mix"));
+    // p->m_filament_mix_add_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+    //     try {
+    //         MixedFilamentDialog dlg(wxGetApp().mainframe, current_filament_colours());
+    //         if (dlg.ShowModal() == wxID_OK)
+    //             add_filament_mix(dlg.GetResult());
+    //     } catch (const std::exception& e) {
+    //         wxLogError("Color Mixing: %s", e.what());
+    //     }
+    // });
+    // bSizer_mix->Add(p->m_filament_mix_add_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(SidebarProps::TitlebarMargin()));
+    // update_filament_mix_add_button();
 
-    bSizer_mix->SetMinSize(-1, FromDIP(30));
-    p->m_panel_filament_mix_title->SetSizer(bSizer_mix);
-    p->m_panel_filament_mix_title->Layout();
-    bSizer38->Add(p->m_panel_filament_mix_title, 0, wxEXPAND);
+    // bSizer_mix->SetMinSize(-1, FromDIP(30));
+    // p->m_panel_filament_mix_title->SetSizer(bSizer_mix);
+    // p->m_panel_filament_mix_title->Layout();
+    // bSizer38->Add(p->m_panel_filament_mix_title, 0, wxEXPAND);
 
-    // Wonder: container for the entries added from the "Color Mixing" dialog
-    p->m_panel_filament_mix_content = new wxPanel(p->m_panel_filament_settings_title);
-    p->m_panel_filament_mix_content->SetBackgroundColour(*wxWHITE);
-    p->m_sizer_filament_mix = new wxBoxSizer(wxHORIZONTAL); // two columns, like the filament list
-    wxBoxSizer* sizer_filament_mix_row = new wxBoxSizer(wxHORIZONTAL);
-    sizer_filament_mix_row->AddSpacer(FromDIP(10));
-    sizer_filament_mix_row->Add(p->m_sizer_filament_mix, 1, wxEXPAND, 0);
-    p->m_panel_filament_mix_content->SetSizer(sizer_filament_mix_row);
-    bSizer38->Add(p->m_panel_filament_mix_content, 0, wxEXPAND);
+    // // Wonder: container for the entries added from the "Color Mixing" dialog
+    // p->m_panel_filament_mix_content = new wxPanel(p->m_panel_filament_settings_title);
+    // p->m_panel_filament_mix_content->SetBackgroundColour(*wxWHITE);
+    // p->m_sizer_filament_mix = new wxBoxSizer(wxHORIZONTAL); // two columns, like the filament list
+    // wxBoxSizer* sizer_filament_mix_row = new wxBoxSizer(wxHORIZONTAL);
+    // sizer_filament_mix_row->AddSpacer(FromDIP(10));
+    // sizer_filament_mix_row->Add(p->m_sizer_filament_mix, 1, wxEXPAND, 0);
+    // p->m_panel_filament_mix_content->SetSizer(sizer_filament_mix_row);
+    // bSizer38->Add(p->m_panel_filament_mix_content, 0, wxEXPAND);
 
-    p->m_panel_filament_settings_title->Layout();
-    m_scrolled_sizer->Layout();
+    // p->m_panel_filament_settings_title->Layout();
+    // m_scrolled_sizer->Layout();
     }
 
     {
