@@ -23228,7 +23228,7 @@ msgstr "Type de rendu d'aperçu"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Sélectionnez le moteur de rendu utilisé pour l'aperçu du G-code "
-"découpé.\n"
+"découpé."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -23273,6 +23273,147 @@ msgstr "Nouveau tuyau"
 
 msgid "New pipeline"
 msgstr "Nouveau pipeline"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Les filaments mélangés contiennent des types de matériaux ou des "
+"diamètres de buses incompatibles. Veuillez corriger les réglages des "
+"filaments mélangés avant de trancher."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Les filaments imprimés avec des diamètres de buses différents ne "
+"peuvent pas être mélangés. Veuillez sélectionner des filaments utilisant la "
+"même taille de buse."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Les rangées de mélange des couleurs ne peuvent pas combiner des "
+"filaments imprimés avec des diamètres de buses différents. Veuillez "
+"sélectionner des filaments utilisant la même taille de buse."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Réglages de diamètre de buse multiples..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Ouvrez les réglages pour diamètre multibuse."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "saisie du diamètre de la buse %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "La valeur saisie pour nozzle_diameter %d n’est pas un nombre."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "La valeur %.4g de l’entrée nozzle_diameter %d est hors plage."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter valeur %d d’entrée %.4g mm n’est pas un diamètre de "
+"buse supporté (seulement 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Mettre à jour les données de la buse depuis le serveur d’imprimante"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Erreur de données du serveur d’impression mixte multi-tête"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "La configuration de la buse ne correspond pas à celle du serveur : le "
+"serveur signale %d buses ("
+
+msgid "), the current configuration has"
+msgstr "), la configuration actuelle a"
+
+msgid "nozzles ("
+msgstr "buses ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "La configuration de la buse ne correspond pas à celle du serveur ; "
+"L’impression a été bloquée.\n\nBuses serveur :"
+
+msgid "\nCurrent configuration:"
+msgstr "Configuration actuelle :"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Cliquez sur « Mettre à jour depuis le serveur d’imprimante » pour "
+"synchroniser les données de la buse, ou corriger manuellement les diamètres "
+"des buses avant l’impression."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Le serveur signale les buses %d mais l’imprimante contient %d ; Les "
+"décomptes ne correspondent pas."
+
+msgid "Nozzle diameter changed"
+msgstr "Diamètre de la buse modifié"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Les diamètres des buses ne sont pas tous les mêmes. Le mode diamètre "
+"multi-buses sera activé : la plaque est tranchée sur la grille de couches de "
+"la plus petite buse et chaque buse fusionne les couches qu’elle recouvre en "
+"une extrusion plus épaisse."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Tous les diamètres de buses sont identiques maintenant. Le mode à "
+"diamètre multiple de buses sera désactivé et la plaque sera à nouveau "
+"tranchée avec un diamètre de buse unique."
+
+msgid "Mixed nozzle diameters"
+msgstr "Diamètres de buses mixtes"
+
+msgid "Nozzle diameters are equal"
+msgstr "Les diamètres des buses sont égaux"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Les filaments mélangés contiennent des types de matériaux ou des "
+"diamètres de buse incompatibles."
+
+msgid "Do not ask me again"
+msgstr "Ne me demande plus"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "La réponse du serveur ne comporte pas de champ buses_diamètre."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "nozzle_diameter doit être un tableau, par exemple [0.4, 0.4, 0.8, "
+"0.4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Le tableau nozzle_diameter est vide ; aucun diamètre de buse ne peut "
+"être appliqué."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Le tableau nozzle_diameter contient %d entrées, soit plus que les %d "
+"buses qu'une machine peut transporter."
+
+msgid "\") is not a valid number."
+msgstr "\") n'est pas un numéro valide."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Impossible d'analyser le JSON du serveur simulé :"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Impossible d'analyser le JSON du serveur :"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "La réponse du serveur doit être un objet JSON contenant un tableau "
+"nozzle_diameter."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Le mode multi-diamètres de buses avec matériau de support est "
+"expérimental : les couches de support ne sont pas encore fusionnées dans les "
+"bandes de couches adaptatives."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""

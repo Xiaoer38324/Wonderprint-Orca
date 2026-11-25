@@ -20762,7 +20762,7 @@ msgid "Preview renderer type"
 msgstr "预览渲染器类型"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "选择用于切片 G 代码预览的渲染器。\n"
+msgstr "选择用于切片 G 代码预览的渲染器。"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -20799,6 +20799,123 @@ msgstr "新管"
 
 msgid "New pipeline"
 msgstr "新管线"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "混合耗材包含不兼容的材料类型或喷嘴直径。请在切片前校正混合耗材设置。"
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "不同喷嘴直径打印的耗材不能混合。请选择使用相同喷嘴尺寸的耗材。"
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "颜色混合行无法将不同喷嘴直径打印的耗材组合在一起。请选择使用相同喷嘴尺寸的耗材。"
+
+msgid "Multi nozzle diameter settings..."
+msgstr "多喷嘴直径设置..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "打开多喷嘴直径设置。"
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "喷嘴直径条目 %d（英寸）"
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "nozzle_diameter 条目 %d 不是数字。"
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter条目 %d 值 %.4g 超出范围。"
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter条目%d值%.4g毫米并非支持的喷嘴直径（仅为0.2 / 0.4 / 0.6 / 0.8 mm）。"
+
+msgid "Update nozzle data from the printer server"
+msgstr "从打印机服务器更新喷嘴数据"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "多头混合打印服务器数据错误"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "喷嘴配置与服务器不匹配：服务器报告 %d 个喷嘴（"
+
+msgid "), the current configuration has"
+msgstr "），当前配置具有"
+
+msgid "nozzles ("
+msgstr "喷嘴（"
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "喷嘴配置与服务器不匹配;印刷被阻断了。\n\n服务器喷嘴："
+
+msgid "\nCurrent configuration:"
+msgstr "当前配置："
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "单击“从打印机服务器更新”以同步喷嘴数据，或在打印前手动校正喷嘴直径。"
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "服务器报告的是 %d 个喷嘴，但打印机上有 %d;计数不匹配。"
+
+msgid "Nozzle diameter changed"
+msgstr "喷嘴直径发生变化"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "喷嘴直径并不完全相同。将启用多喷嘴直径模式：在最小喷嘴的层格上切片板块，每个喷嘴将其覆盖的层合并为一个更厚的挤出层。"
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "现在所有喷嘴直径都一样。多喷嘴直径模式将被禁用，板片再次被切成单喷嘴直径。"
+
+msgid "Mixed nozzle diameters"
+msgstr "混合喷嘴直径"
+
+msgid "Nozzle diameters are equal"
+msgstr "喷嘴直径相等"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "混合细丝包含不兼容的材料类型或喷嘴直径。"
+
+msgid "Do not ask me again"
+msgstr "不要再问我"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "服务器响应没有喷嘴直径字段。"
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "喷嘴_直径必须是数组，例如 [0.4, 0.4, 0.8, 0.4]。"
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "喷嘴_直径数组为空；不能应用任何喷嘴直径。"
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "喷嘴_直径数组有 %d 个条目，比机器可以携带的 %d 个喷嘴多。"
+
+msgid "\") is not a valid number."
+msgstr "\") 不是有效数字。"
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "无法解析模拟服务器 JSON："
+
+msgid "Cannot parse the Server JSON:"
+msgstr "无法解析服务器 JSON："
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "服务器响应必须是包含喷嘴直径数组的 JSON 对象。"
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "使用支撑材料的多喷嘴直径模式是实验性的：支撑层尚未合并到自适应层带中。"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想尝试Wonderprint-Orca Beta，您可以点击"

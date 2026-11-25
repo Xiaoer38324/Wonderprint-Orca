@@ -22238,7 +22238,7 @@ msgid "Preview renderer type"
 msgstr "Náhled typu rendereru"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Vyberte vykreslovací modul použitý pro náhled rozděleného G-kódu.\n"
+msgstr "Vyberte vykreslovací modul použitý pro náhled rozděleného G-kódu."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22280,6 +22280,137 @@ msgstr "Nová trubka"
 
 msgid "New pipeline"
 msgstr "Nové potrubí"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Smíšené filamenty obsahují nekompatibilní typy materiálů nebo průměry "
+"trysek. Před řezáním prosím opravte nastavení smíšených filamentů."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filamenty tištěné s různými průměry trysek nelze míchat. Vyberte "
+"prosím filamenty, které používají stejnou velikost trysky."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Řádky pro míchání barev nelze kombinovat filamenty tištěné s různými "
+"průměry trysek. Vyberte prosím filamenty, které používají stejnou velikost "
+"trysky."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Nastavení více průměrů trysek..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Otevřete nastavení průměru více trysek."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "záznam průměru trysky %d („"
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "Zadaná hodnota průměru trysky %d není číslo."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "Hodnota %.4g položky nozzle_diameter %d je mimo rozsah."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter hodnota %d %.4g mm není průměrem podepřené trysky "
+"(pouze 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Aktualizujte data trysky ze serveru tiskárny"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Chyba serveru pro smíšené tiskové soubory s více hlavami"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Konfigurace trysek neodpovídá serveru: server hlásí %d trysek ("
+
+msgid "), the current configuration has"
+msgstr "), současná konfigurace má"
+
+msgid "nozzles ("
+msgstr "trysky ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Konfigurace trysky neodpovídá serveru; tisk byl zablokován.\n\nTrysky "
+"serveru:"
+
+msgid "\nCurrent configuration:"
+msgstr "Aktuální konfigurace:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Klikněte na \"Aktualizovat ze serveru tiskárny\" pro synchronizaci dat "
+"trysky nebo ruční korekci průměru trysky před tiskem."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Server hlásí %d trysek, ale tiskárna přenáší %d; počty se neshodují."
+
+msgid "Nozzle diameter changed"
+msgstr "Změněn průměr trysky"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Průměry trysek nejsou všechny stejné. Bude povolen režim více průměrů "
+"trysek: deska je rozříznuta na vrstvenou mřížce nejmenší trysky a každá "
+"tryska spojí vrstvy, které pokrývá, do jedné silnější extruze."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Všechny průměry trysek jsou teď stejné. Režim s více průměry trysek "
+"bude deaktivován a deska se opět rozřízne s jedním průměrem trysky."
+
+msgid "Mixed nozzle diameters"
+msgstr "Smíšené průměry trysek"
+
+msgid "Nozzle diameters are equal"
+msgstr "Průměry trysek jsou stejné"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Smíšená vlákna obsahují nekompatibilní typy materiálů nebo průměry "
+"trysek."
+
+msgid "Do not ask me again"
+msgstr "Už se mě neptejte"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Odpověď serveru neobsahuje pole trysky_diameter."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "tryska_diameter musí být pole, například [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Pole tryska_průměr je prázdné; nelze použít žádný průměr trysky."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Pole trysek má %d položek, což je více než %d trysek, které stroj "
+"unese."
+
+msgid "\") is not a valid number."
+msgstr "\") není platné číslo."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Nelze analyzovat JSON Mock Server:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Nelze analyzovat JSON serveru:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Odpověď serveru musí být objekt JSON, který obsahuje pole "
+"trysky_diameter."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Režim s více průměry trysek s nosným materiálem je experimentální: "
+"nosné vrstvy ještě nejsou sloučeny do pásů adaptivní vrstvy."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"

@@ -23446,7 +23446,7 @@ msgstr "Тип средства предварительного просмот�
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Выберите средство визуализации, используемое для предварительного "
-"просмотра фрагментов G-кода.\n"
+"просмотра фрагментов G-кода."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -23491,6 +23491,139 @@ msgstr "Новая труба"
 
 msgid "New pipeline"
 msgstr "Новый трубопровод"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Смешанные нити содержат несовместимые типы материалов или диаметры "
+"сопла. Пожалуйста, исправьте настройки смешанных филаментов перед нарезкой."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Филаменты, напечатанные с разным диаметром соплов, нельзя смешивать. "
+"Пожалуйста, выбирайте филаменты с одинаковым размером сопла."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Ряды смешивания цветов не могут комбинировать нити, напечатанные с "
+"разным диаметром сопла. Пожалуйста, выбирайте филаменты с одинаковым размером "
+"сопла."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Параметры диаметра сопла..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Откройте настройки диаметра нескольких сопла."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "значение диаметра сопла %d (дюймов)"
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "Значение nozzle_diameter %d не является числом."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter значение %d %.4g выходит за пределы диапазона."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter значение %d %.4g мм не является поддерживаемым "
+"диаметром сопла (всего 0,2 / 0,4 / 0,6 / 0,8 мм)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Обновление данных сопла с принтерного сервера"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Ошибка смешанного сервера печати с многоголовкой"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Конфигурация сопла не совпадает с конфигурацией сервера: сервер "
+"сообщает о соплах %d ("
+
+msgid "), the current configuration has"
+msgstr "), текущая конфигурация имеет"
+
+msgid "nozzles ("
+msgstr "сопла ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Конфигурация сопла не совпадает с сервером; печать была "
+"заблокирована.\n\nСерверные сопла:"
+
+msgid "\nCurrent configuration:"
+msgstr "Текущая конфигурация:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Нажмите «Обновить с сервера принтера», чтобы синхронизировать данные "
+"сопла или вручную исправить диаметры сопел перед печатью."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Сервер сообщает о %d насадках, но принтер содержит %d; Счёты не "
+"совпадают."
+
+msgid "Nozzle diameter changed"
+msgstr "Изменение диаметра сопла"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Диаметры сопел разные. Будет включен режим с диаметром нескольких "
+"сосел: пластина нарезает на сетке слоя самого маленького сопла, и каждое "
+"сопло объединяет покрытые слои в одну толстую экструзию."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Теперь все диаметры сопел одинаковые. Режим с несколькими диаметрами "
+"сопел отключён, и пластина снова нарезается с одним диаметром сопла."
+
+msgid "Mixed nozzle diameters"
+msgstr "Смешанные диаметры сопел"
+
+msgid "Nozzle diameters are equal"
+msgstr "Диаметры сопел равны"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Смешанные нити содержат несовместимые типы материалов или диаметры "
+"сопел."
+
+msgid "Do not ask me again"
+msgstr "Не спрашивай меня больше"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "В ответе сервера нет поля сопло_диаметр."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "сопла_диаметр должен быть массивом, например [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Массив сопла_диаметр пуст; диаметр сопла не может быть применен."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Массив насадки_диаметр содержит %d записей, что больше, чем %d "
+"насадок, которые может нести машина."
+
+msgid "\") is not a valid number."
+msgstr "\") не является допустимым числом."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Невозможно проанализировать JSON Mock-сервера:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Невозможно проанализировать JSON сервера:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Ответ сервера должен представлять собой объект JSON, содержащий массив "
+"сопла_диаметр."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Режим нескольких диаметров сопел с опорным материалом является "
+"экспериментальным: опорные слои еще не объединены в полосы адаптивных слоев."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Нажмите, если хотите попробовать бета-версию Wonderprint-Orca:"

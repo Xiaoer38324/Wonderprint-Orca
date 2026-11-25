@@ -22355,7 +22355,7 @@ msgstr "Förhandsgranska renderingstyp"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Välj renderaren som används för förhandsgranskningen av den skivade "
-"G-koden.\n"
+"G-koden."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22397,6 +22397,145 @@ msgstr "Nytt rör"
 
 msgid "New pipeline"
 msgstr "Ny pipeline"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Blandade filament innehåller inkompatibla materialtyper eller "
+"munstycksdiametrar. Korrigera inställningarna för blandade filament innan du "
+"skivar."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filament som är tryckta med olika munstycksdiametrar kan inte blandas. "
+"Vänligen välj filament som använder samma munstycksstorlek."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Färgblandningsrader kan inte kombinera filament som är tryckta med "
+"olika munstycksdiametrar. Vänligen välj filament som använder samma "
+"munstycksstorlek."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Inställningar för multimunstyckediameter..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Öppna inställningarna för multimunstyckets diameter."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "inmatning av nozzle_diameter %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "inmatningen för nozzle_diameter %d är inte ett tal."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter postvärdet %d %.4g ligger utanför räckvidd."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter inmatningsvärdet %d %.4g mm är inte en stödd "
+"munstycksdiameter (endast 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Uppdatera munstycksdata från skrivarservern"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Felmeddelande från flerhuvudsskrivande serverdata"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Munstyckskonfigurationen stämmer inte överens med servern: servern "
+"rapporterar %d-munstycken ("
+
+msgid "), the current configuration has"
+msgstr "), har den aktuella konfigurationen"
+
+msgid "nozzles ("
+msgstr "munstycken ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Munstyckskonfigurationen stämmer inte överens med servern; Utskriften "
+"blockerades.\n\nServermunstycken:"
+
+msgid "\nCurrent configuration:"
+msgstr "Nuvarande konfiguration:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Klicka på \"Uppdatera från skrivarserver\" för att synkronisera "
+"munstyckets data, eller korrigera munstyckets diametrar manuellt innan "
+"utskrift."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Servern rapporterar %d-munstycken men skrivaren har %d; Antalet "
+"stämmer inte överens."
+
+msgid "Nozzle diameter changed"
+msgstr "Munstyckets diameter ändrad"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Munstyckets diametrar är inte alla desamma. "
+"Multi-munstycksdiameterläget kommer att vara aktiverat: plattan skärs upp på "
+"lagret för det minsta munstycket och varje munstycke slår ihop lagren det "
+"täcker till en tjockare extrudering."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Alla munstyckesdiametrar är desamma nu. Multimunstycksdiameterläget "
+"kommer att inaktiveras och plattan skärs återigen med en enda "
+"munstycksdiameter."
+
+msgid "Mixed nozzle diameters"
+msgstr "Blandade munstycksdiametrar"
+
+msgid "Nozzle diameters are equal"
+msgstr "Munstycksdiametrarna är lika"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Blandade filament innehåller inkompatibla materialtyper eller "
+"munstycksdiametrar."
+
+msgid "Do not ask me again"
+msgstr "Fråga mig inte igen"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Serversvaret har inget nozzle_diameter-fält."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "nozzle_diameter måste vara en array, till exempel [0.4, 0.4, 0.8, "
+"0.4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Arrayen nozzle_diameter är tom; ingen munstycksdiameter kan "
+"appliceras."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Arrayen nozzle_diameter har %d poster, fler än de %d munstycken en "
+"maskin kan bära."
+
+msgid "\") is not a valid number."
+msgstr "\") är inte ett giltigt nummer."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Kan inte analysera Mock Server JSON:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Kan inte tolka Server JSON:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Serversvaret måste vara ett JSON-objekt som innehåller en "
+"nozzle_diameter-array."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Multimunstycksdiameterläge med stödmaterial är experimentellt: "
+"stödskikt har inte slagits samman i de adaptiva skiktbanden ännu."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"

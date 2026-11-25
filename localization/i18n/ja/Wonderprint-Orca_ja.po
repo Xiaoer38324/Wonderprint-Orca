@@ -17800,7 +17800,7 @@ msgid "Preview renderer type"
 msgstr "プレビューレンダラータイプ"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "スライスされた G コードのプレビューに使用されるレンダラーを選択します。\n"
+msgstr "スライスされた G コードのプレビューに使用されるレンダラーを選択します。"
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -17839,6 +17839,123 @@ msgstr "新しいパイプ"
 
 msgid "New pipeline"
 msgstr "新しいパイプライン"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "混合フィラメントには、互換性のない材料の種類やノズル直径が含まれていることがあります。スライスする前にミックスフィラメントの設定を修正してください。"
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "異なるノズル径でプリントされたフィラメントを混ぜることはできません。同じノズルサイズを使用するフィラメントを選択してください。"
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "カラーミキシング行は、異なるノズル直径で印刷されたフィラメントを組み合わせることはできません。同じノズルサイズを使用するフィラメントを選択してください。"
+
+msgid "Multi nozzle diameter settings..."
+msgstr "マルチノズル直径設定..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "マルチノズル直径の設定を開きます。"
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "nozzle_diameterのエントリ%d（\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "nozzle_diameterのエントリ%dが数値ではありません。"
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameterのエントリ%dの値%.4gが範囲外です。"
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "ノズル径のエントリ%dの値%.4g mmはサポートされているノズル径ではありません（0.2 / 0.4 / 0.6 / 0.8 mmのみ）。"
+
+msgid "Update nozzle data from the printer server"
+msgstr "プリンターサーバーからノズルデータを更新する"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "マルチヘッド混合印刷サーバーデータエラー"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "ノズル構成がサーバーと一致しません:サーバーは%dノズル("
+
+msgid "), the current configuration has"
+msgstr ")、現在の構成は"
+
+msgid "nozzles ("
+msgstr "ノズル("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "ノズル構成がサーバーと一致しない;印刷がブロックされていた。\n\nサーバーノズル:"
+
+msgid "\nCurrent configuration:"
+msgstr "現在の構成:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "ノズルデータを同期するには「プリンターサーバーから更新」をクリックし、印刷前にノズル直径を手動で修正してください。"
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "サーバーはノズルが%dと報告しますが、プリンターには%dがあります。カウントが一致しません。"
+
+msgid "Nozzle diameter changed"
+msgstr "ノズル直径変更"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "ノズルの直径はすべて同じではありません。マルチノズル直径モードが有効になります。プレートは最小ノズルのレイヤーグリッド上でスライスされ、各ノズルが覆う層を1つの厚い押し出し材に統合します。"
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "すべてのノズル直径は現在同じです。マルチノズル直径モードは無効になり、プレートは再び単一ノズル径でスライスされます。"
+
+msgid "Mixed nozzle diameters"
+msgstr "混合ノズル径"
+
+msgid "Nozzle diameters are equal"
+msgstr "ノズル径は同じ"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "混合フィラメントには、互換性のない材料タイプまたはノズル直径が含まれています。"
+
+msgid "Do not ask me again"
+msgstr "二度と聞かないでください"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "サーバーの応答には、nozzle_diameter フィールドがありません。"
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "ノズル直径は配列でなければなりません ([0.4, 0.4, 0.8, 0.4] など)。"
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "配列nozzle_diameterは空です。ノズル径は適用できません。"
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "nozzle_diameter 配列には %d 個のエントリがあり、マシンが搭載できる %d 個のノズルよりも多くなります。"
+
+msgid "\") is not a valid number."
+msgstr "\") は有効な数値ではありません。"
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "モックサーバー JSON を解析できません:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "サーバー JSON を解析できません:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "サーバー応答は、nozzle_diameter 配列を含む JSON オブジェクトである必要があります。"
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "サポート材料を使用したマルチノズル直径モードは実験的です。サポート層はまだ適応層バンドにマージされていません。"
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"

@@ -346,7 +346,7 @@ bool parse_nozzle_diameters(const std::string &json_text, std::vector<double> &d
     try {
         document = nlohmann::json::parse(json_text);
     } catch (const std::exception &exception) {
-        error = _L("Cannot parse the Mock Server JSON: ") + wxString::FromUTF8(exception.what());
+        error = _L("Cannot parse the  Server JSON: ") + wxString::FromUTF8(exception.what());
         return false;
     }
 

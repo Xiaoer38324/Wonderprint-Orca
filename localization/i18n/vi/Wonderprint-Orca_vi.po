@@ -22126,7 +22126,7 @@ msgid "Preview renderer type"
 msgstr "Xem trước loại trình kết xuất"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Chọn trình kết xuất được sử dụng để xem trước mã G được cắt lát.\n"
+msgstr "Chọn trình kết xuất được sử dụng để xem trước mã G được cắt lát."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22168,6 +22168,140 @@ msgstr "Ống mới"
 
 msgid "New pipeline"
 msgstr "Đường ống mới"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Sợi trộn chứa các loại vật liệu hoặc đường kính đầu phun không tương "
+"thích. Vui lòng chỉnh lại cài đặt các sợi trộn trước khi cắt."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Không thể trộn các loại sợi được in bằng các đầu phun có đường kính "
+"khác nhau. Vui lòng chọn các loại sợi sử dụng cùng kích cỡ đầu phun."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Các hàng trộn màu không thể kết hợp các sợi in có đường kính đầu phun "
+"khác nhau. Vui lòng chọn các sợi nhựa sử dụng cùng kích thước đầu phun."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Cài đặt đường kính đầu phun đa dạng..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Mở cài đặt đường kính nhiều đầu phun."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "mục nhập nozzle_diameter %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "Mục nhập nozzle_diameter %d không phải là một số."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter mục %d giá trị %.4g nằm ngoài phạm vi."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter mục %d giá trị %.4g mm không phải là đường kính đầu "
+"phun được hỗ trợ (chỉ 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Cập nhật dữ liệu vòi phun từ máy chủ máy in"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Lỗi dữ liệu máy chủ in hỗn hợp nhiều đầu"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Cấu hình vòi phun không khớp với máy chủ: máy chủ báo cáo %d vòi phun "
+"("
+
+msgid "), the current configuration has"
+msgstr "), cấu hình hiện tại có"
+
+msgid "nozzles ("
+msgstr "vòi phun ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Cấu hình vòi phun không khớp với máy chủ; Việc in ấn bị chặn.\n\nĐầu "
+"phun máy chủ:"
+
+msgid "\nCurrent configuration:"
+msgstr "Cấu hình hiện tại:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Nhấn \"Cập nhật từ máy chủ máy in\" để đồng bộ dữ liệu đầu phun, hoặc "
+"chỉnh sửa đường kính đầu phun thủ công trước khi in."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Máy chủ báo cáo vòi phun %d nhưng máy in mang %d; Các số lượng không "
+"khớp."
+
+msgid "Nozzle diameter changed"
+msgstr "Đường kính vòi phun đã thay đổi"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Đường kính đầu phun không giống nhau. Chế độ đa đường kính đầu phun sẽ "
+"được kích hoạt: tấm được cắt trên lưới lớp của đầu phun nhỏ nhất và mỗi đầu "
+"phun sẽ hợp nhất các lớp được phủ thành một ép đùn dày hơn."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Tất cả các đường kính đầu phun giờ đều giống nhau. Chế độ đường kính "
+"đầu phun đa chiều sẽ bị vô hiệu hóa và tấm sẽ được cắt lại với đường kính đầu "
+"phun đơn một lần nữa."
+
+msgid "Mixed nozzle diameters"
+msgstr "Đường kính vòi phun hỗn hợp"
+
+msgid "Nozzle diameters are equal"
+msgstr "Đường kính vòi phun bằng nhau"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Các sợi hỗn hợp chứa các loại vật liệu hoặc đường kính vòi phun không "
+"tương thích."
+
+msgid "Do not ask me again"
+msgstr "Đừng hỏi tôi nữa"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Phản hồi của máy chủ không có trường vòi_đường kính."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "đường kính vòi phun phải là một mảng, ví dụ [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Mảng faucet_diameter trống; không có đường kính vòi phun có thể được "
+"áp dụng."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Mảng đường kính vòi phun có %d mục nhập, nhiều hơn số lượng vòi phun "
+"%d mà máy có thể mang theo."
+
+msgid "\") is not a valid number."
+msgstr "\") không phải là số hợp lệ."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Không thể phân tích cú pháp JSON của Máy chủ Mock:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Không thể phân tích cú pháp JSON của máy chủ:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Phản hồi của máy chủ phải là một đối tượng JSON chứa mảng "
+"faucet_diameter."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Chế độ đường kính nhiều vòi phun với vật liệu hỗ trợ đang mang tính "
+"thử nghiệm: các lớp hỗ trợ chưa được hợp nhất thành các dải lớp thích ứng."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"

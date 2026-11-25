@@ -22580,7 +22580,7 @@ msgid "Preview renderer type"
 msgstr "Peržiūros pateikimo tipas"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
-msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo peržiūrai.\n"
+msgstr "Pasirinkite atvaizduotoją, naudojamą perpjautai G kodo peržiūrai."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -22623,6 +22623,143 @@ msgstr "Naujas vamzdis"
 
 msgid "New pipeline"
 msgstr "Naujas vamzdynas"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Mišrūs siūlai turi nesuderinamus medžiagų tipus arba antgalių "
+"skersmenis. Prieš pjaustydami prašome pataisyti mišrių siūlų nustatymus."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Siūlai, atspausdinti su skirtingais antgalių skersmenimis, negali būti "
+"maišomi. Prašome rinktis siūlus, kurie naudoja tą patį antgalio dydį."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Spalvų maišymo eilės negali sujungti siūlų, spausdintų su skirtingais "
+"antgalių skersmenimis. Prašome rinktis siūlus, kurie naudoja tą patį antgalio "
+"dydį."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Kelių purkštukų skersmens nustatymai..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Atidaryk daugiaantgalio skersmens nustatymus."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "purkštuko_skersmuo įvestis %d („"
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "nozzle_diameter įrašas %d nėra skaičius."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter įrašo %d reikšmė %.4g nepatenka į intervalą."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter įrašo %d reikšmė %.4g mm nėra palaikomo antgalio "
+"skersmuo (tik 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Atnaujinti antgalio duomenis iš spausdintuvo serverio"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Daugiagalvis mišrus spausdinimo serverio duomenų klaidos atvejis"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Antgalio konfigūracija neatitinka serverio: serveris praneša %d "
+"antgalius ("
+
+msgid "), the current configuration has"
+msgstr "), dabartinė konfigūracija turi"
+
+msgid "nozzles ("
+msgstr "purkštukai ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Antgalio konfigūracija neatitinka serverio; spausdinimas buvo "
+"užblokuotas.\n\nServerių antgaliai:"
+
+msgid "\nCurrent configuration:"
+msgstr "Dabartinė konfigūracija:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Spustelėkite \"Atnaujinti iš spausdintuvo serverio\", kad "
+"sinchronizuotumėte antgalio duomenis, arba rankiniu būdu koreguokite antgalio "
+"skersmenis prieš spausdinant."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Serveris praneša apie %d antgalius, bet spausdintuvas neša %d; "
+"Skaičiai nesutampa."
+
+msgid "Nozzle diameter changed"
+msgstr "Purkštuko skersmuo pakeistas"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Antgalio skersmenys nėra visi vienodi. Bus įjungtas daugiapurkštukio "
+"skersmens režimas: plokštelė pjaustoma ant mažiausio antgalio sluoksnių "
+"tinklelio, o kiekvienas antgalis sujungia dengtus sluoksnius į vieną storesnę "
+"ekstruziją."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Visų antgalių skersmenys dabar vienodi. Kelių purkštukų skersmens "
+"režimas bus išjungtas, o plokštelė vėl pjaustoma su vienu antgalio "
+"skersmeniu."
+
+msgid "Mixed nozzle diameters"
+msgstr "Mišrūs purkštukų skersmenys"
+
+msgid "Nozzle diameters are equal"
+msgstr "Purkštukų skersmenys yra vienodi"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Mišriose gijose yra nesuderinamų medžiagų tipų arba purkštukų "
+"skersmens."
+
+msgid "Do not ask me again"
+msgstr "Daugiau manęs neklausk"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Serverio atsake nėra nozzle_diameter lauko."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "Nozzle_diameter turi būti masyvas, pavyzdžiui, [0,4, 0,4, 0,8, 0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Nozzle_diameter masyvas tuščias; negalima taikyti purkštuko skersmens."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Nozzle_diameter masyvas turi %d įrašų, daugiau nei %d purkštukų, "
+"kuriuos gali neštis įrenginys."
+
+msgid "\") is not a valid number."
+msgstr "“) nėra galiojantis numeris."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Neįmanoma išanalizuoti netikro serverio JSON:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Neįmanoma išanalizuoti serverio JSON:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Serverio atsakymas turi būti JSON objektas, kuriame yra "
+"nozzle_diameter masyvas."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Kelių purkštukų skersmens režimas su atramine medžiaga yra "
+"eksperimentinis: atraminiai sluoksniai dar nėra sujungti į prisitaikančiųjų "
+"sluoksnių juostas."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"

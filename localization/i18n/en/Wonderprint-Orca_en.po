@@ -19859,6 +19859,138 @@ msgstr "New pipe"
 msgid "New pipeline"
 msgstr "New pipeline"
 
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Multi nozzle diameter settings..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Open the multi nozzle diameter settings."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "nozzle_diameter entry %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "nozzle_diameter entry %d is not a number."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "nozzle_diameter entry %d value %.4g is out of range."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Update nozzle data from the printer server"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Multi-head mixed printing server data error"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+
+msgid "), the current configuration has"
+msgstr "), the current configuration has"
+
+msgid "nozzles ("
+msgstr "nozzles ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+
+msgid "\nCurrent configuration:"
+msgstr "\nCurrent configuration:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "The server reports %d nozzles but the printer carries %d; the counts "
+"do not match."
+
+msgid "Nozzle diameter changed"
+msgstr "Nozzle diameter changed"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+
+msgid "Mixed nozzle diameters"
+msgstr "Mixed nozzle diameters"
+
+msgid "Nozzle diameters are equal"
+msgstr "Nozzle diameters are equal"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+
+msgid "Do not ask me again"
+msgstr "Do not ask me again"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "The server response has no nozzle_diameter field."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+
+msgid "\") is not a valid number."
+msgstr "\") is not a valid number."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Cannot parse the Mock Server JSON:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Cannot parse the Server JSON:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

@@ -23016,7 +23016,7 @@ msgstr "Vorschau des Renderertyps"
 
 msgid "Select the renderer used for the sliced G-code preview.\n"
 msgstr "Wählen Sie den Renderer aus, der für die geschnittene G-Code-Vorschau "
-"verwendet wird.\n"
+"verwendet wird."
 
 msgid "Select the renderer used for the sliced G-code preview.\nlibvgcode: "
 "original libvgcode renderer.\nNew pipe: new GPU pipeline, usually faster when "
@@ -23061,6 +23061,148 @@ msgstr "Neues Rohr"
 
 msgid "New pipeline"
 msgstr "Neue Pipeline"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters. Please correct the mixed filaments settings before slicing."
+msgstr "Gemischte Filamente enthalten inkompatible Materialtypen oder "
+"Düsendurchmesser. Bitte korrigieren Sie die Mixed-Filament-Einstellungen vor "
+"dem Schneiden."
+
+msgid "Filaments printed with different nozzle diameters cannot be mixed. "
+"Please select filaments that use the same nozzle size."
+msgstr "Filamente, die mit unterschiedlichen Düsendurchmessern gedruckt "
+"werden, können nicht gemischt werden. Bitte wählen Sie Filamente aus, die "
+"dieselbe Düsengröße verwenden."
+
+msgid "Color Mixing rows cannot combine filaments printed with different "
+"nozzle diameters. Please select filaments that use the same nozzle size."
+msgstr "Farbmischreihen können Filamente mit unterschiedlichen "
+"Düsendurchmessern nicht kombinieren. Bitte wählen Sie Filamente aus, die "
+"dieselbe Düsengröße verwenden."
+
+msgid "Multi nozzle diameter settings..."
+msgstr "Einstellungen für mehrere Düsendurchmesser..."
+
+msgid "Open the multi nozzle diameter settings."
+msgstr "Öffnen Sie die Mehrdüsendurchmesser-Einstellungen."
+
+msgid "nozzle_diameter entry %d (\""
+msgstr "Eintrag Düsendurchmesser %d (\""
+
+msgid "nozzle_diameter entry %d is not a number."
+msgstr "Der Eintrag Düsendurchmesser %d ist keine Zahl."
+
+msgid "nozzle_diameter entry %d value %.4g is out of range."
+msgstr "Der Wert %.4g des Eintrags %d für Düsendurchmesser liegt außerhalb des "
+"zulässigen Bereichs."
+
+msgid "nozzle_diameter entry %d value %.4g mm is not a supported nozzle "
+"diameter (only 0.2 / 0.4 / 0.6 / 0.8 mm)."
+msgstr "nozzle_diameter Eintragswert %d %.4g mm ist kein unterstützter "
+"Düsendurchmesser (nur 0,2 / 0,4 / 0,6 / 0,8 mm)."
+
+msgid "Update nozzle data from the printer server"
+msgstr "Düsendaten vom Druckerserver aktualisieren"
+
+msgid "Multi-head mixed printing server data error"
+msgstr "Multi-Head Mixed Printing Server-Datenfehler"
+
+msgid "Nozzle configuration does not match the server: the server reports %d "
+"nozzles ("
+msgstr "Die Düsenkonfiguration stimmt nicht mit dem Server überein: Der Server "
+"meldet %d-Düsen ("
+
+msgid "), the current configuration has"
+msgstr "), die aktuelle Konfiguration hat"
+
+msgid "nozzles ("
+msgstr "Düsen ("
+
+msgid "Nozzle configuration does not match the server; printing was "
+"blocked.\n\nServer nozzles:"
+msgstr "Die Düsenkonfiguration passt nicht zum Server; Der Druck war "
+"blockiert.\n\nServerdüsen:"
+
+msgid "\nCurrent configuration:"
+msgstr "Aktuelle Konfiguration:"
+
+msgid "\n\nClick \"Update from printer server\" to synchronize the nozzle "
+"data, or correct the nozzle diameters manually before printing."
+msgstr "Klicken Sie auf \"Aktualisieren vom Druckerserver\", um die Düsendaten "
+"zu synchronisieren oder die Düsendurchmesser manuell vor dem Drucken zu "
+"korrigieren."
+
+msgid "The server reports %d nozzles but the printer carries %d; the counts do "
+"not match."
+msgstr "Der Server meldet %d Düsen, aber der Drucker führt %d; Die Zählungen "
+"stimmen nicht überein."
+
+msgid "Nozzle diameter changed"
+msgstr "Düsendurchmesser geändert"
+
+msgid "The nozzle diameters are not all the same. Multi nozzle diameter mode "
+"will be enabled: the plate is sliced on the layer grid of the smallest nozzle "
+"and every nozzle merges the layers it covers into one thicker extrusion."
+msgstr "Die Düsendurchmesser sind nicht alle gleich. Der "
+"Multi-Düsendurchmesser-Modus wird aktiviert: Die Platte wird auf dem "
+"Schichtgitter der kleinsten Düse geschnitten, und jede Düse vereint die "
+"abgedeckten Schichten zu einer dickeren Extrusion."
+
+msgid "All nozzle diameters are the same now. Multi nozzle diameter mode will "
+"be disabled and the plate is sliced with a single nozzle diameter again."
+msgstr "Alle Düsendurchmesser sind jetzt gleich. Der "
+"Multi-Düsendurchmesser-Modus wird deaktiviert und die Platte wird erneut mit "
+"einem einzigen Düsendurchmesser geschnitten."
+
+msgid "Mixed nozzle diameters"
+msgstr "Gemischte Düsendurchmesser"
+
+msgid "Nozzle diameters are equal"
+msgstr "Die Düsendurchmesser sind gleich"
+
+msgid "Mixed filaments contain incompatible material types or nozzle "
+"diameters."
+msgstr "Gemischte Filamente enthalten inkompatible Materialtypen oder "
+"Düsendurchmesser."
+
+msgid "Do not ask me again"
+msgstr "Frag mich nicht noch einmal"
+
+msgid "The server response has no nozzle_diameter field."
+msgstr "Die Serverantwort enthält kein Feld „düsendurchmesser“."
+
+msgid "nozzle_diameter must be an array, for example [0.4, 0.4, 0.8, 0.4]."
+msgstr "Der Düsendurchmesser muss ein Array sein, zum Beispiel [0,4, 0,4, 0,8, "
+"0,4]."
+
+msgid "The nozzle_diameter array is empty; no nozzle diameter can be applied."
+msgstr "Das Array „düsendurchmesser“ ist leer; Es kann kein Düsendurchmesser "
+"angewendet werden."
+
+msgid "The nozzle_diameter array has %d entries, more than the %d nozzles a "
+"machine can carry."
+msgstr "Das Array „düsendiameter“ hat %d Einträge, mehr als die %d Düsen, die "
+"eine Maschine tragen kann."
+
+msgid "\") is not a valid number."
+msgstr "\") ist keine gültige Zahl."
+
+msgid "Cannot parse the Mock Server JSON:"
+msgstr "Der Mock-Server-JSON kann nicht analysiert werden:"
+
+msgid "Cannot parse the Server JSON:"
+msgstr "Der Server-JSON kann nicht analysiert werden:"
+
+msgid "The server response must be a JSON object that contains a "
+"nozzle_diameter array."
+msgstr "Die Serverantwort muss ein JSON-Objekt sein, das ein Array "
+"„düse_diameter“ enthält."
+
+msgid "Multi nozzle diameter mode with support material is experimental: "
+"support layers are not merged into the adaptive layer bands yet."
+msgstr "Der Modus mit mehreren Düsendurchmessern und Stützmaterial ist "
+"experimentell: Stützschichten sind noch nicht mit den adaptiven "
+"Schichtbändern verschmolzen."
 
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
