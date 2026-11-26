@@ -22758,6 +22758,26 @@ msgstr "Etkinleştirilirse, değiştirilen işlem ayarları otomatik olarak yeni
 "Yükleme bir yazıcı ön ayarına ayarlandığında bu seçenek zorunlu olarak "
 "açılır."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Yalnızca Hızlı Yükleme ile kullanılabilir. Etkinleştirilirse, çok "
+"renkli bir projenin açılması, modelin orijinal boyalı renklerini Hızlı "
+"Yükleme tarafından içe aktarılan filaman konfigürasyonuyla otomatik olarak "
+"eşleştirir ve konfigürasyonun doğrudan üretemediği renkler için sanal karışık "
+"filamanlar oluşturur (böylece boya kaybı olmaz). Karıştırma bileşenleri "
+"olarak en fazla dört filament kullanılır; dörtten fazla olduğunda her dört "
+"filament kombinasyonu değerlendirilir ve en iyi boyalı alan ağırlıklı eşleşme "
+"uygulanır. Zaten Renk Karıştırma satırları içeren projelere dokunulmaz."
+
+msgid "Auto Mixing Match"
+msgstr "Otomatik Karıştırma Eşleşmesi"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

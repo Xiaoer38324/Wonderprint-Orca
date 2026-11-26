@@ -17976,6 +17976,22 @@ msgid "If enabled, modified process settings are transferred to the newly "
 msgstr "有効にすると、変更されたプロセス設定は新しく選択したプリセットに自動的に転送され、変更されたプリンターとフィラメントの設定は破棄されます。未保存の変更ダイアログは表示されません。このオプションは、クイック "
 "ロードがプリンタ プリセットに設定されている場合に強制的にオンになります。"
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "クイックロードでのみ利用可能です。有効にすると、マルチカラー プロジェクトを開くと、モデルの元の塗装色が Quick Load "
+"によってインポートされたフィラメント構成に自動的に照合され、構成で直接再現できない色の仮想混合フィラメントが作成されます "
+"(したがって、ペイントが失われることはありません)。最大 4 つのフィラメントが混合成分として使用されます。 4 つ以上の場合、4 "
+"つのフィラメントのすべての組み合わせが評価され、ペイント領域に重み付けされた最適な一致が適用されます。すでにカラーミキシング行が含まれているプロジェクトはそのまま残されます。"
+
+msgid "Auto Mixing Match"
+msgstr "オートミキシングマッチ"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

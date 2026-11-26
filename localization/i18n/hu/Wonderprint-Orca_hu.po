@@ -22919,6 +22919,27 @@ msgstr "Ha engedélyezve van, a módosított folyamatbeállítások automatikusa
 "párbeszédpanel nem jelenik meg. Ez az opció be van kapcsolva, ha a "
 "Gyorsbetöltés a nyomtató előre beállított értékre van állítva."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Csak Quick Load funkcióval érhető el. Ha engedélyezve van, a többszínű "
+"projekt megnyitása automatikusan a modell eredeti festett színeit a Quick "
+"Load által importált izzószál-konfigurációhoz igazítja, virtuális vegyes "
+"filamenteket hozva létre a színekhez, amelyeket a konfiguráció nem képes "
+"közvetlenül reprodukálni (tehát a festék nem vész el). Legfeljebb négy "
+"filamentet használnak keverési összetevőként; több mint négy esetén minden "
+"négyszálas kombinációt kiértékelnek, és a legjobban festett terület "
+"súlyozását alkalmazzák. Azok a projektek, amelyek már tartalmaznak Color "
+"Mixing sorokat, érintetlenül maradnak."
+
+msgid "Auto Mixing Match"
+msgstr "Automatikus keverés"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

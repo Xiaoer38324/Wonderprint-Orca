@@ -21074,6 +21074,19 @@ msgid "If enabled, modified process settings are transferred to the newly "
 "on while Quick Load is set to a printer preset."
 msgstr "如果啟用，修改後的製程設定將自動傳輸到新選擇的預設，而修改後的​​印表機和耗材設定將被丟棄。未儲存的變更對話方塊不會顯示。當「快速載入」設定為印表機預設時，會強制啟用此選項。"
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "僅適用於快速加載。如果啟用，開啟多色專案會自動將模型的原始繪製顏色與快速載入匯入的燈絲配置相匹配，為配置無法直接再現的顏色建立虛擬混合燈絲（因此不會遺失任何塗料）。最多使用四根細絲作為混合成分；如果超過四個，則會評估每個四根燈絲組合，並應用最佳的塗漆面積加權匹配。已包含顏色混合行的項目保持不變。"
+
+msgid "Auto Mixing Match"
+msgstr "自動混合匹配"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想嘗試 Wonderprint-Orca 測試版，可以點擊以下載到"
 

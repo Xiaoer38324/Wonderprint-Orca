@@ -22325,6 +22325,25 @@ msgstr "Nếu được bật, cài đặt quy trình đã sửa đổi sẽ tự
 "sẽ bị loại bỏ. Hộp thoại thay đổi chưa lưu không được hiển thị. Tùy chọn này "
 "buộc phải bật trong khi Tải nhanh được đặt thành cài đặt trước của máy in."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Chỉ khả dụng với Tải nhanh. Nếu được bật, việc mở dự án nhiều màu sẽ "
+"tự động khớp các màu sơn ban đầu của mô hình với cấu hình dây tóc được Tải "
+"nhanh nhập, tạo các sợi hỗn hợp ảo cho các màu mà cấu hình không thể tái tạo "
+"trực tiếp (do đó không bị mất sơn). Có tới bốn sợi được sử dụng làm nguyên "
+"liệu trộn; với nhiều hơn bốn sợi, mọi sự kết hợp bốn dây tóc đều được đánh "
+"giá và áp dụng kết quả phù hợp nhất theo trọng số diện tích sơn. Các dự án đã "
+"chứa các hàng Trộn màu sẽ không bị ảnh hưởng."
+
+msgid "Auto Mixing Match"
+msgstr "Tự động trộn trận đấu"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

@@ -23015,6 +23015,27 @@ msgstr "Se ativado, as configurações de processo modificadas são transferidas
 "de diálogo de alterações não salvas não é mostrada. Esta opção é ativada "
 "enquanto o Quick Load está configurado para uma predefinição de impressora."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Disponível apenas com carregamento rápido. Se habilitado, a abertura "
+"de um projeto multicolorido combina automaticamente as cores pintadas "
+"originais do modelo com a configuração de filamento importada pelo Quick "
+"Load, criando filamentos mistos virtuais para cores que a configuração não "
+"pode reproduzir diretamente (portanto, nenhuma tinta é perdida). Até quatro "
+"filamentos são usados ​​como ingredientes de mistura; com mais de quatro, "
+"cada combinação de quatro filamentos é avaliada e a melhor correspondência "
+"ponderada por área pintada é aplicada. Os projetos que já contêm linhas de "
+"mistura de cores não são alterados."
+
+msgid "Auto Mixing Match"
+msgstr "Combinação de mixagem automática"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se você gostaria de testar o Wonderprint-Orca Beta, clique para"
 

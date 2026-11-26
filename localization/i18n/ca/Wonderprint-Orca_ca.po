@@ -23123,6 +23123,27 @@ msgstr "Si està activat, els paràmetres de procés modificats es transfereixen
 "desats no es mostra. Aquesta opció s'activa mentre la càrrega ràpida està "
 "configurada en una impressora predeterminada."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Només disponible amb càrrega ràpida. Si està activat, l'obertura d'un "
+"projecte multicolor fa coincidir automàticament els colors pintats originals "
+"del model amb la configuració del filament importada per Quick Load, creant "
+"filaments mixtes virtuals per als colors que la configuració no es pot "
+"reproduir directament (per tant, no es perd cap pintura). S'utilitzen fins a "
+"quatre filaments com a ingredients de barreja; amb més de quatre, s'avalua "
+"cada combinació de quatre filaments i s'aplica el millor partit ponderat per "
+"àrea pintada. Els projectes que ja contenen files de barreja de colors no es "
+"toquen."
+
+msgid "Auto Mixing Match"
+msgstr "Coincidència de mescla automàtica"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 

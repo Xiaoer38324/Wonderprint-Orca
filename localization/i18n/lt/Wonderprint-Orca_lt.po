@@ -22785,6 +22785,26 @@ msgstr "Jei įjungta, modifikuoti proceso nustatymai automatiškai perkeliami į
 "parinktis įjungiama priverstinai, kai nustatytas iš anksto nustatytas "
 "spausdintuvo greitas įkėlimas."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Galima tik su greituoju įkėlimu. Jei įjungta, kelių spalvų projekto "
+"atidarymas automatiškai suderins modelio originalias dažytas spalvas su "
+"kaitinamųjų siūlų konfigūracija, importuota Quick Load, sukuriant virtualius "
+"mišrius siūlus spalvoms, kurių konfigūracija negali tiesiogiai atkurti (todėl "
+"dažai neprarandami). Kaip maišymo ingredientai naudojami iki keturių gijų; "
+"turint daugiau nei keturis, įvertinamas kiekvienas keturių siūlų derinys ir "
+"pritaikoma geriausia dažyto ploto svertinė atitiktis. Projektai, kuriuose jau "
+"yra spalvų maišymo eilučių, lieka nepaliesti."
+
+msgid "Auto Mixing Match"
+msgstr "Automatinio maišymo rungtynės"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

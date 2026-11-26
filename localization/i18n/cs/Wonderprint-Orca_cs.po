@@ -22435,6 +22435,26 @@ msgstr "Je-li povoleno, upravená nastavení procesu se automaticky přenesou do
 "zruší. Dialog neuložených změn se nezobrazí. Tato možnost je vynucená, když "
 "je funkce Rychlé načtení nastavena na předvolbu tiskárny."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "K dispozici pouze s funkcí Quick Load. Je-li povoleno, otevření "
+"vícebarevného projektu automaticky přizpůsobí původní natřené barvy modelu "
+"konfiguraci vlákna importované pomocí funkce Quick Load, čímž se vytvoří "
+"virtuální smíšená vlákna pro barvy, které konfigurace nemůže přímo "
+"reprodukovat (neztratí se tedy žádná barva). Jako míchací přísady se "
+"používají až čtyři vlákna; s více než čtyřmi se vyhodnotí každá kombinace "
+"čtyř vláken a použije se nejlepší shoda vážená natřenou plochou. Projekty, "
+"které již obsahují řádky Míchání barev, zůstanou nedotčeny."
+
+msgid "Auto Mixing Match"
+msgstr "Auto Mixing Match"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 

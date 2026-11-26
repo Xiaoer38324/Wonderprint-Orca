@@ -23649,6 +23649,27 @@ msgstr "Если этот параметр включен, измененные 
 "изменений не отображается. Этот параметр включен принудительно, если для "
 "параметра «Быстрая загрузка» выбрана предустановка принтера."
 
+msgid "Only available with Quick Load. If enabled, opening a multi-color "
+"project automatically matches the model's original painted colors to the "
+"filament configuration imported by Quick Load, creating virtual mixed "
+"filaments for colors the configuration cannot reproduce directly (so no paint "
+"is lost). Up to four filaments are used as mixing ingredients; with more than "
+"four, every four-filament combination is evaluated and the best "
+"painted-area-weighted match is applied. Projects that already contain Color "
+"Mixing rows are left untouched."
+msgstr "Доступно только с быстрой загрузкой. Если этот параметр включен, "
+"открытие многоцветного проекта автоматически сопоставляет исходные окрашенные "
+"цвета модели с конфигурацией нитей, импортированной с помощью быстрой "
+"загрузки, создавая виртуальные смешанные нити для цветов, которые "
+"конфигурация не может воспроизвести напрямую (поэтому краска не теряется). В "
+"качестве ингредиентов для смешивания используется до четырех нитей; если их "
+"больше четырех, оценивается каждая комбинация из четырех нитей и применяется "
+"наилучшее соответствие, взвешенное по окрашенной площади. Проекты, которые "
+"уже содержат строки «Смешение цветов», остаются нетронутыми."
+
+msgid "Auto Mixing Match"
+msgstr "Автоматическое смешивание"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Нажмите, если хотите попробовать бета-версию Wonderprint-Orca:"
 
