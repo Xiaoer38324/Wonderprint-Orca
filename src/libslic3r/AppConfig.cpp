@@ -380,6 +380,11 @@ void AppConfig::set_defaults()
         set("quick_load_printer", "");
     }
 
+    // Auto Mixing Match: automatically match painted model colors when a project is opened.
+    if (get("auto_mixing_match").empty()) {
+        set_bool("auto_mixing_match", false);
+    }
+
     if (get("group_filament_presets").empty()) {
         set("group_filament_presets", "1"); // All "0" / None "1" / By Type "2" / By Vendor "3"
     }

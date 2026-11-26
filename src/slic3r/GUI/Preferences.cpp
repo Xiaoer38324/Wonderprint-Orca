@@ -942,6 +942,10 @@ wxBoxSizer *PreferencesDialog::create_item_checkbox(wxString title, wxString too
         m_quick_change_checkbox = checkbox;
         m_quick_change_title    = checkbox_title;
     }
+    else if (param == "auto_mixing_match") {
+        m_auto_mixing_match_checkbox = checkbox;
+        m_auto_mixing_match_title    = checkbox_title;
+    }
 
     m_sizer_checkbox->Add(checkbox_title, 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, FromDIP(3));
     m_sizer_checkbox->Add(checkbox      , 0, wxALIGN_CENTER | wxRIGHT | wxLEFT, FromDIP(5));
@@ -1102,6 +1106,27 @@ void PreferencesDialog::update_quick_change_state(const std::string &quick_load_
     if (m_quick_change_title != nullptr) {
         m_quick_change_title->SetForegroundColour(forced ? DESIGN_GRAY600_COLOR : DESIGN_GRAY900_COLOR);
         m_quick_change_title->Refresh();
+    }
+}
+
+void PreferencesDialog::update_auto_mixing_match_state(const std::string &quick_load_printer)
+{
+    if (m_auto_mixing_match_checkbox == nullptr)
+        return;
+
+    // Auto Mixing Match is a Quick Load extension: without Quick Load there is no imported
+    // filament configuration to match against, so the option is forced off and greyed out.
+    const bool available = !quick_load_printer.empty();
+    if (!available && app_config->get_bool("auto_mixing_match")) {
+        app_config->set_bool("auto_mixing_match", false);
+        app_config->save();
+    }
+    m_auto_mixing_match_checkbox->SetValue(available && app_config->get_bool("auto_mixing_match"));
+    m_auto_mixing_match_checkbox->Enable(available);
+
+    if (m_auto_mixing_match_title != nullptr) {
+        m_auto_mixing_match_title->SetForegroundColour(available ? DESIGN_GRAY900_COLOR : DESIGN_GRAY600_COLOR);
+        m_auto_mixing_match_title->Refresh();
     }
 }
 
@@ -1478,6 +1503,7 @@ void PreferencesDialog::create_items()
         app_config->set("quick_load_printer", printer);
         app_config->save();
         this->update_quick_change_state(printer);
+        this->update_auto_mixing_match_state(printer);
         e.Skip();
     });
 
@@ -1486,6 +1512,17 @@ void PreferencesDialog::create_items()
         "quick_change");
     g_sizer->Add(item_quick_change);
     this->update_quick_change_state(app_config->get("quick_load_printer"));
+
+    auto item_auto_mixing_match = create_item_checkbox(_L("Auto Mixing Match"),
+        _L("Only available with Quick Load. If enabled, opening a multi-color project automatically matches the "
+           "model's original painted colors to the filament configuration imported by Quick Load, creating virtual "
+           "mixed filaments for colors the configuration cannot reproduce directly (so no paint is lost). Up to four "
+           "filaments are used as mixing ingredients; with more than four, every four-filament combination is "
+           "evaluated and the best painted-area-weighted match is applied. Projects that already contain Color "
+           "Mixing rows are left untouched."),
+        "auto_mixing_match");
+    g_sizer->Add(item_auto_mixing_match);
+    this->update_auto_mixing_match_state(app_config->get("quick_load_printer"));
 
     auto item_filament_preset_grouping = create_item_combobox(_L("Group user filament presets"), _L("Group user filament presets based on selection"),
         "group_filament_presets", {_L("All"), _L("None"), _L("By type"), _L("By vendor")}, [](wxString value) {wxGetApp().plater()->sidebar().update_presets(Preset::TYPE_FILAMENT);});

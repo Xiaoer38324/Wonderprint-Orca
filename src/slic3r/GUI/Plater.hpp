@@ -189,6 +189,10 @@ public:
     void edit_filament();
     void add_custom_filament(wxColour new_col);
     void add_filament_mix(const MixedFilament& mixed);
+    // Batch variant for the automatic color-mixing match: pushes every generated row at once
+    // and publishes the mixed-filament store a single time. `physical_count` must be the
+    // physical filament count the caller used to assign virtual ids (0 = derive it).
+    void add_filament_mixes(const std::vector<MixedFilament>& mixes, size_t physical_count = 0);
     // Orca: mark the project as modified when a virtual filament changes, so the existing
     // G-code becomes stale and a re-slice is required.
     void mark_filament_mix_changed();
@@ -338,6 +342,12 @@ public:
     int new_project(bool skip_confirm = false, bool silent = false, const wxString& project_name = wxString());
     // BBS: save & backup
     void load_project(wxString const & filename = "", wxString const & originfile = "-");
+    // Auto Mixing Match ("Auto Mixing Match" preference, requires Quick Load): matches the
+    // ORIGINAL 3MF paint colors onto the filament configuration imported by Quick Load. The
+    // paint is snapshotted before the Quick Load switch (which may otherwise clamp painted
+    // states above the new filament count), then restored and remapped by color, creating
+    // virtual mixed filaments where the new configuration cannot reproduce a color directly.
+    void auto_mixing_match_after_load();
     int save_project(bool saveAs = false);
     //BBS download project by project id
     void import_model_id(wxString download_info);

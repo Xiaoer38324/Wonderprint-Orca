@@ -20,40 +20,6 @@ namespace Slic3r { class Print; }
 
 namespace Slic3r { namespace GUI {
 
-// ---- Shared constants ----
-
-// Canonical preset name for the Full Spectrum (formerly "CMYW") recommended-mode
-// palette. Resolved at call time against the current printer's nozzle_diameter:
-// if a matching Full Spectrum preset exists for that nozzle, it is returned;
-// otherwise falls back to the canonical 0.4 variant (the only SKU shipped today).
-// Future-proof: shipping a new nozzle variant (e.g. 0.6/0.8) just requires adding
-// its preset JSON under resources/profiles/Snapmaker/filament/ -- no code change.
-//
-// Thread-safety convention: same as the other preset_bundle readers in this file
-// (build_mixed_filament_display_context, extract_model_colors, etc.) -- caller
-// MUST be on the UI thread. No worker-thread call site exists today; the worker
-// lambda in launch_background_match captures values by copy precisely to keep
-// off preset_bundle (see load_recommended_palette's safety note in
-// MixedFilamentBatchDialog.cpp).
-std::string full_spectrum_preset_name();
-
-// True iff a Full Spectrum preset exists for the printer's *current* nozzle
-// diameter (no 0.4 fallback, unlike full_spectrum_preset_name). UI-thread only
-// (reads preset_bundle, same convention as above). Used by the batch-match guard
-// to gate Recommended mode on preset availability rather than a hard-coded 0.4.
-bool full_spectrum_preset_exists_for_current_nozzle();
-
-// Resolve the selectable (visible + compatible) preset of a Full Spectrum FAMILY
-// (a library filament name, e.g. "Snapmaker PETG Full Spectrum @U1" -- pass
-// FullSpectrumPaletteEntry::family_name or GetFilamentMatchName(preset_name)).
-// Nozzle preference order: current-nozzle SKU, then the 0.4 SKU, then the first
-// selectable match. Matching is by GetFilamentMatchName identity (never by name
-// composition), so it is immune to the naming-convention case pitfalls (#742).
-// Returns the preset name, or "" when the family has no selectable preset (also
-// for an empty family_name). UI-thread only (reads preset_bundle, same
-// convention as above).
-std::string find_selectable_full_spectrum_family_preset(const std::string& family_name);
-
 // ---- CIELAB color space types ----
 
 struct CIELab {
@@ -282,6 +248,15 @@ void populate_mixed_filaments_from_mappings(
 /// Apply matched recipes back to model painting data.
 /// Walks every volume's mmu_segmentation_facets and remaps original
 /// extruder_id→target_filament_id from the match result.
-void apply_batch_match_to_model(const BatchMatchResult& result);
+/// `total_filaments_override` (0 = derive from `physical + enabled mixed rows`) bounds the
+/// painted states accepted by the remap. Callers that remap BEFORE publishing their mixed
+/// rows must pass the future total, otherwise targets above the current physical count would
+/// be clamped away.
+/// `remap_config_extruders` also rewrites object/volume/layer extruder ids. Set it to false
+/// when the extruder id space changed under the painting (e.g. Quick Load replaced the
+/// filament configuration): the painting states then refer to the original file, while the
+/// config-level ids already refer to the new configuration.
+void apply_batch_match_to_model(const BatchMatchResult& result, size_t total_filaments_override = 0,
+                                bool remap_config_extruders = true);
 
 }} // namespace Slic3r::GUI

@@ -383,8 +383,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/MixedColorMatchPanel.hpp
     GUI/MixedFilamentDialog.cpp
     GUI/MixedFilamentDialog.hpp
-    GUI/MixedFilamentBatchDialog.cpp
-    GUI/MixedFilamentBatchDialog.hpp
+    GUI/MixedColorMatchEngine.cpp
+    GUI/MixedColorMatchEngine.hpp
     GUI/FilamentColorUtils.cpp
     GUI/FilamentColorUtils.hpp
     GUI/ThumbnailView.hpp

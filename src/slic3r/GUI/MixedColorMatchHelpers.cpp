@@ -20,7 +20,6 @@
 #include "libslic3r/LocalesUtils.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
-#include "libslic3r/FilamentColorLibrary.hpp" // GetFilamentMatchName (family preset scan)
 
 namespace Slic3r { namespace GUI {
 wxColour parse_mixed_color(const std::string& value)
@@ -616,129 +615,6 @@ MixedColorMatchRecipeResult build_best_color_match_recipe(const std::vector<std:
     }
 
     return best;
-}
-
-// Shared constants + helpers for Full Spectrum preset-name resolution. Kept in
-// an anonymous namespace so the table is not visible outside this TU (these are
-// pure implementation details of the two functions below).
-namespace {
-constexpr const char*  kFullSpectrumBase  = "Snapmaker PLA Full Spectrum @U1 ";
-constexpr double       kFallbackNozzle    = 0.4;   // the only SKU shipped historically
-constexpr double       kMinNozzle         = 0.05;  // matches build_mixed_filament_display_context
-
-// Format a nozzle diameter the same way the preset JSON names do ("0.4", "0.2"):
-// two decimals, trailing zeros and a dangling dot stripped.
-std::string format_nozzle_label(double mm)
-{
-    std::string s = float_to_string_decimal_point(mm, 2);
-    while (!s.empty() && s.back() == '0') s.pop_back();
-    if (!s.empty() && s.back() == '.') s.pop_back();
-    return s;
-}
-
-// Read the current printer's nozzle_diameter from preset_bundle with the same
-// null-check + kMinNozzle clamp as build_mixed_filament_display_context. Falls
-// back to kFallbackNozzle when preset_bundle / the option is unavailable.
-double current_nozzle_diameter()
-{
-    double nozzle = kFallbackNozzle;
-    auto*  pb     = wxGetApp().preset_bundle;
-    if (pb != nullptr) {
-        if (const auto* opt = pb->printers.get_edited_preset().config.option<ConfigOptionFloats>("nozzle_diameter");
-            opt != nullptr && !opt->values.empty()) {
-            // (C) clamp to sane physical range -- matches build_mixed_filament_display_context
-            nozzle = std::max(kMinNozzle, opt->values.front());
-        }
-    } else {
-        BOOST_LOG_TRIVIAL(warning)
-            << "full_spectrum nozzle resolution: preset_bundle null; falling back to "
-            << kFullSpectrumBase << format_nozzle_label(kFallbackNozzle) << " nozzle";
-    }
-    return nozzle;
-}
-} // namespace
-
-// Full Spectrum preset name, with nozzle diameter resolved from the current
-// printer's nozzle_diameter (mirrors PresetComboBoxes.cpp's @U1 <nozzle> nozzle
-// convention). Falls back to the canonical 0.4 SKU when no matching preset
-// exists for the current nozzle. Follows the same preset_bundle-access pattern
-// as build_mixed_filament_display_context below (null-check + warning log +
-// std::max clamp) -- see the header doc for the UI-thread convention.
-//
-// NOTE: because this function falls back to the 0.4 name on a miss, its return
-// value alone cannot tell you whether the *current* nozzle actually has a preset
-// -- use full_spectrum_preset_exists_for_current_nozzle() for that.
-std::string full_spectrum_preset_name()
-{
-    const double  nozzle    = current_nozzle_diameter();
-    auto*         pb        = wxGetApp().preset_bundle;
-    const std::string candidate = std::string(kFullSpectrumBase) + format_nozzle_label(nozzle) + " nozzle";
-
-    // Candidate for the current nozzle; verify the preset actually exists.
-    if (pb != nullptr && pb->filaments.find_preset(candidate) != nullptr)
-        return candidate;
-
-    // Fallback: the canonical 0.4 SKU (shipped today). If even that is missing
-    // (profile not loaded), return the literal name so upstream fallback chains
-    // (load_recommended_palette -> canonical palette) take over.
-    return std::string(kFullSpectrumBase) + format_nozzle_label(kFallbackNozzle) + " nozzle";
-}
-
-// True iff a Full Spectrum preset exists for the printer's *current* nozzle
-// diameter (no fallback). Used by the batch-match guard to decide whether
-// Recommended mode is available, instead of hard-coding 0.4 mm: shipping a new
-// nozzle variant (e.g. 0.2/0.6/0.8) just requires adding its preset JSON under
-// resources/profiles/Snapmaker/filament/, and this returns true automatically.
-bool full_spectrum_preset_exists_for_current_nozzle()
-{
-    const double     nozzle    = current_nozzle_diameter();
-    auto*            pb        = wxGetApp().preset_bundle;
-    const std::string candidate = std::string(kFullSpectrumBase) + format_nozzle_label(nozzle) + " nozzle";
-    return pb != nullptr && pb->filaments.find_preset(candidate) != nullptr;
-}
-
-std::string find_selectable_full_spectrum_family_preset(const std::string& family_name)
-{
-    if (family_name.empty())
-        return std::string();
-    auto* pb = wxGetApp().preset_bundle;
-    if (pb == nullptr)
-        return std::string();
-
-    // Scan by MATCH IDENTITY (GetFilamentMatchName strips the "<diameter> nozzle"
-    // suffix), never by name composition: composing "family + nozzle + nozzle" would
-    // re-encode the naming convention and inherit its case-sensitivity pitfalls
-    // (see #742, the U1 preset filename case mismatch).
-    // Normalize BOTH sides: FullSpectrumPaletteEntry::family_name comes verbatim from
-    // filaments_colours.json ("... @U1"), which GetFilamentMatchName would strip from the
-    // preset side ("... @U1 0.4 nozzle" -> "..."). Without this the raw-vs-normalized
-    // comparison never matches and every family is reported as not configured (the
-    // Confirm-time note in MixedFilamentBatchDialog fired unconditionally).
-    const std::string family_match_name = GetFilamentMatchName(family_name);
-    if (family_match_name.empty())
-        return std::string();
-
-    const double nozzle = current_nozzle_diameter();
-    std::string fallback_sku;   // 0.4 SKU of the family, if present (selectable or not)
-    std::string first_match;    // first visible+compatible match, lowest preference
-    for (const Preset& preset : pb->filaments) {
-        if (GetFilamentMatchName(preset.name) != family_match_name)
-            continue;
-        const bool selectable = preset.is_visible && preset.is_compatible;
-        if (!selectable)
-            continue;
-        const bool current_nozzle = preset.name.find(format_nozzle_label(nozzle) + " nozzle") != std::string::npos;
-        const bool fallback_nozzle = preset.name.find(format_nozzle_label(kFallbackNozzle) + " nozzle") != std::string::npos;
-        if (current_nozzle)
-            return preset.name;              // highest preference: current nozzle SKU
-        if (fallback_nozzle)
-            fallback_sku = preset.name;      // second preference: 0.4 SKU
-        else if (first_match.empty())
-            first_match = preset.name;       // lowest preference: any other SKU
-    }
-    if (!fallback_sku.empty())
-        return fallback_sku;
-    return first_match;
 }
 
 MixedFilamentDisplayContext build_mixed_filament_display_context(const std::vector<std::string>& physical_colors)
@@ -1844,7 +1720,8 @@ void populate_mixed_filaments_from_mappings(
     }
 }
 
-void apply_batch_match_to_model(const BatchMatchResult& result)
+void apply_batch_match_to_model(const BatchMatchResult& result, size_t total_filaments_override,
+                                bool remap_config_extruders)
 {
     if (!result.success || result.mappings.empty()) return;
 
@@ -1866,7 +1743,9 @@ void apply_batch_match_to_model(const BatchMatchResult& result)
     ConfigOptionStrings* co = pb->project_config.option<ConfigOptionStrings>("filament_colour");
     if (!co || co->values.empty()) return;
     const size_t num_physical    = co->values.size();
-    const size_t total_filaments = pb->mixed_filaments.total_filaments(num_physical);
+    const size_t total_filaments = total_filaments_override > 0
+                                       ? total_filaments_override
+                                       : pb->mixed_filaments.total_filaments(num_physical);
 
     // Build EnforcerBlockerStateMap: identity by default, remap where needed
     constexpr size_t MAX_EBT = static_cast<size_t>(EnforcerBlockerType::ExtruderMax);
@@ -1896,6 +1775,12 @@ void apply_batch_match_to_model(const BatchMatchResult& result)
     //      early-continued on non-MODEL_PART, dropping the modifier's colour
     //      (it then fell back to the object's extruder, which itself may have
     //      been remapped — surfacing as "colour reset to extruder 1").
+    // Level 2/3 rewrite config-level extruder ids. A target above ExtruderMax cannot be
+    // represented as a virtual region by the slicer (see PrintObjectSlice: a volume assigned
+    // to a virtual filament is sliced through the painted-state channel, which has at most
+    // EnforcerBlockerType::ExtruderMax slots), so count those writes and report them.
+    size_t config_targets_above_state_max = 0;
+
     for (ModelObject* mo : wxGetApp().model().objects) {
         // Pre-read the object's effective extruder ONCE, before iterating volumes.
         // ModelVolume::extruder_id() falls back to the OBJECT config when a volume
@@ -1910,16 +1795,18 @@ void apply_batch_match_to_model(const BatchMatchResult& result)
         const int           orig_obj_eid = (obj_opt ? obj_opt->getInt() : 0);
         auto                obj_it       = extruder_remap.find(orig_obj_eid);
         const bool          obj_remap    = (orig_obj_eid > 0 && obj_it != extruder_remap.end());
-        // Remap the object-level filament independently of the volume loop.
-        // Multi-part objects where EVERY volume owns its own extruder (e.g.
+        // Remap the object-level filament independently of the volume loop.        // Multi-part objects where EVERY volume owns its own extruder (e.g.
         // Creality 3mf exports) used to keep the parent row on its stale
         // filament: the object was only rewritten inside the "volume
         // inherits" branch below, which never runs when no volume inherits.
         // Write the object whenever its extruder is in the remap table so
         // the parent follows the match; inheriting volumes resolve through
         // the (already rewritten) object config.
-        if (obj_remap)
+        if (remap_config_extruders && obj_remap) {
+            if (obj_it->second > static_cast<unsigned int>(MAX_EBT))
+                ++ config_targets_above_state_max;
             mo->config.set_key_value("extruder", new ConfigOptionInt(static_cast<int>(obj_it->second)));
+        }
         for (ModelVolume* mv : mo->volumes) {
             const ModelVolumeType vt = mv->type();
             const bool is_part      = (vt == ModelVolumeType::MODEL_PART);
@@ -1932,13 +1819,17 @@ void apply_batch_match_to_model(const BatchMatchResult& result)
 
             // Level 2: config-level extruder for parts and modifiers.
             if (!is_part && !is_modifier) continue;
+            if (!remap_config_extruders) continue;
 
             const ConfigOption* vol_opt = mv->config.option("extruder");
             if (vol_opt && vol_opt->getInt() > 0) {
                 // Volume owns its extruder — remap it on the volume alone.
                 auto it = extruder_remap.find(vol_opt->getInt());
-                if (it != extruder_remap.end())
+                if (it != extruder_remap.end()) {
+                    if (it->second > static_cast<unsigned int>(MAX_EBT))
+                        ++ config_targets_above_state_max;
                     mv->config.set_key_value("extruder", new ConfigOptionInt(static_cast<int>(it->second)));
+                }
             }
             // Volumes without their own extruder inherit the object's extruder,
             // which was already remapped above — no per-volume action needed.
@@ -1949,21 +1840,31 @@ void apply_batch_match_to_model(const BatchMatchResult& result)
         // the same table used for volumes so it follows the match instead of
         // being stranded on a physical slot that cleanup deletes
         // (→ "layer filament >N reset to default").
-        for (auto& lr : mo->layer_config_ranges) {
-            ModelConfig&         lcfg = lr.second;
-            const ConfigOption*  lopt = lcfg.option("extruder");
-            if (!lopt) continue;
-            const int old_eid = lopt->getInt();
-            if (old_eid <= 0) continue;
-            auto lit = extruder_remap.find(old_eid);
-            if (lit == extruder_remap.end()) continue;
-            lcfg.set_key_value("extruder", new ConfigOptionInt(static_cast<int>(lit->second)));
+        if (remap_config_extruders) {
+            for (auto& lr : mo->layer_config_ranges) {
+                ModelConfig&         lcfg = lr.second;
+                const ConfigOption*  lopt = lcfg.option("extruder");
+                if (!lopt) continue;
+                const int old_eid = lopt->getInt();
+                if (old_eid <= 0) continue;
+                auto lit = extruder_remap.find(old_eid);
+                if (lit == extruder_remap.end()) continue;
+                lcfg.set_key_value("extruder", new ConfigOptionInt(static_cast<int>(lit->second)));
+            }
         }
     }
 
     BOOST_LOG_TRIVIAL(info)
         << "apply_batch_match: remapped " << extruder_remap.size()
         << " extruder IDs across all volumes (total_filaments=" << total_filaments << ")";
+
+    if (config_targets_above_state_max > 0)
+        BOOST_LOG_TRIVIAL(warning)
+            << "apply_batch_match: " << config_targets_above_state_max
+            << " object/volume assignment(s) point at a virtual filament id above "
+               "EnforcerBlockerType::ExtruderMax=" << MAX_EBT
+            << "; the slicer can only treat ids up to that value as a virtual region, so those "
+               "assignments will print with a physical extruder";
 }
 
 }} // namespace Slic3r::GUI

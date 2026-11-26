@@ -75,6 +75,8 @@ public:
     ::CheckBox * m_dark_mode_ckeckbox        = {nullptr};
     ::CheckBox * m_quick_change_checkbox     = {nullptr};
     wxStaticText *m_quick_change_title       = {nullptr};
+    ::CheckBox * m_auto_mixing_match_checkbox = {nullptr};
+    wxStaticText *m_auto_mixing_match_title   = {nullptr};
     ::TextInput *m_backup_interval_textinput = {nullptr};
     ::ComboBox * m_network_version_combo     = {nullptr};
     wxBoxSizer * m_network_version_sizer     = {nullptr};
@@ -99,6 +101,9 @@ public:
     void set_dark_mode();
     // Quick Load forces Quick Change on: keep the checkbox checked and disabled in that case.
     void update_quick_change_state(const std::string &quick_load_printer);
+    // Auto Mixing Match only makes sense together with Quick Load: grey it out and force it
+    // off while Quick Load is "None".
+    void update_auto_mixing_match_state(const std::string &quick_load_printer);
     wxBoxSizer *create_item_button(wxString title, wxString title2, wxString tooltip, wxString tooltip2, std::function<void()> onclick);
     wxBoxSizer *create_item_downloads(wxString title, wxString tooltip);
     wxBoxSizer *create_item_input(wxString title, wxString title2, wxString tooltip, std::string param, std::function<void(wxString)> onchange = {});

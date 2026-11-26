@@ -13,6 +13,9 @@
 #include <string>
 #include <regex>
 #include <future>
+#include <atomic>
+#include <memory>
+#include <thread>
 #include <boost/algorithm/string.hpp>
 #include <boost/iterator/counting_iterator.hpp>
 #include <boost/optional.hpp>
@@ -85,7 +88,7 @@
 #include "GUI_App.hpp"
 #include "MixedFilamentDialog.hpp"
 #include "MixedColorMatchHelpers.hpp"
-#include "MixedFilamentBatchDialog.hpp"
+#include "MixedColorMatchEngine.hpp"
 #include "GuiColor.hpp"
 #include "GUI_ObjectList.hpp"
 #include "GUI_Utils.hpp"
@@ -2235,23 +2238,6 @@ Sidebar::Sidebar(Plater *parent)
     bSizer_mix->AddSpacer(FromDIP(SidebarProps::ElementSpacing()));
     bSizer_mix->Add(new Label(p->m_panel_filament_mix_title, _L("Color Mixing"), LB_PROPAGATE_MOUSE_EVENT), 0, wxALIGN_CENTER);
     bSizer_mix->AddStretchSpacer(1);
-    //Wonder:i donot figure out what is meaning of this function .
-    // Button* batch_btn = new Button(p->m_panel_filament_mix_title, _L("Batch"));
-    // batch_btn->SetStyle(ButtonStyle::Regular, ButtonType::Compact);
-    // batch_btn->SetToolTip(_L("Match model colors to mixed filaments in batch"));
-    // batch_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-    //     try {
-    //         MixedFilamentBatchDialog dlg(wxGetApp().mainframe);
-    //         if (dlg.ShowModal() == wxID_OK) {
-    //             const BatchMatchResult& result = dlg.GetResult();
-    //             for (const Slic3r::MixedFilament& mixed : result.mixed_filaments)
-    //                 add_filament_mix(mixed);
-    //         }
-    //     } catch (const std::exception& e) {
-    //         wxLogError("Color Mixing: %s", e.what());
-    //     }
-    // });
-    // bSizer_mix->Add(batch_btn, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(6));
     p->m_filament_mix_add_btn = new ScalableButton(p->m_panel_filament_mix_title, wxID_ANY, "filament_mix_add");
     p->m_filament_mix_add_btn->SetToolTip(_L("Create a color mix"));
     p->m_filament_mix_add_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
@@ -3739,20 +3725,39 @@ void Sidebar::mark_filament_mix_changed(){
 
 void Sidebar::add_filament_mix(const MixedFilament& mixed)
 {
+    this->add_filament_mixes({ mixed });
+}
+
+// Batch variant used by the automatic color-mixing match: all generated rows are pushed
+// into the project state at once, so the sidebar is rebuilt and the mixed-filament store is
+// published exactly once instead of once per row.
+void Sidebar::add_filament_mixes(const std::vector<MixedFilament>& mixes, size_t physical_count)
+{
+    if (mixes.empty())
+        return;
     if (p->m_sizer_filament_mix == nullptr || p->m_panel_filament_mix_content == nullptr)
         return;
-    if (mixed.component_a == 0 || mixed.component_b == 0)
-        return;
 
-    // Pure state first: it validates nothing here (the dialog already did), it only owns the data.
-    p->vf_state.set_num_physical(p->combos_filament.size());
-    p->vf_state.on_row_added(mixed);
+    // The physical count decides the virtual id numbering, so it must match the count the
+    // caller used when it assigned the target ids. 0 means "derive it from the sidebar".
+    size_t physical = physical_count;
+    if (physical == 0) {
+        physical = p->combos_filament.size();
+        if (PresetBundle* preset_bundle = wxGetApp().preset_bundle)
+            physical = std::max(physical, preset_bundle->filament_presets.size());
+    }
+    p->vf_state.set_num_physical(physical);
+    for (const MixedFilament& mixed : mixes) {
+        if (mixed.component_a == 0 || mixed.component_b == 0)
+            continue;
+        p->vf_state.on_row_added(mixed);
+    }
 
     refresh_sidebar_from_state();
     mark_filament_mix_changed();
 
-    // Orca: after adding a virtual filament, reveal the Color Mixing section automatically so
-    // the new row is immediately visible.
+    // Orca: after adding virtual filaments, reveal the Color Mixing section automatically so
+    // the new rows are immediately visible.
     if (p->m_panel_filament_mix_content != nullptr) {
         p->m_panel_filament_mix_content->Show(true);
         if (p->m_panel_filament_mix_title != nullptr)
@@ -5113,6 +5118,481 @@ public:
     }
 };
 
+namespace {
+
+// Auto Mixing Match background job. The destructor cancels and joins the worker, so the
+// owning shared_ptr can be replaced (new load) or released (Plater destruction) safely.
+struct AutoMixingMatchJob
+{
+    std::atomic<bool> cancel { false };
+    std::thread       thread;
+
+    ~AutoMixingMatchJob()
+    {
+        cancel.store(true);
+        if (thread.joinable())
+            thread.join();
+    }
+};
+
+// Snapshot of the color data of a 3MF taken *before* Quick Load replaces the filament
+// configuration: the facet paint bitstreams, the object/volume filament ids that carry the
+// unpainted colors, and the colors those ids referred to. Everything is copied exactly, because
+// the printer switch clamps what exceeds the new filament count — painted states above it
+// (ModelVolume::update_extruder_count) and object extruder ids above it
+// (ObjectList::update_filament_values_for_items resets them to filament 1) — and those colors
+// would otherwise be silently lost.
+struct AutoMixVolumePaint
+{
+    size_t                                  object_index { 0 };
+    size_t                                  volume_index { 0 };
+    TriangleSelector::TriangleSplittingData data;
+};
+
+// Object-level filament assignment. Quick Load clamps an object extruder above the new filament
+// count to filament 1 (ObjectList::update_filament_values_for_items), so the original value has
+// to be captured here and put back before the colors are measured/matched.
+struct AutoMixObjectExtruder
+{
+    size_t object_index { 0 };
+    int    extruder { 0 };
+};
+
+// Volume-level filament assignment ("one part volume per color" models). The switch itself does
+// not rewrite volume ids, but they are captured for the same reason: the match measures and
+// remaps them, so it must see the values the file was saved with.
+struct AutoMixVolumeExtruder
+{
+    size_t object_index { 0 };
+    size_t volume_index { 0 };
+    int    extruder { 0 };
+};
+
+struct AutoMixPaintSnapshot
+{
+    bool                            valid { false };
+    // True when the file assigns filament ids explicitly instead of (or in addition to) painting
+    // facets: a MODEL_PART volume naming its own "extruder" (multi-part models, one part per
+    // color) or an object whose extruder differs from the default. This is the second color
+    // source the match must cover.
+    bool                            has_assigned_colors { false };
+    std::vector<std::string>        original_colors;         // physical filaments of the loaded 3MF
+    std::vector<std::string>        original_virtual_colors;  // display colors of its virtual rows
+    std::vector<AutoMixVolumePaint> volumes;
+    std::vector<AutoMixObjectExtruder> object_extruders;
+    std::vector<AutoMixVolumeExtruder> volume_extruders;
+};
+
+// ---------------------------------------------------------------------------
+// Auto Mixing Match snapshot diagnostics.
+//
+// capture_auto_mix_paint_snapshot() is the only place that reads the paint bitstream of a
+// freshly loaded project, and when it yields nothing the whole Auto Mixing Match is silently
+// skipped. The helpers below exist purely to make that failure self-explaining in the log:
+// they report which objects / volumes carry paint, which paint states those bitstreams use,
+// and whether a state can still be resolved to one of the original filament colors.
+// ---------------------------------------------------------------------------
+const char *auto_mix_volume_type_name(ModelVolumeType type)
+{
+    switch (type) {
+    case ModelVolumeType::MODEL_PART:         return "MODEL_PART";
+    case ModelVolumeType::NEGATIVE_VOLUME:    return "NEGATIVE_VOLUME";
+    case ModelVolumeType::PARAMETER_MODIFIER: return "PARAMETER_MODIFIER";
+    case ModelVolumeType::SUPPORT_BLOCKER:    return "SUPPORT_BLOCKER";
+    case ModelVolumeType::SUPPORT_ENFORCER:   return "SUPPORT_ENFORCER";
+    case ModelVolumeType::INVALID:            break;
+    }
+    return "INVALID";
+}
+
+// Comma separated list of the paint states encoded in a serialized paint bitstream.
+// "<none>" means the bitstream marks no state at all, e.g. after every state was clamped.
+std::string auto_mix_paint_state_list(const TriangleSelector::TriangleSplittingData &data)
+{
+    std::string out;
+    for (size_t state = 0; state < data.used_states.size(); ++state) {
+        if (! data.used_states[state])
+            continue;
+        if (! out.empty())
+            out += ',';
+        out += std::to_string(state);
+    }
+    return out.empty() ? std::string("<none>") : out;
+}
+
+// Color a painted state resolves to, mirroring collect_model_colors_with_area(): states
+// 1..N are physical filaments, higher states are the project's virtual (Color Mixing) rows.
+// An empty result means the state cannot be resolved and its painted area is dropped.
+std::string auto_mix_paint_state_color(const std::vector<std::string> &physical_colors,
+                                       const std::vector<std::string> &virtual_colors,
+                                       size_t                          state)
+{
+    const size_t num_physical = physical_colors.size();
+    if (state >= 1 && state <= num_physical)
+        return physical_colors[state - 1];
+    if (state > num_physical && state - num_physical - 1 < virtual_colors.size())
+        return virtual_colors[state - num_physical - 1];
+    return std::string();
+}
+
+double auto_mix_area_of(const indexed_triangle_set &its)
+{
+    double area = 0.0;
+    for (size_t i = 0; i < its.indices.size(); ++i)
+        area += double(its.facet_area(static_cast<int>(i)));
+    return area;
+}
+
+AutoMixPaintSnapshot capture_auto_mix_paint_snapshot(const Model& model, const PresetBundle& preset_bundle)
+{
+    AutoMixPaintSnapshot snapshot;
+
+    // ---- diagnostics: the configuration the paint is resolved against ------------
+    const auto *colour_option      = preset_bundle.project_config.option<ConfigOptionStrings>("filament_colour");
+    const auto *definitions_option = preset_bundle.project_config.option<ConfigOptionString>("mixed_filament_definitions");
+    if (colour_option != nullptr)
+        snapshot.original_colors = colour_option->values;
+
+    BOOST_LOG_TRIVIAL(warning) << boost::format(
+        "Auto Mixing Match [snapshot]: capture start: model objects=%1%, project filament_colour=%2%, "
+        "mixed_filament_definitions=%3%")
+        % model.objects.size()
+        % (colour_option == nullptr ? std::string("MISSING") : std::to_string(snapshot.original_colors.size()) + " colour(s)")
+        % (definitions_option == nullptr ? std::string("MISSING")
+                                         : std::to_string(definitions_option->value.size()) + " char(s)");
+
+    // The active configuration at capture time decides whether painted states could already
+    // have been clamped by GLCanvas3D before this point (states above the filament count are
+    // folded into NONE there), so it is logged next to the project's own colour list.
+    BOOST_LOG_TRIVIAL(warning) << boost::format(
+        "Auto Mixing Match [snapshot]: active configuration: filament_presets=%1%, mixed_enabled=%2%, project colours=%3% "
+        "(paint states above %4% would be clamped)")
+        % preset_bundle.filament_presets.size() % preset_bundle.mixed_filaments.enabled_count()
+        % snapshot.original_colors.size()
+        % (preset_bundle.filament_presets.size() + preset_bundle.mixed_filaments.enabled_count());
+
+    if (colour_option == nullptr)
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]: no filament_colour in the project config -> every "
+                                      "painted state would be unresolvable";
+    for (size_t i = 0; i < snapshot.original_colors.size(); ++i)
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]:   physical F" << (i + 1) << " \""
+                                   << snapshot.original_colors[i] << "\"";
+
+    // Original virtual (Color Mixing) rows: painting may reference ids above the physical
+    // count. Their display colors come from the project definitions, not from the new config.
+    if (definitions_option != nullptr && !definitions_option->value.empty() && !snapshot.original_colors.empty()) {
+        MixedFilamentManager project_mixed;
+        project_mixed.load_custom_entries(definitions_option->value, snapshot.original_colors);
+        snapshot.original_virtual_colors.reserve(project_mixed.enabled_count());
+        for (const MixedFilament& row : project_mixed.mixed_filaments()) {
+            if (row.enabled && !row.deleted)
+                snapshot.original_virtual_colors.push_back(row.display_color);
+        }
+        BOOST_LOG_TRIVIAL(warning) << boost::format(
+            "Auto Mixing Match [snapshot]: mixed_filament_definitions parsed into %1% row(s), enabled+not-deleted=%2%, "
+            "raw=\"%3%\"")
+            % project_mixed.mixed_filaments().size() % snapshot.original_virtual_colors.size() % definitions_option->value;
+        for (size_t i = 0; i < snapshot.original_virtual_colors.size(); ++i)
+            BOOST_LOG_TRIVIAL(warning) << boost::format("Auto Mixing Match [snapshot]:   virtual V%1% (paint state %2%) = \"%3%\"")
+                % (i + 1) % (snapshot.original_colors.size() + i + 1) % snapshot.original_virtual_colors[i];
+    } else {
+        BOOST_LOG_TRIVIAL(warning) << boost::format(
+            "Auto Mixing Match [snapshot]: no virtual rows to resolve: definitions_present=%1%, definitions_empty=%2%, "
+            "physical_colors=%3%")
+            % (definitions_option != nullptr) % (definitions_option == nullptr || definitions_option->value.empty())
+            % snapshot.original_colors.size();
+    }
+
+    // ---- diagnostics: counters for the final verdict -----------------------------
+    size_t objects_seen             = 0;
+    size_t objects_null             = 0;
+    size_t volumes_seen             = 0;
+    size_t volumes_null             = 0;
+    size_t volumes_with_paint       = 0;
+    size_t volumes_paint_all_none   = 0;
+    size_t volumes_paint_mismatch   = 0;
+    size_t painted_non_part         = 0;
+    size_t states_with_geometry     = 0;
+    size_t states_unmapped          = 0;
+    // Colours that come from the per-volume "extruder" assignment instead of facet paint
+    // (multi-part models: one part volume per colour). Keyed by filament id, valued by mm^2.
+    std::map<int, double> volume_color_area;
+
+    for (size_t object_index = 0; object_index < model.objects.size(); ++object_index) {
+        const ModelObject* object = model.objects[object_index];
+        if (object == nullptr) {
+            ++ objects_null;
+            BOOST_LOG_TRIVIAL(warning) << boost::format("Auto Mixing Match [snapshot]: object #%1% is null -> skipped")
+                % object_index;
+            continue;
+        }
+        ++ objects_seen;
+
+        size_t object_painted_volumes = 0;
+        for (const ModelVolume *v : object->volumes)
+            if (v != nullptr && v->is_mm_painted())
+                ++ object_painted_volumes;
+        const ConfigOption *object_extruder_option = object->config.option("extruder");
+        const int           object_extruder        = object_extruder_option != nullptr ? object_extruder_option->getInt() : 0;
+        // An object-level filament above the default is an explicit color assignment as well:
+        // single-part models store their color that way (the loader erases the volume's own
+        // "extruder" when the object has exactly one volume).
+        if (object_extruder > 1)
+            snapshot.has_assigned_colors = true;
+        // Recorded for every object because Quick Load clamps an out-of-range object extruder to
+        // filament 1; without this the match would see the whole object as filament 1.
+        if (object_extruder > 0)
+            snapshot.object_extruders.push_back({ object_index, object_extruder });
+        BOOST_LOG_TRIVIAL(warning) << boost::format(
+            "Auto Mixing Match [snapshot]: object #%1% \"%2%\" input_file=\"%3%\" instances=%4% volumes=%5% "
+            "painted_volumes=%6% object_extruder=%7%")
+            % object_index % object->name % object->input_file % object->instances.size() % object->volumes.size()
+            % object_painted_volumes % object_extruder;
+
+        for (size_t volume_index = 0; volume_index < object->volumes.size(); ++volume_index) {
+            const ModelVolume* volume = object->volumes[volume_index];
+            if (volume == nullptr) {
+                ++ volumes_null;
+                BOOST_LOG_TRIVIAL(warning) << boost::format(
+                    "Auto Mixing Match [snapshot]:   volume #%1% of object #%2% is null -> skipped")
+                    % volume_index % object_index;
+                continue;
+            }
+            ++ volumes_seen;
+
+            const ModelVolumeType volume_type          = volume->type();
+            const bool            is_model_part        = volume_type == ModelVolumeType::MODEL_PART;
+            const bool            painted              = volume->is_mm_painted();
+            const TriangleSelector::TriangleSplittingData &paint_data = volume->mmu_segmentation_facets.get_data();
+            const size_t          mesh_facets          = volume->mesh().facets_count();
+            const int             max_paint_triangle   = paint_data.triangles_to_split.empty()
+                                                             ? -1
+                                                             : paint_data.triangles_to_split.back().triangle_idx;
+            // A part can carry its colour without any paint at all: the volume config simply
+            // names a filament ("extruder"), which is how multi-part coloured models store
+            // one colour per volume. Logged because that colour is invisible to the paint
+            // snapshot while still being painted, from the user's point of view.
+            const ConfigOption *volume_extruder_option = volume->config.option("extruder");
+            const int           volume_extruder        = volume_extruder_option != nullptr ? volume_extruder_option->getInt() : 0;
+            const int           effective_extruder     = volume->extruder_id();
+
+            BOOST_LOG_TRIVIAL(warning) << boost::format(
+                "Auto Mixing Match [snapshot]:   volume #%1% \"%2%\" type=%3% mesh_facets=%4% painted=%5% "
+                "paint_triangles=%6% paint_bits=%7% states=[%8%] max_paint_triangle=%9% volume_extruder=%10% "
+                "effective_extruder=%11%")
+                % volume_index % volume->name % auto_mix_volume_type_name(volume_type) % mesh_facets % painted
+                % paint_data.triangles_to_split.size() % paint_data.bitstream.size()
+                % auto_mix_paint_state_list(paint_data) % max_paint_triangle % volume_extruder % effective_extruder;
+
+            if (painted)
+                ++ volumes_with_paint;
+
+            // Explicit per-volume filament assignment: this is the color source of multi-part
+            // models ("one part per color"), which carry no facet paint at all. Marking it
+            // here is what lets the snapshot exist for such files.
+            if (is_model_part && volume_extruder > 0) {
+                snapshot.has_assigned_colors = true;
+                snapshot.volume_extruders.push_back({ object_index, volume_index, volume_extruder });
+            }
+
+            // Unpainted part with a filament assignment: the colour lives in the volume config,
+            // not in a paint bitstream. Measured so the log can distinguish "this file has no
+            // colour data" from "its colour data is volume assignments, which the paint
+            // snapshot cannot see".
+            if (is_model_part && ! painted && effective_extruder > 0)
+                volume_color_area[effective_extruder] += auto_mix_area_of(volume->mesh().its);
+
+            // A paint stream whose highest triangle index is beyond the mesh cannot be
+            // replayed on this mesh; the restore/measurement would drop or misplace it.
+            const bool paint_mesh_mismatch = painted && max_paint_triangle >= static_cast<int>(mesh_facets);
+            if (paint_mesh_mismatch)
+                ++ volumes_paint_mismatch;
+
+            bool only_none_state = true;
+            for (size_t state = 1; state < paint_data.used_states.size(); ++state) {
+                if (paint_data.used_states[state]) {
+                    only_none_state = false;
+                    break;
+                }
+            }
+            if (painted && only_none_state)
+                ++ volumes_paint_all_none;
+
+            if (painted && !is_model_part) {
+                ++ painted_non_part;
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]:     -> SKIPPED: the volume carries paint but its "
+                                              "type is not MODEL_PART; Auto Mixing Match only reads MODEL_PART volumes";
+                continue;
+            }
+            if (! is_model_part) {
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]:     -> skipped: not a MODEL_PART volume";
+                continue;
+            }
+            if (! painted) {
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]:     -> skipped: empty mmu_segmentation_facets "
+                                              "(no facet paint stored on this volume)";
+                continue;
+            }
+            if (only_none_state) {
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]:     -> WARNING: paint bitstream exists but marks "
+                                              "no state above NONE (states were clamped/cleared upstream)";
+            }
+            if (paint_mesh_mismatch) {
+                BOOST_LOG_TRIVIAL(warning) << boost::format(
+                    "Auto Mixing Match [snapshot]:     -> WARNING: paint references triangle %1% but the volume mesh only has "
+                    "%2% facet(s) (stale paint stream for this mesh)")
+                    % max_paint_triangle % mesh_facets;
+            }
+
+            // Per-state breakdown: this is what actually turns into painted colors later on.
+            if (! only_none_state && ! paint_mesh_mismatch) {
+                std::vector<indexed_triangle_set> facets_per_state;
+                volume->mmu_segmentation_facets.get_facets(*volume, facets_per_state);
+                for (size_t state = 1; state < facets_per_state.size(); ++state) {
+                    if (facets_per_state[state].indices.empty())
+                        continue;
+                    ++ states_with_geometry;
+                    const double      area = auto_mix_area_of(facets_per_state[state]);
+                    const std::string hex  = auto_mix_paint_state_color(snapshot.original_colors,
+                                                                        snapshot.original_virtual_colors, state);
+                    if (hex.empty())
+                        ++ states_unmapped;
+                    BOOST_LOG_TRIVIAL(warning) << boost::format(
+                        "Auto Mixing Match [snapshot]:     state %1% (Extruder%2%): facets=%3% area=%4$.4f mm^2 -> %5%")
+                        % state % state % facets_per_state[state].indices.size() % area
+                        % (hex.empty()
+                               ? std::string("UNMAPPED (project has ") + std::to_string(snapshot.original_colors.size()) +
+                                     " physical + " + std::to_string(snapshot.original_virtual_colors.size()) +
+                                     " virtual color(s), so this state has no color and its area is dropped)"
+                               : ("\"" + hex + "\""));
+                }
+            }
+
+            AutoMixVolumePaint paint;
+            paint.object_index = object_index;
+            paint.volume_index = volume_index;
+            paint.data         = paint_data;
+            snapshot.volumes.push_back(std::move(paint));
+        }
+    }
+    snapshot.valid = !snapshot.volumes.empty() || snapshot.has_assigned_colors;
+
+    // ---- diagnostics: files coloured by per-volume filament assignment ------------
+    // This is the common "looks painted, but there is no paint" case: one part volume per
+    // colour, each part naming its filament through its own "extruder" option.
+    if (! volume_color_area.empty() && volumes_with_paint == 0) {
+        double volume_color_total = 0.0;
+        for (const auto &entry : volume_color_area)
+            volume_color_total += entry.second;
+        BOOST_LOG_TRIVIAL(warning) << boost::format(
+            "Auto Mixing Match [snapshot]: no facet paint found, but the model assigns colours per volume: %1% distinct "
+            "filament(s) over %2$.2f mm^2 of part surface")
+            % volume_color_area.size() % volume_color_total;
+        for (const auto &entry : volume_color_area) {
+            const std::string hex = auto_mix_paint_state_color(snapshot.original_colors,
+                                                               snapshot.original_virtual_colors,
+                                                               static_cast<size_t>(entry.first));
+            BOOST_LOG_TRIVIAL(warning) << boost::format(
+                "Auto Mixing Match [snapshot]:   volume-assigned F%1% -> %2%, area=%3$.2f mm^2")
+                % entry.first % (hex.empty() ? std::string("<unresolved>") : ("\"" + hex + "\"")) % entry.second;
+        }
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]: those colours are volume/extruder assignments, so "
+                                      "there is no paint bitstream to snapshot - the match will use the volume colours "
+                                      "instead of the (empty) paint snapshot";
+    }
+
+    // ---- diagnostics: why the snapshot is empty (the "dying words" of this call) --
+    BOOST_LOG_TRIVIAL(warning) << boost::format(
+        "Auto Mixing Match [snapshot]: capture end: objects=%1%/%2% (null=%3%), volumes=%4% (null=%5%), painted volumes=%6%, "
+        "captured painted MODEL_PART volumes=%7%, painted non-MODEL_PART skipped=%8%, paint all-NONE volumes=%9%, "
+        "paint/mesh mismatches=%10%, painted states=%11%, unresolvable states=%12%, virtual colors=%13%, "
+        "volume-assigned colors=%14%, explicit volume/object colors=%15%, saved object/volume filament ids=%16%/%17% "
+        "=> valid=%18%")
+        % objects_seen % model.objects.size() % objects_null % volumes_seen % volumes_null % volumes_with_paint
+        % snapshot.volumes.size() % painted_non_part % volumes_paint_all_none % volumes_paint_mismatch
+        % states_with_geometry % states_unmapped % snapshot.original_virtual_colors.size() % volume_color_area.size()
+        % snapshot.has_assigned_colors % snapshot.object_extruders.size() % snapshot.volume_extruders.size()
+        % snapshot.valid;
+
+    if (! snapshot.valid) {
+        std::string diagnosis;
+        if (volumes_seen == 0)
+            diagnosis = "the loaded model exposes no volumes at all";
+        else if (volumes_with_paint == 0 && ! volume_color_area.empty())
+            diagnosis = "the file carries no facet paint at all: its colours are per-volume filament assignments (" +
+                        std::to_string(volume_color_area.size()) + " distinct filament(s)), which Auto Mixing Match does not "
+                        "snapshot yet";
+        else if (volumes_with_paint == 0)
+            diagnosis = "no volume carries an mmu_segmentation_facets paint bitstream - the file either has no facet paint, "
+                        "or its paint was stored in a form this loader does not read (e.g. only 'paint_color' vs "
+                        "'slic3rpe:mmu_segmentation'), or the paint was dropped before this point";
+        else if (painted_non_part > 0)
+            diagnosis = "paint exists only on non-MODEL_PART volumes (modifier / support / negative volumes), which Auto "
+                        "Mixing Match ignores";
+        else
+            diagnosis = "paint bitstreams exist but none of them ended up in the snapshot (see the per-volume lines above)";
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]: EMPTY SNAPSHOT -> Auto Mixing Match will be skipped for "
+                                      "this file; diagnosis: " << diagnosis;
+    } else if (snapshot.volumes.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]: snapshot carries no facet paint, only per-volume "
+                                      "filament assignments - the match will compare those volume colours";
+    } else if (states_with_geometry == 0) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match [snapshot]: snapshot has volumes but no state with facets - the "
+                                      "painted colors will resolve to nothing";
+    } else if (states_unmapped == states_with_geometry) {
+        BOOST_LOG_TRIVIAL(warning) << boost::format(
+            "Auto Mixing Match [snapshot]: all %1% painted state(s) are unresolvable against %2% physical + %3% virtual "
+            "color(s) - the match will report \"no painted colors\"")
+            % states_with_geometry % snapshot.original_colors.size() % snapshot.original_virtual_colors.size();
+    }
+    return snapshot;
+}
+
+void restore_auto_mix_paint_snapshot(Model& model, const AutoMixPaintSnapshot& snapshot)
+{
+    // Object-level filament ids first: Quick Load clamps an out-of-range object extruder to
+    // filament 1, and volumes without their own extruder inherit it.
+    for (const AutoMixObjectExtruder& entry : snapshot.object_extruders) {
+        if (entry.object_index >= model.objects.size() || entry.extruder <= 0)
+            continue;
+        ModelObject* object = model.objects[entry.object_index];
+        if (object == nullptr)
+            continue;
+        object->config.set_key_value("extruder", new ConfigOptionInt(entry.extruder));
+    }
+
+    // Per-volume filament ids (multi-part "one part per color" models).
+    for (const AutoMixVolumeExtruder& entry : snapshot.volume_extruders) {
+        if (entry.object_index >= model.objects.size() || entry.extruder <= 0)
+            continue;
+        ModelObject* object = model.objects[entry.object_index];
+        if (object == nullptr || entry.volume_index >= object->volumes.size())
+            continue;
+        ModelVolume* volume = object->volumes[entry.volume_index];
+        if (volume == nullptr || volume->type() != ModelVolumeType::MODEL_PART)
+            continue;
+        volume->config.set_key_value("extruder", new ConfigOptionInt(entry.extruder));
+    }
+
+    // Facet paint bitstreams last: ModelVolume::update_extruder_count() may have clamped the
+    // painted states above the new filament count.
+    for (const AutoMixVolumePaint& paint : snapshot.volumes) {
+        if (paint.object_index >= model.objects.size())
+            continue;
+        ModelObject* object = model.objects[paint.object_index];
+        if (object == nullptr || paint.volume_index >= object->volumes.size())
+            continue;
+        ModelVolume* volume = object->volumes[paint.volume_index];
+        if (volume == nullptr || volume->type() != ModelVolumeType::MODEL_PART)
+            continue;
+        TriangleSelector selector(volume->mesh());
+        selector.deserialize(paint.data, false);
+        volume->mmu_segmentation_facets.set(selector);
+    }
+}
+
+} // namespace
+
 // Plater / private
 struct Plater::priv
 {
@@ -5154,6 +5634,14 @@ struct Plater::priv
     PartPlateList partplate_list;
     //BBS: add a flag to ignore cancel event
     bool m_ignore_event{false};
+    // Auto Mixing Match: background matching job plus the liveness flag its main-thread
+    // callback checks. The flag is cleared in ~priv() so a result posted while the Plater is
+    // being destroyed never touches the sidebar/model.
+    std::shared_ptr<AutoMixingMatchJob> auto_mix_job;
+    std::shared_ptr<std::atomic<bool>>  auto_mix_alive { std::make_shared<std::atomic<bool>>(true) };
+    // Paint snapshot of the project being loaded, captured before Quick Load switches the
+    // filament configuration. Empty unless Quick Load + Auto Mixing Match are both enabled.
+    AutoMixPaintSnapshot                auto_mix_snapshot;
     bool m_slice_all{false};
     bool m_is_slicing {false};
     bool auto_reslice_pending {false};
@@ -6235,6 +6723,12 @@ Plater::priv::priv(Plater *q, MainFrame *main_frame)
 
 Plater::priv::~priv()
 {
+    // Stop the Auto Mixing Match worker first: the liveness flag turns a queued result
+    // callback into a no-op, and releasing the job joins the (now cancelled) worker.
+    if (auto_mix_alive != nullptr)
+        auto_mix_alive->store(false);
+    auto_mix_job.reset();
+
     if (config != nullptr)
         delete config;
     // Saves the database of visited (already shown) hints into hints.ini.
@@ -6647,7 +7141,7 @@ static bool get_quick_load_printer(std::string &printer_name)
 
 // Quick Load: after a file was loaded, switch to the printer preset chosen in the preferences and
 // make sure the Prepare page is shown.
-static void apply_quick_load_printer(const std::string &printer_name)
+static void apply_quick_load_printer(const std::string &printer_name, bool replay_filament_config)
 {
     if (printer_name.empty())
         return;
@@ -6658,6 +7152,26 @@ static void apply_quick_load_printer(const std::string &printer_name)
     }
     else
         BOOST_LOG_TRIVIAL(warning) << "Quick Load: printer preset \"" << printer_name << "\" is already active";
+
+    // Quick Load + Auto Mixing Match: the feature matches the file's paint onto the filament
+    // configuration of the selected printer preset. When "Remember printer configuration" is
+    // off, the printer-tab switch above does not replay that configuration, so do it here
+    // explicitly (filament list + process preset), otherwise the file's own filaments would
+    // still be active and there would be nothing to match against.
+    AppConfig* app_config = wxGetApp().app_config;
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (app_config != nullptr && preset_bundle != nullptr && replay_filament_config) {
+        preset_bundle->update_selections(*app_config);
+        if (wxGetApp().plater() != nullptr)
+            wxGetApp().plater()->sidebar().on_filament_count_change(preset_bundle->filament_presets.size());
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: Quick Load replayed the printer's filament configuration ("
+                                   << preset_bundle->filament_presets.size() << " filament(s))";
+    } else {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: Quick Load filament replay skipped: replay_requested="
+                                   << replay_filament_config << ", app_config=" << (app_config != nullptr)
+                                   << ", preset_bundle=" << (preset_bundle != nullptr);
+    }
+
     if (wxGetApp().plater() != nullptr)
         wxGetApp().plater()->select_view_3D("3D");
     if (wxGetApp().mainframe != nullptr)
@@ -7783,10 +8297,33 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
             if (msg.ShowModal() == wxID_YES) {}
         }
     }
+    // Auto Mixing Match + Quick Load: snapshot the 3MF colors (facet paint plus the object/volume
+    // filament ids that carry the unpainted colors) together with the colors they referred to,
+    // BEFORE the printer switch replaces the filament configuration. The switch may clamp painted
+    // states and object extruder ids above the new filament count, which would otherwise lose
+    // colors.
+    const bool auto_mix_pref = wxGetApp().app_config != nullptr &&
+                               wxGetApp().app_config->is_auto_mixing_match_enabled();
+    if (quick_load && load_config && auto_mix_pref && wxGetApp().preset_bundle != nullptr) {
+        this->auto_mix_snapshot = capture_auto_mix_paint_snapshot(this->model, *wxGetApp().preset_bundle);
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: color snapshot "
+                                   << (this->auto_mix_snapshot.valid ? "captured" : "EMPTY")
+                                   << " (painted volumes=" << this->auto_mix_snapshot.volumes.size()
+                                   << ", volume-color assignments=" << this->auto_mix_snapshot.has_assigned_colors
+                                   << ", original filaments=" << this->auto_mix_snapshot.original_colors.size()
+                                   << ", original virtual colors=" << this->auto_mix_snapshot.original_virtual_colors.size()
+                                   << ")";
+    } else {
+        this->auto_mix_snapshot = AutoMixPaintSnapshot{};
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: paint snapshot skipped: quick_load=" << quick_load
+                                   << ", load_config=" << load_config << ", pref=" << auto_mix_pref
+                                   << ", preset_bundle=" << (wxGetApp().preset_bundle != nullptr);
+    }
+
     // Quick Load: always use the printer preset selected in the preferences and land on the Prepare page.
     if (quick_load) {
         dlg.Hide();
-        apply_quick_load_printer(quick_load_printer);
+        apply_quick_load_printer(quick_load_printer, load_config && auto_mix_pref);
     }
 
     q->schedule_background_process(true);
@@ -12832,6 +13369,12 @@ SLAPrint&       Plater::sla_print()         { return p->sla_print; }
 
 int Plater::new_project(bool skip_confirm, bool silent, const wxString& project_name)
 {
+    // A pending automatic color-mixing match belongs to the project being closed.
+    if (p->auto_mix_job) {
+        p->auto_mix_job->cancel.store(true);
+        p->auto_mix_job.reset();
+    }
+
     model().calib_pa_pattern.reset(nullptr);
     model().plates_custom_gcodes.clear();
 
@@ -12911,6 +13454,14 @@ LoadType determine_load_type(std::string filename, std::string override_setting 
 void Plater::load_project(wxString const& filename2,
     wxString const& originfile)
 {
+    // Any automatic color-mixing match still running belongs to the project being replaced.
+    // Cancelling here (before any early return) guarantees its queued result can never be
+    // applied to the newly loaded project, even when "Auto Mixing Match" got disabled.
+    if (p->auto_mix_job) {
+        p->auto_mix_job->cancel.store(true);
+        p->auto_mix_job.reset();
+    }
+
     model().calib_pa_pattern.reset(nullptr);
     model().plates_custom_gcodes.clear();
 
@@ -13057,7 +13608,456 @@ void Plater::load_project(wxString const& filename2,
         if (p->view3D != nullptr)
             p->view3D->reload_scene(true);
     });
+    // Auto Mixing Match: posted after the deferred Color Mixing restore above, so a project
+    // that already carries its own rows is never touched. One extra event-loop turn is added
+    // on purpose: Quick Load switches the printer preset (and therefore the filament list)
+    // inside load_files(), and the preset switch may itself defer UI work — matching must see
+    // the settled list, otherwise the generated mixes could reference stale filament ids.
+    const bool auto_mix_pref = wxGetApp().app_config != nullptr &&
+                               wxGetApp().app_config->is_auto_mixing_match_enabled();
+    const bool schedule_auto_mix = !load_restore && !(strategy & LoadStrategy::Silence) &&
+                                   (strategy & LoadStrategy::LoadConfig) && auto_mix_pref;
+    if (schedule_auto_mix) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: scheduling after-load match (pref=on, load_config=on)";
+        CallAfter([this]() {
+            CallAfter([this]() { this->auto_mixing_match_after_load(); });
+        });
+    } else {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: NOT scheduled: pref=" << auto_mix_pref
+                                   << ", load_restore=" << load_restore
+                                   << ", silence=" << bool(strategy & LoadStrategy::Silence)
+                                   << ", load_config=" << bool(strategy & LoadStrategy::LoadConfig);
+    }
     m_loading_project = false;
+}
+
+namespace {
+
+bool model_has_painted_facets(const Model& model)
+{
+    for (const ModelObject* object : model.objects) {
+        if (object == nullptr)
+            continue;
+        for (const ModelVolume* volume : object->volumes) {
+            if (volume != nullptr && volume->type() == ModelVolumeType::MODEL_PART && volume->is_mm_painted())
+                return true;
+        }
+    }
+    return false;
+}
+
+// Applies the winning match on the UI thread. Kept separate from the scheduling code so the
+// result callback always runs against a settled Plater state.
+// `remap_config_extruders` also rewrites the object/volume/layer "extruder" assignments: they
+// carry the base (unpainted) color of the model, which is sampled and matched together with
+// the painted states, so they have to follow the mapping.
+void apply_auto_mixing_match_result(Plater& plater, const MixMatchResult& result, size_t physical_count,
+                                    bool remap_config_extruders)
+{
+    BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply start (success=" << result.success
+                               << ", colors=" << result.colors.size() << ", physical=" << physical_count << ")";
+    if (!result.success) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (match failed: " << result.error << ")";
+        return;
+    }
+
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (preset_bundle is null)";
+        return;
+    }
+
+    auto* colours_opt = preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    if (colours_opt == nullptr || colours_opt->values.size() != physical_count) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (filament list changed while matching: "
+                                   << (colours_opt == nullptr ? 0 : colours_opt->values.size()) << " vs "
+                                   << physical_count << ")";
+        return;
+    }
+    if (!preset_bundle->mixed_filaments.mixed_filaments().empty()) {
+        // Rows appeared while the worker was running (project change); never overwrite them.
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (mixed filament list became non-empty: "
+                                   << preset_bundle->mixed_filaments.mixed_filaments().size() << " row(s))";
+        return;
+    }
+
+    BatchMatchResult applied;
+    applied.success     = true;
+    applied.avg_delta_e = result.avg_delta_e;
+
+    for (const MixColorResult& color : result.colors) {
+        ColorMappingEntry mapping;
+        mapping.model_color_index    = color.sample.color_index;
+        mapping.source_color         = color.sample.color;
+        mapping.recipe               = color.recipe;
+        mapping.matched_color        = color.matched_color;
+        mapping.delta_e              = color.delta_e;
+        mapping.pure_delta_e         = color.delta_e;
+        mapping.is_pure_recipe       = color.is_pure;
+        mapping.merged_model_indices = { color.sample.color_index };
+        mapping.source_extruder_ids  = color.sample.extruder_ids;
+        mapping.target_filament_id   = 0; // assigned below, after duplicate recipes were merged
+        applied.mappings.push_back(std::move(mapping));
+    }
+
+    // Fold byte-identical recipes into one row before virtual ids are handed out, so the ids
+    // stay contiguous and match the rows Sidebar::add_filament_mixes() appends.
+    applied.mappings = merge_duplicate_recipe_mappings(applied.mappings);
+
+    unsigned int next_virtual_id =
+        static_cast<unsigned int>(physical_count + preset_bundle->mixed_filaments.enabled_count() + 1);
+    for (ColorMappingEntry& mapping : applied.mappings) {
+        mapping.target_filament_id =
+            mapping.is_pure_recipe ? mapping.recipe.component_a : next_virtual_id++;
+    }
+
+    // ---- Final report: selected base set + every mapping's mix ratio ----
+    BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format(
+        "Auto Mixing Match: selected %u base filament(s) out of %u configured, weighted deltaE=%.2f",
+        static_cast<unsigned>(result.bases.size()), static_cast<unsigned>(physical_count), result.weighted_delta_e));
+    for (const MixBaseFilament& base : result.bases)
+        BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format(
+            "Auto Mixing Match:   base F%u %s", base.filament_id, from_u8(base.hex)));
+
+    for (const ColorMappingEntry& mapping : applied.mappings) {
+        std::string composition;
+        if (mapping.is_pure_recipe) {
+            composition = "F" + std::to_string(mapping.target_filament_id) + " 100% (pure)";
+        } else if (!mapping.recipe.gradient_component_ids.empty()) {
+            const std::vector<unsigned int> ids =
+                MixedFilamentManager::decode_gradient_component_ids(mapping.recipe.gradient_component_ids);
+            const std::vector<int> weights = normalize_color_match_weights(
+                decode_color_match_gradient_weights(mapping.recipe.gradient_component_weights, ids.size()), ids.size());
+            for (size_t i = 0; i < ids.size() && i < weights.size(); ++i) {
+                if (!composition.empty())
+                    composition += " + ";
+                composition += "F" + std::to_string(ids[i]) + " " + std::to_string(weights[i]) + "%";
+            }
+        } else {
+            const int b = std::clamp(mapping.recipe.mix_b_percent, 0, 100);
+            composition = "F" + std::to_string(mapping.recipe.component_a) + " " + std::to_string(100 - b) + "% + F" +
+                          std::to_string(mapping.recipe.component_b) + " " + std::to_string(b) + "%";
+        }
+
+        const wxString source_hex = mapping.source_color.IsOk()
+                                        ? mapping.source_color.GetAsString(wxC2S_HTML_SYNTAX)
+                                        : wxString("?");
+        std::string source_ids;
+        for (unsigned int source_id : mapping.source_extruder_ids) {
+            if (! source_ids.empty())
+                source_ids += ",";
+            source_ids += std::to_string(source_id);
+        }
+        BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format(
+            "Auto Mixing Match:   model color #%u %s (source F%s) -> %s [target F%u], deltaE=%.2f",
+            mapping.model_color_index, source_hex, from_u8(source_ids), from_u8(composition), mapping.target_filament_id,
+            mapping.delta_e));
+    }
+
+    populate_mixed_filaments_from_mappings(applied, MixedFilamentDisplayContext{});
+
+    // Remap the color assignments BEFORE the mixed rows are published: Sidebar::
+    // add_filament_mixes() triggers a scene reload, and with the restored original ids still in
+    // place that reload would clamp paint states above the (new) physical filament count.
+    // Passing the future total keeps every target valid, so nothing is lost.
+    // Config-level extruder ids carry the base (unpainted) color, which is part of the match,
+    // so they are remapped as well: those ids refer to the loaded file, just like paint states.
+    const size_t total_slots = physical_count + applied.mixed_filaments.size();
+    apply_batch_match_to_model(applied, total_slots, remap_config_extruders);
+
+    // A restored id whose color could not be resolved is not in the remap table and would stay
+    // above the new slot count, which the slicer cannot represent. Fold those back to filament 1
+    // (the fallback Quick Load itself uses) so the model remains sliceable.
+    size_t folded_assignments = 0;
+    for (ModelObject* object : wxGetApp().model().objects) {
+        if (object == nullptr)
+            continue;
+        auto fold_out_of_range = [total_slots, &folded_assignments](ModelConfig& config) {
+            const ConfigOption* extruder_option = config.option("extruder");
+            if (extruder_option == nullptr || extruder_option->getInt() <= static_cast<int>(total_slots))
+                return;
+            config.set_key_value("extruder", new ConfigOptionInt(1));
+            ++folded_assignments;
+        };
+        fold_out_of_range(object->config);
+        for (ModelVolume* volume : object->volumes)
+            if (volume != nullptr && volume->type() == ModelVolumeType::MODEL_PART)
+                fold_out_of_range(volume->config);
+    }
+    if (folded_assignments > 0)
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: folded " << folded_assignments
+                                   << " filament assignment(s) back to F1 because they exceed the " << total_slots
+                                   << " available slot(s) and no color mapping covered them";
+
+    if (!applied.mixed_filaments.empty())
+        plater.sidebar().add_filament_mixes(applied.mixed_filaments, physical_count);
+
+    // The remap rewrote object/volume extruder ids; repaint the object list so it stops showing
+    // the pre-match assignments. The full column refresh clamps ids against the physical + mixed
+    // slot count, so it is only used once the new Color Mixing rows are published; otherwise a
+    // virtual target would be reset to filament 1.
+    if (remap_config_extruders) {
+        if (ObjectList* object_list = plater.sidebar().obj_list()) {
+            PresetBundle* refreshed_bundle = wxGetApp().preset_bundle;
+            const size_t  published_mixed  = refreshed_bundle != nullptr
+                                                 ? refreshed_bundle->mixed_filaments.enabled_count() : 0;
+            if (published_mixed >= applied.mixed_filaments.size())
+                object_list->update_objects_list_filament_column(physical_count);
+            else {
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: " << applied.mixed_filaments.size()
+                                           << " virtual filament(s) were referenced by the remap but only "
+                                           << published_mixed << " are published (Color Mixing panel unavailable)";
+                object_list->update_filament_colors();
+            }
+        }
+    }
+
+    if (applied.mixed_filaments.empty())
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: no virtual filaments needed (all model colors map to "
+                                      "physical filaments)";
+
+    if (GLCanvas3D* canvas = plater.get_view3D_canvas3D())
+        canvas->reload_scene(true);
+    plater.update();
+
+    BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: applied " << applied.mappings.size() << " mappings, "
+                               << applied.mixed_filaments.size() << " virtual filament(s), "
+                               << total_slots << " total slot(s), weighted ΔE=" << result.weighted_delta_e;
+}
+
+} // namespace
+
+// Auto Mixing Match ("Auto Mixing Match" preference): match the *original 3MF* model colors
+// onto the filament configuration imported by Quick Load.
+//
+// Quick Load replaces the filament list (printer preset + remembered filament selection), so
+// the extruder ids of the loaded file no longer refer to their original colors. The switch also
+// clamps what exceeds the new filament count: painted states above it are folded to NONE, and an
+// object-level "extruder" above it is reset to filament 1. The colors are therefore snapshotted
+// before the switch (see capture_auto_mix_paint_snapshot), restored here, and matched by color:
+// the engine builds a virtual mixed filament for every color that the new configuration cannot
+// reproduce directly, so no color is lost.
+//
+// Two color sources are matched:
+//   * facet paint (mmu_segmentation_facets bitstream), and
+//   * explicit filament assignments: an object's "extruder" (single-color models) or a part
+//     volume's own "extruder" (multi-part models, one color per volume). Those ids belong to
+//     the loaded file just like paint states, so they are remapped as well.
+//
+// Inputs are the new filament list and the surface area of every original color; areas do not
+// depend on the chosen base subset, so they are computed once and reused. The engine either
+// uses all 2..4 filaments or evaluates every C(N,4) subset and returns the subset with the
+// lowest area-weighted ΔE (see MixedColorMatchEngine).
+void Plater::auto_mixing_match_after_load()
+{
+    AppConfig* app_config = wxGetApp().app_config;
+    if (app_config == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (app_config is null)";
+        return;
+    }
+    BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: after-load check: pref="
+                               << app_config->is_auto_mixing_match_enabled()
+                               << ", quick_load=" << app_config->is_quick_load_active()
+                               << ", loading=" << m_loading_project
+                               << ", snapshot=" << (p != nullptr && p->auto_mix_snapshot.valid);
+    if (!app_config->is_auto_mixing_match_enabled()) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (Auto Mixing Match preference is disabled)";
+        return;
+    }
+    // Auto Mixing Match is defined as an extension of Quick Load: it maps the *original 3MF*
+    // paint colors onto the filament configuration imported by Quick Load.
+    if (!app_config->is_quick_load_active()) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (Quick Load is None)";
+        return;
+    }
+    if (m_loading_project) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (project is still loading)";
+        return;
+    }
+    if (!p->auto_mix_snapshot.valid) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (no color snapshot: the file has neither facet paint nor "
+                                      "per-volume filament assignments, or the snapshot was not taken)";
+        return;
+    }
+
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (preset_bundle == nullptr) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (preset_bundle is null)";
+        return;
+    }
+
+    // The user's own Color Mixing rows always win over the generated ones.
+    if (const auto* definitions = preset_bundle->project_config.option<ConfigOptionString>("mixed_filament_definitions");
+        definitions != nullptr && !definitions->value.empty()) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (project already defines Color Mixing rows)";
+        return;
+    }
+    if (preset_bundle->mixed_filaments.enabled_count() > 0) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (mixed filament list is not empty: "
+                                   << preset_bundle->mixed_filaments.enabled_count() << " row(s))";
+        return;
+    }
+
+    // The filament list AFTER Quick Load switched the printer configuration. This is the
+    // ingredient set the match must use; the painting colors come from the snapshot below.
+    auto* colours_opt = preset_bundle->project_config.option<ConfigOptionStrings>("filament_colour");
+    if (colours_opt == nullptr || colours_opt->values.size() < 2) {
+        // A single filament cannot be mixed: no mapping operation at all.
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (Quick Load configuration has "
+                                   << (colours_opt == nullptr ? 0 : colours_opt->values.size())
+                                   << " filament(s); at least 2 are required)";
+        return;
+    }
+    const std::vector<std::string> colours = colours_opt->values;
+
+    // Ingredients of the match. Validated BEFORE the snapshot is restored: restoring puts the
+    // file's original filament ids back into the model (Quick Load clamps object extruders that
+    // exceed the new filament count), and an early return afterwards would leave ids that the
+    // current configuration cannot resolve.
+    std::vector<MixBaseFilament> bases;
+    bases.reserve(colours.size());
+    for (size_t i = 0; i < colours.size(); ++i) {
+        wxColour parsed;
+        if (!try_parse_color_match_hex(wxString::FromUTF8(colours[i].c_str()), parsed))
+            continue;
+        bases.push_back({ static_cast<unsigned int>(i + 1), colours[i] });
+    }
+    if (bases.size() < 2) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (fewer than 2 valid base filament colors: "
+                                   << bases.size() << ")";
+        return;
+    }
+
+    // The Quick Load switch clamps what exceeds the new filament count: painted states above it
+    // (ModelVolume::update_extruder_count) and object-level extruder ids above it
+    // (ObjectList::update_filament_values_for_items resets them to filament 1). Restore the exact
+    // 3MF assignment before measuring / matching it.
+    restore_auto_mix_paint_snapshot(this->model(), p->auto_mix_snapshot);
+
+    // Colors come from two sources: facet paint, and the filament a volume prints with. The
+    // latter covers multi-part models (one part per color, no paint at all) as well as the
+    // UNPAINTED remainder of a painted volume - that remainder prints in the volume's own
+    // filament, so it is a real model color and must be matched too, otherwise the body of a
+    // painted model would silently take the new configuration's slot color.
+    const bool has_paint           = !p->auto_mix_snapshot.volumes.empty();
+    const bool has_assigned_colors = p->auto_mix_snapshot.has_assigned_colors;
+    BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: color sources: facet paint=" << has_paint
+                               << ", explicit volume/object assignments=" << has_assigned_colors
+                               << " (restored " << p->auto_mix_snapshot.volumes.size() << " paint volume(s), "
+                               << p->auto_mix_snapshot.object_extruders.size() << " object and "
+                               << p->auto_mix_snapshot.volume_extruders.size() << " volume filament id(s))";
+    if (has_paint && !model_has_painted_facets(this->model()))
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: the snapshot holds " << p->auto_mix_snapshot.volumes.size()
+                                   << " painted volume(s) but the restored model reports none - the paint bitstream "
+                                      "could not be replayed on this mesh";
+    if (! has_paint && ! has_assigned_colors) {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (the model has neither facet paint nor explicit "
+                                      "volume/object filament assignments)";
+        return;
+    }
+
+    // Model colors are resolved against the ORIGINAL 3MF filaments, not the new config.
+    std::vector<MixModelColor> colors = collect_model_colors_with_area(
+        this->model(), p->auto_mix_snapshot.original_colors, p->auto_mix_snapshot.original_virtual_colors,
+        /*include_base_colors=*/true);
+    if (colors.empty()) {
+        // No color could be resolved (e.g. the project carried no filament colors). Undo the
+        // restore's out-of-range object ids, otherwise the model would keep a filament id the
+        // current configuration does not have.
+        const int filament_limit = static_cast<int>(colours.size());
+        for (ModelObject* object : this->model().objects) {
+            if (object == nullptr)
+                continue;
+            const ConfigOption* extruder_option = object->config.option("extruder");
+            if (extruder_option == nullptr || extruder_option->getInt() <= filament_limit)
+                continue;
+            object->config.set_key_value("extruder", new ConfigOptionInt(1));
+        }
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (no model colors resolved from the snapshot; "
+                                      "original filaments=" << p->auto_mix_snapshot.original_colors.size() << ")";
+        return;
+    }
+
+    // ---- Open-file report: model colors, normalized shares, configuration size ----
+    double total_painted_area = 0.0;
+    for (const MixModelColor& color : colors)
+        total_painted_area += color.area;
+
+    BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format(
+        "Auto Mixing Match: 3MF colors = %u painted volume(s), %u model color(s), %.2f mm^2 total surface "
+        "(painted states + volume/object filaments, explicit assignments=%u)",
+        static_cast<unsigned>(p->auto_mix_snapshot.volumes.size()), static_cast<unsigned>(colors.size()),
+        total_painted_area, static_cast<unsigned>(has_assigned_colors)));
+    for (const MixModelColor& color : colors) {
+        std::string extruders;
+        for (unsigned int extruder_id : color.extruder_ids) {
+            if (!extruders.empty())
+                extruders += ",";
+            extruders += std::to_string(extruder_id);
+        }
+        const double share = total_painted_area > 0.0 ? color.area / total_painted_area : 0.0;
+        BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format(
+            "Auto Mixing Match:   model color #%u %s area=%.2f mm^2 normalized=%.4f (%.2f%%) filament(s)=%s",
+            color.color_index, from_u8(color.hex), color.area, share, share * 100.0, from_u8(extruders)));
+    }
+
+    BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format(
+        "Auto Mixing Match: Quick Load configuration provides %u filament(s)", static_cast<unsigned>(colours.size())));
+    for (size_t i = 0; i < colours.size(); ++i)
+        BOOST_LOG_TRIVIAL(warning) << into_u8(wxString::Format("Auto Mixing Match:   config filament F%u %s",
+                                                               static_cast<unsigned>(i + 1), from_u8(colours[i])));
+
+    // Supersede (and cancel) any still-running job from a previous load.
+    if (p->auto_mix_job) {
+        p->auto_mix_job->cancel.store(true);
+        p->auto_mix_job.reset();
+    }
+
+    auto  job   = std::make_shared<AutoMixingMatchJob>();
+    auto  alive = p->auto_mix_alive;
+    const size_t physical_count = colours.size();
+
+    // The model's own filament assignments carry the base/unpainted color(s) sampled above, so
+    // the object/volume "extruder" ids must follow the mapping. Safe for paint-only models too:
+    // the remap table only contains source ids that were actually sampled.
+    const bool remap_config_extruders = true;
+
+    // Matching can evaluate up to C(12,4) = 495 base subsets, so it runs on a worker thread.
+    // The engine is pure computation (no preset bundle / model / wx access); the winning
+    // result is applied back on the UI thread through CallAfter.
+    job->thread = std::thread([this, job, alive, bases = std::move(bases), colors = std::move(colors),
+                               physical_count, remap_config_extruders]() mutable {
+        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: worker started (" << colors.size() << " model colors, "
+                                   << bases.size() << " base filaments, remap_config_extruders="
+                                   << remap_config_extruders << ")";
+        MixedColorMatchEngine engine(0, 100);
+        MixMatchResult        result = engine.run_best(bases, colors, &job->cancel);
+        if (job->cancel.load() || !alive->load()) {
+            BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: worker result dropped (cancelled=" << job->cancel.load()
+                                       << ", alive=" << alive->load() << ")";
+            return;
+        }
+        wxGetApp().CallAfter([this, job, alive, result = std::move(result), physical_count,
+                              remap_config_extruders]() mutable {
+            if (!alive->load() || job->cancel.load()) {
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (cancelled=" << job->cancel.load()
+                                           << ", alive=" << alive->load() << ")";
+                return;
+            }
+            if (p->auto_mix_job != job) {
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (superseded by a newer load)";
+                return;
+            }
+            // A scene reload while the worker was running may have clamped the original
+            // painted states or object filament ids again; restore the exact snapshot before
+            // remapping them.
+            if (p->auto_mix_snapshot.valid)
+                restore_auto_mix_paint_snapshot(this->model(), p->auto_mix_snapshot);
+            apply_auto_mixing_match_result(*this, result, physical_count, remap_config_extruders);
+            p->auto_mix_snapshot = AutoMixPaintSnapshot{};
+        });
+    });
+    p->auto_mix_job = std::move(job);
 }
 
 // BBS: save logic

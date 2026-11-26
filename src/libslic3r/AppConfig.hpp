@@ -130,6 +130,12 @@ public:
 	// Quick Change is enabled either by its own preference or forced by an active Quick Load.
 	bool				is_quick_change_enabled() const
 		{ return this->is_quick_load_active() || this->get_bool("quick_change"); }
+
+	// Auto Mixing Match: automatically match the project's painted colors to the loaded
+	// filaments right after a project file is opened. Off by default because it modifies the
+	// project (adds mixed filaments and remaps painted extruders).
+	bool				is_auto_mixing_match_enabled() const
+		{ return this->get_bool("auto_mixing_match"); }
 	void			    set(const std::string &section, const std::string &key, const std::string &value)
 	{
 #ifndef NDEBUG
