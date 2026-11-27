@@ -5661,6 +5661,10 @@ struct Plater::priv
     // Paint snapshot of the project being loaded, captured before Quick Load switches the
     // filament configuration. Empty unless Quick Load + Auto Mixing Match are both enabled.
     AutoMixPaintSnapshot                auto_mix_snapshot;
+    // Quick Load: the printer switch requested by the file just loaded. It is applied by
+    // Plater::load_files() once the whole load action is finished, see apply_pending_quick_load().
+    std::string                         pending_quick_load_printer;
+    bool                                pending_quick_load_replay_filament_config { false };
     bool m_slice_all{false};
     bool m_is_slicing {false};
     bool auto_reslice_pending {false};
@@ -7158,44 +7162,88 @@ static bool get_quick_load_printer(std::string &printer_name)
     return true;
 }
 
-// Quick Load: after a file was loaded, switch to the printer preset chosen in the preferences and
-// make sure the Prepare page is shown.
-static void apply_quick_load_printer(const std::string &printer_name, bool replay_filament_config)
+// Quick Load: applies the printer switch requested by the file that was just loaded. Called from
+// Plater::load_files() one event loop turn after the load returned, so the switch happens on a fully
+// settled scene.
+//
+// The switch follows the printer selection of the sidebar preset combobox
+// (Plater::priv::on_select_preset) step by step. That flow re-anchors the objects of every plate to
+// the center of the plate after the preset changed; without it the objects keep the offsets of the
+// previous bed and end up looking displaced when the new bed has a different size.
+void Plater::apply_pending_quick_load(bool keep_project_clean)
 {
-    if (printer_name.empty())
+    const std::string printer = p->pending_quick_load_printer;
+    if (printer.empty())
         return;
-    if (wxGetApp().preset_bundle != nullptr && wxGetApp().preset_bundle->printers.get_edited_preset().name != printer_name) {
-        BOOST_LOG_TRIVIAL(warning) << "Quick Load: switching printer preset to \"" << printer_name << "\"";
-        if (Tab *printer_tab = wxGetApp().get_tab(Preset::TYPE_PRINTER))
-            printer_tab->select_preset(printer_name);
+    const bool replay_filament_config = p->pending_quick_load_replay_filament_config;
+    p->pending_quick_load_printer.clear();
+    p->pending_quick_load_replay_filament_config = false;
+
+    BOOST_LOG_TRIVIAL(warning) << "Quick Load: switching printer preset to \"" << printer << "\"";
+
+    // Remember which objects sit on which plate, they are re-anchored after the switch.
+    PartPlateList&                plate_list    = p->partplate_list;
+    const Vec3d                   old_plate_pos = plate_list.get_selected_plate()->get_center_origin();
+    std::vector<std::vector<int>> plate_objects;
+    for (int plate_idx = 0; plate_idx < plate_list.get_plate_count(); ++plate_idx) {
+        PartPlate*       plate = plate_list.get_plate(plate_idx);
+        std::vector<int> obj_idxs;
+        for (int obj_idx = 0; obj_idx < int(p->model.objects.size()); ++obj_idx)
+            if (plate != nullptr && plate->contain_instance(obj_idx, 0))
+                obj_idxs.emplace_back(obj_idx);
+        plate_objects.emplace_back(std::move(obj_idxs));
     }
-    else
-        BOOST_LOG_TRIVIAL(warning) << "Quick Load: printer preset \"" << printer_name << "\" is already active";
+
+    this->update_objects_position_when_select_preset([this, &printer]() {
+        if (Tab* printer_tab = wxGetApp().get_tab(Preset::TYPE_PRINTER))
+            printer_tab->select_preset(printer);
+        // update plater with new config
+        this->on_config_change(wxGetApp().preset_bundle->full_config());
+    });
 
     // Quick Load + Auto Mixing Match: the feature matches the file's paint onto the filament
-    // configuration of the selected printer preset. When "Remember printer configuration" is
-    // off, the printer-tab switch above does not replay that configuration, so do it here
-    // explicitly (filament list + process preset), otherwise the file's own filaments would
-    // still be active and there would be nothing to match against.
-    AppConfig* app_config = wxGetApp().app_config;
-    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
-    if (app_config != nullptr && preset_bundle != nullptr && replay_filament_config) {
-        preset_bundle->update_selections(*app_config);
-        if (wxGetApp().plater() != nullptr)
-            wxGetApp().plater()->sidebar().on_filament_count_change(preset_bundle->filament_presets.size());
+    // configuration of the selected printer preset. The printer tab switch only replays that
+    // configuration while "Remember printer configuration" is enabled, so replay it here when the
+    // switch did not, otherwise the file's own filaments would still be active and there would be
+    // nothing to match against.
+    if (replay_filament_config && wxGetApp().app_config != nullptr && wxGetApp().preset_bundle != nullptr) {
+        wxGetApp().preset_bundle->update_selections(*wxGetApp().app_config);
+        sidebar().on_filament_count_change(wxGetApp().preset_bundle->filament_presets.size());
         BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: Quick Load replayed the printer's filament configuration ("
-                                   << preset_bundle->filament_presets.size() << " filament(s))";
-    } else {
-        BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: Quick Load filament replay skipped: replay_requested="
-                                   << replay_filament_config << ", app_config=" << (app_config != nullptr)
-                                   << ", preset_bundle=" << (preset_bundle != nullptr);
+                                   << wxGetApp().preset_bundle->filament_presets.size() << " filament(s))";
     }
 
-    if (wxGetApp().plater() != nullptr)
-        wxGetApp().plater()->select_view_3D("3D");
+    // update plater with new config
+    this->on_config_change(wxGetApp().preset_bundle->full_config());
+    wxGetApp().obj_list()->update_object_list_by_printer_technology();
+
+    // Model reset by plate center: the new bed places the plates somewhere else, so move the objects
+    // of every plate back to the center of their plate. This is what the sidebar preset switch does
+    // as well and it keeps the objects aligned with the plate they were loaded on.
+    const Vec3d cur_plate_pos = plate_list.get_curr_plate()->get_center_origin();
+    if (old_plate_pos.x() != cur_plate_pos.x() || old_plate_pos.y() != cur_plate_pos.y()) {
+        for (size_t plate_idx = 0; plate_idx < plate_objects.size() && int(plate_idx) < plate_list.get_plate_count(); ++plate_idx) {
+            p->view3D->select_object_from_idx(plate_objects[plate_idx]);
+            sidebar().obj_list()->update_selections();
+            p->view3D->center_selected_plate(int(plate_idx));
+        }
+        p->view3D->deselect_all();
+    }
+
     if (wxGetApp().mainframe != nullptr)
         wxGetApp().mainframe->select_tab(MainFrame::tp3DEditor);
-    BOOST_LOG_TRIVIAL(info) << "Quick Load: opened the Prepare page";
+    this->select_view_3D("3D");
+
+    // The switch belongs to loading the file, so a freshly opened project has to stay clean. While
+    // the switch happened inside load_files() itself, the load path re-baselined the presets and
+    // marked the state as saved right afterwards; do the same now that it happens later.
+    if (keep_project_clean) {
+        this->reset_project_dirty_initial_presets();
+        this->update_project_dirty_from_presets();
+        this->up_to_date(true, false);
+        if (wxGetApp().mainframe != nullptr)
+            wxGetApp().mainframe->update_title();
+    }
 }
 
 // BBS: backup & restore
@@ -8339,10 +8387,14 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                    << ", preset_bundle=" << (wxGetApp().preset_bundle != nullptr);
     }
 
-    // Quick Load: always use the printer preset selected in the preferences and land on the Prepare page.
+    // Quick Load: the printer switch itself is done by Plater::load_files() once the whole load
+    // action has been finished, see apply_pending_quick_load(). Switching the printer here moved the
+    // objects of the loaded plates by the difference between the old and the new bed, while the plate
+    // membership of the file was not settled yet, which left the objects offset from their position.
     if (quick_load) {
         dlg.Hide();
-        apply_quick_load_printer(quick_load_printer, load_config && auto_mix_pref);
+        this->pending_quick_load_printer                = quick_load_printer;
+        this->pending_quick_load_replay_filament_config = load_config && auto_mix_pref;
     }
 
     q->schedule_background_process(true);
@@ -13631,9 +13683,10 @@ void Plater::load_project(wxString const& filename2,
     });
     // Auto Mixing Match: posted after the deferred Color Mixing restore above, so a project
     // that already carries its own rows is never touched. One extra event-loop turn is added
-    // on purpose: Quick Load switches the printer preset (and therefore the filament list)
-    // inside load_files(), and the preset switch may itself defer UI work — matching must see
-    // the settled list, otherwise the generated mixes could reference stale filament ids.
+    // on purpose: Quick Load switches the printer preset (and therefore the filament list) right
+    // after the load in Plater::load_files(), and the preset switch may itself defer UI work —
+    // matching must see the settled list, otherwise the generated mixes could reference stale
+    // filament ids.
     const bool auto_mix_pref = wxGetApp().app_config != nullptr &&
                                wxGetApp().app_config->is_auto_mixing_match_enabled();
     const bool schedule_auto_mix = !load_restore && !(strategy & LoadStrategy::Silence) &&
@@ -15664,7 +15717,15 @@ std::vector<size_t> Plater::load_files(const std::vector<fs::path>& input_files,
     p->m_slice_all_only_has_gcode = false;
     //BBS: wish to reset all plates stats item selected state when load a new file
     p->preview->get_canvas3d()->reset_select_plate_toolbar_selection();
-    return p->load_files(input_files, strategy, ask_multi);
+    const std::vector<size_t> res = p->load_files(input_files, strategy, ask_multi);
+    // Quick Load: switch the printer preset only after the load action is finished, otherwise the
+    // switch moves the objects of the loaded plates by the bed difference while the plate membership
+    // of the file is not settled yet, which leaves them offset from their position in the file.
+    if (!res.empty() && !p->pending_quick_load_printer.empty()) {
+        const bool keep_project_clean = m_loading_project;
+        CallAfter([this, keep_project_clean]() { this->apply_pending_quick_load(keep_project_clean); });
+    }
+    return res;
 }
 
 // To be called when providing a list of files to the GUI slic3r on command line.
@@ -15674,7 +15735,7 @@ std::vector<size_t> Plater::load_files(const std::vector<std::string>& input_fil
     paths.reserve(input_files.size());
     for (const std::string& path : input_files)
         paths.emplace_back(path);
-    return p->load_files(paths, strategy, ask_multi);
+    return load_files(paths, strategy, ask_multi);
 }
 
 bool Plater::preview_zip_archive(const boost::filesystem::path& archive_path)

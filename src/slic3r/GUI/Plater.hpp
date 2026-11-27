@@ -348,6 +348,10 @@ public:
     // states above the new filament count), then restored and remapped by color, creating
     // virtual mixed filaments where the new configuration cannot reproduce a color directly.
     void auto_mixing_match_after_load();
+    // Quick Load: switches to the printer preset selected in the preferences. Applied one event loop
+    // turn after the load action finished, so the switch can not displace the objects of the file
+    // while its plates are still being set up.
+    void apply_pending_quick_load(bool keep_project_clean);
     int save_project(bool saveAs = false);
     //BBS download project by project id
     void import_model_id(wxString download_info);
