@@ -7202,15 +7202,33 @@ void Plater::apply_pending_quick_load(bool keep_project_clean)
     });
 
     // Quick Load + Auto Mixing Match: the feature matches the file's paint onto the filament
-    // configuration of the selected printer preset. The printer tab switch only replays that
-    // configuration while "Remember printer configuration" is enabled, so replay it here when the
-    // switch did not, otherwise the file's own filaments would still be active and there would be
-    // nothing to match against.
-    if (replay_filament_config && wxGetApp().app_config != nullptr && wxGetApp().preset_bundle != nullptr) {
-        wxGetApp().preset_bundle->update_selections(*wxGetApp().app_config);
-        sidebar().on_filament_count_change(wxGetApp().preset_bundle->filament_presets.size());
+    // configuration of the selected printer preset. The printer tab switch replays that
+    // configuration only while "Remember printer configuration" is enabled, so replay it here when
+    // the switch did not, otherwise the file's own filaments would still be active and there would
+    // be nothing to match against.
+    //
+    // update_selections() also re-selects the process preset remembered for the printer. By now
+    // Quick Change has already transferred the process settings of the file onto the new printer's
+    // process preset, so that selection would throw them away: keep them and restore the process
+    // preset afterwards.
+    AppConfig*    app_config    = wxGetApp().app_config;
+    PresetBundle* preset_bundle = wxGetApp().preset_bundle;
+    if (replay_filament_config && app_config != nullptr && preset_bundle != nullptr &&
+        !app_config->get_bool("remember_printer_config")) {
+        const std::string        print_name   = preset_bundle->prints.get_edited_preset().name;
+        const DynamicPrintConfig print_config = preset_bundle->prints.get_edited_preset().config;
+
+        preset_bundle->update_selections(*app_config);
+        sidebar().on_filament_count_change(preset_bundle->filament_presets.size());
+
+        if (preset_bundle->prints.get_edited_preset().name != print_name) {
+            preset_bundle->prints.select_preset_by_name(print_name, false);
+            preset_bundle->prints.get_edited_preset().config.apply(print_config);
+            BOOST_LOG_TRIVIAL(warning) << "Quick Load: kept the transferred process preset \"" << print_name
+                                       << "\" instead of the printer's remembered one";
+        }
         BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: Quick Load replayed the printer's filament configuration ("
-                                   << wxGetApp().preset_bundle->filament_presets.size() << " filament(s))";
+                                   << preset_bundle->filament_presets.size() << " filament(s))";
     }
 
     // update plater with new config
