@@ -22344,6 +22344,15 @@ msgstr "Chỉ khả dụng với Tải nhanh. Nếu được bật, việc mở 
 msgid "Auto Mixing Match"
 msgstr "Tự động trộn trận đấu"
 
+msgid "Matching filaments"
+msgstr "Sợi phù hợp"
+
+msgid "Calculating filament combinations..."
+msgstr "Tính toán tổ hợp dây tóc..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Đánh giá các tổ hợp sợi tóc: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Nếu bạn muốn dùng thử Wonderprint-Orca Beta, bạn có thể nhấp để"
 

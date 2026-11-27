@@ -23282,6 +23282,15 @@ msgstr "Disponibile solo con caricamento rapido. Se abilitato, l'apertura di "
 msgid "Auto Mixing Match"
 msgstr "Corrispondenza di miscelazione automatica"
 
+msgid "Matching filaments"
+msgstr "Filamenti abbinati"
+
+msgid "Calculating filament combinations..."
+msgstr "Calcolo delle combinazioni di filamenti..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Valutazione delle combinazioni di filamenti: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Se vuoi provare Wonderprint-Orca Beta, puoi cliccare su"
 

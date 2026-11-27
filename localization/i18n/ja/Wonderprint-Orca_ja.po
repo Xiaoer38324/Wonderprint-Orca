@@ -17992,6 +17992,15 @@ msgstr "クイックロードでのみ利用可能です。有効にすると、
 msgid "Auto Mixing Match"
 msgstr "オートミキシングマッチ"
 
+msgid "Matching filaments"
+msgstr "適合するフィラメント"
+
+msgid "Calculating filament combinations..."
+msgstr "フィラメントの組み合わせを計算しています..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "フィラメントの組み合わせの評価: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orcaベータ版を試したい場合は、クリックして"
 

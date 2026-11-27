@@ -20033,6 +20033,15 @@ msgstr "Only available with Quick Load. If enabled, opening a multi-color "
 msgid "Auto Mixing Match"
 msgstr "Auto Mixing Match"
 
+msgid "Matching filaments"
+msgstr "Matching filaments"
+
+msgid "Calculating filament combinations..."
+msgstr "Calculating filament combinations..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Evaluating filament combinations: %u/%u"
+
 #~ msgid "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"
 #~ msgstr ""
 #~ "Wonderprint-Orca is based on OrcaSlicer, PrusaSlicer and BambuStudio"

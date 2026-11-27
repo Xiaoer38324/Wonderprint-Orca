@@ -21087,6 +21087,15 @@ msgstr "僅適用於快速加載。如果啟用，開啟多色專案會自動將
 msgid "Auto Mixing Match"
 msgstr "自動混合匹配"
 
+msgid "Matching filaments"
+msgstr "搭配燈絲"
+
+msgid "Calculating filament combinations..."
+msgstr "計算燈絲組合..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "評估耗材組合：%u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "如果您想嘗試 Wonderprint-Orca 測試版，可以點擊以下載到"
 

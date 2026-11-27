@@ -24,6 +24,7 @@
 #include "MixedColorMatchHelpers.hpp"
 
 #include <atomic>
+#include <functional>
 #include <limits>
 #include <map>
 #include <string>
@@ -97,7 +98,8 @@ public:
     // C(N,4) subset (bounded by kMaxEnumerationBases) and returns the best one.
     MixMatchResult run_best(const std::vector<MixBaseFilament>& bases,
                             const std::vector<MixModelColor>& colors,
-                            std::atomic<bool>*                cancel = nullptr) const;
+                            std::atomic<bool>*                cancel = nullptr,
+                            const std::function<void(size_t, size_t)>& progress = {}) const;
 
 private:
     int m_min_component_percent { 0 };

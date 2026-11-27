@@ -5135,6 +5135,25 @@ struct AutoMixingMatchJob
     }
 };
 
+class AutoMixingMatchProgressDialog : public ProgressDialog
+{
+public:
+    AutoMixingMatchProgressDialog(wxWindow* parent, const std::shared_ptr<AutoMixingMatchJob>& job)
+        : ProgressDialog(_L("Matching filaments"), _L("Calculating filament combinations..."), 100, parent,
+                         wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT),
+          m_job(job)
+    {}
+
+    void OnCancel() override
+    {
+        if (const auto job = m_job.lock())
+            job->cancel.store(true);
+    }
+
+private:
+    std::weak_ptr<AutoMixingMatchJob> m_job;
+};
+
 // Snapshot of the color data of a 3MF taken *before* Quick Load replaces the filament
 // configuration: the facet paint bitstreams, the object/volume filament ids that carry the
 // unpainted colors, and the colors those ids referred to. Everything is copied exactly, because
@@ -13374,6 +13393,7 @@ int Plater::new_project(bool skip_confirm, bool silent, const wxString& project_
         p->auto_mix_job->cancel.store(true);
         p->auto_mix_job.reset();
     }
+    p->auto_mix_snapshot = AutoMixPaintSnapshot{};
 
     model().calib_pa_pattern.reset(nullptr);
     model().plates_custom_gcodes.clear();
@@ -13461,6 +13481,7 @@ void Plater::load_project(wxString const& filename2,
         p->auto_mix_job->cancel.store(true);
         p->auto_mix_job.reset();
     }
+    p->auto_mix_snapshot = AutoMixPaintSnapshot{};
 
     model().calib_pa_pattern.reset(nullptr);
     model().plates_custom_gcodes.clear();
@@ -13850,6 +13871,18 @@ void apply_auto_mixing_match_result(Plater& plater, const MixMatchResult& result
 // lowest area-weighted ΔE (see MixedColorMatchEngine).
 void Plater::auto_mixing_match_after_load()
 {
+    struct SnapshotCleanup
+    {
+        AutoMixPaintSnapshot& snapshot;
+        bool                  keep_for_worker { false };
+
+        ~SnapshotCleanup()
+        {
+            if (!keep_for_worker)
+                snapshot = AutoMixPaintSnapshot{};
+        }
+    } snapshot_cleanup { p->auto_mix_snapshot };
+
     AppConfig* app_config = wxGetApp().app_config;
     if (app_config == nullptr) {
         BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (app_config is null)";
@@ -13872,6 +13905,7 @@ void Plater::auto_mixing_match_after_load()
     }
     if (m_loading_project) {
         BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: skipped (project is still loading)";
+        snapshot_cleanup.keep_for_worker = true;
         return;
     }
     if (!p->auto_mix_snapshot.valid) {
@@ -14025,27 +14059,66 @@ void Plater::auto_mixing_match_after_load()
     // Matching can evaluate up to C(12,4) = 495 base subsets, so it runs on a worker thread.
     // The engine is pure computation (no preset bundle / model / wx access); the winning
     // result is applied back on the UI thread through CallAfter.
-    job->thread = std::thread([this, job, alive, bases = std::move(bases), colors = std::move(colors),
+    wxWeakRef<AutoMixingMatchProgressDialog> progress_dlg;
+    if (bases.size() > MixedColorMatchEngine::kMixingBaseCount)
+        progress_dlg = new AutoMixingMatchProgressDialog(find_toplevel_parent(this), job);
+
+    // Keep the worker non-owning: if it held the last shared_ptr, job destruction would
+    // happen on the worker and attempt to join itself. Resetting the owner joins it safely.
+    AutoMixingMatchJob* const job_ptr = job.get();
+    const std::weak_ptr<AutoMixingMatchJob> job_weak = job;
+    job->thread = std::thread([this, job_ptr, job_weak, alive, progress_dlg,
+                               bases = std::move(bases), colors = std::move(colors),
                                physical_count, remap_config_extruders]() mutable {
         BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: worker started (" << colors.size() << " model colors, "
                                    << bases.size() << " base filaments, remap_config_extruders="
                                    << remap_config_extruders << ")";
         MixedColorMatchEngine engine(0, 100);
-        MixMatchResult        result = engine.run_best(bases, colors, &job->cancel);
-        if (job->cancel.load() || !alive->load()) {
-            BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: worker result dropped (cancelled=" << job->cancel.load()
+        MixMatchResult        result = engine.run_best(bases, colors, &job_ptr->cancel,
+            [progress_dlg](size_t evaluated, size_t total) {
+                const int percent = total == 0 ? 0 : std::min(99, static_cast<int>(100 * evaluated / total));
+                wxGetApp().CallAfter([progress_dlg, percent, evaluated, total]() {
+                    if (progress_dlg)
+                        progress_dlg->Update(percent, wxString::Format(
+                            _L("Evaluating filament combinations: %u/%u"),
+                            static_cast<unsigned>(evaluated), static_cast<unsigned>(total)));
+                });
+            });
+        if (job_ptr->cancel.load() || !alive->load()) {
+            BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: worker result dropped (cancelled=" << job_ptr->cancel.load()
                                        << ", alive=" << alive->load() << ")";
+            wxGetApp().CallAfter([this, job_weak, alive, progress_dlg]() {
+                if (progress_dlg)
+                    progress_dlg->Destroy();
+                if (!alive->load())
+                    return;
+                const auto job = job_weak.lock();
+                if (job && p->auto_mix_job == job) {
+                    p->auto_mix_job.reset();
+                    p->auto_mix_snapshot = AutoMixPaintSnapshot{};
+                }
+            });
             return;
         }
-        wxGetApp().CallAfter([this, job, alive, result = std::move(result), physical_count,
+        wxGetApp().CallAfter([this, job_weak, alive, progress_dlg, result = std::move(result), physical_count,
                               remap_config_extruders]() mutable {
-            if (!alive->load() || job->cancel.load()) {
-                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (cancelled=" << job->cancel.load()
+            const auto job = job_weak.lock();
+            if (!alive->load() || !job || job->cancel.load()) {
+                if (alive->load() && job && p->auto_mix_job == job) {
+                    p->auto_mix_job.reset();
+                    p->auto_mix_snapshot = AutoMixPaintSnapshot{};
+                }
+                BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (cancelled="
+                                           << (!job || job->cancel.load())
                                            << ", alive=" << alive->load() << ")";
+                if (progress_dlg)
+                    progress_dlg->Destroy();
                 return;
             }
             if (p->auto_mix_job != job) {
                 BOOST_LOG_TRIVIAL(warning) << "Auto Mixing Match: apply skipped (superseded by a newer load)";
+                if (progress_dlg)
+                    progress_dlg->Destroy();
                 return;
             }
             // A scene reload while the worker was running may have clamped the original
@@ -14055,9 +14128,16 @@ void Plater::auto_mixing_match_after_load()
                 restore_auto_mix_paint_snapshot(this->model(), p->auto_mix_snapshot);
             apply_auto_mixing_match_result(*this, result, physical_count, remap_config_extruders);
             p->auto_mix_snapshot = AutoMixPaintSnapshot{};
+            if (progress_dlg) {
+                progress_dlg->Update(100, _L("Done."));
+                progress_dlg->Destroy();
+            }
+            if (p->auto_mix_job == job)
+                p->auto_mix_job.reset();
         });
     });
     p->auto_mix_job = std::move(job);
+    snapshot_cleanup.keep_for_worker = true;
 }
 
 // BBS: save logic

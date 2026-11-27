@@ -21993,6 +21993,15 @@ msgstr "Доступно лише з Quick Load. Якщо ввімкнено, в
 msgid "Auto Mixing Match"
 msgstr "Автоматичне змішування"
 
+msgid "Matching filaments"
+msgstr "Відповідні нитки"
+
+msgid "Calculating filament combinations..."
+msgstr "Розрахунок комбінацій ниток..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Оцінка комбінацій філаментів: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Якщо ви хочете спробувати бета-версію Wonderprint-Orca, ви можете "

@@ -22805,6 +22805,15 @@ msgstr "Galima tik su greituoju įkėlimu. Jei įjungta, kelių spalvų projekto
 msgid "Auto Mixing Match"
 msgstr "Automatinio maišymo rungtynės"
 
+msgid "Matching filaments"
+msgstr "Atitinkami siūlai"
+
+msgid "Calculating filament combinations..."
+msgstr "Skaičiuojami kaitinamųjų siūlų deriniai..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Siūlų kombinacijų vertinimas: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Jei norite pabandyti Wonderprint-Orca Beta, turėtumėte spustelėti"
 

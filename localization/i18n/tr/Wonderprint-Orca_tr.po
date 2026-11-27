@@ -22778,6 +22778,15 @@ msgstr "Yalnızca Hızlı Yükleme ile kullanılabilir. Etkinleştirilirse, çok
 msgid "Auto Mixing Match"
 msgstr "Otomatik Karıştırma Eşleşmesi"
 
+msgid "Matching filaments"
+msgstr "Eşleşen filamentler"
+
+msgid "Calculating filament combinations..."
+msgstr "Filament kombinasyonları hesaplanıyor..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Filament kombinasyonlarının değerlendirilmesi: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta’yı denemek isterseniz tıklayabilirsiniz"
 

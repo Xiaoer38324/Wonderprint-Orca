@@ -22940,6 +22940,15 @@ msgstr "Csak Quick Load funkcióval érhető el. Ha engedélyezve van, a többsz
 msgid "Auto Mixing Match"
 msgstr "Automatikus keverés"
 
+msgid "Matching filaments"
+msgstr "Egyező szálak"
+
+msgid "Calculating filament combinations..."
+msgstr "Izzószál-kombinációk számítása..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Filament kombinációk értékelése: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Ha kipróbálnád az Wonderprint-Orca Béta verzióját, kattints ide:"
 

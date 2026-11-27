@@ -21428,6 +21428,15 @@ msgstr "빠른 로드에서만 사용할 수 있습니다. 활성화된 경우 �
 msgid "Auto Mixing Match"
 msgstr "자동 믹싱 매치"
 
+msgid "Matching filaments"
+msgstr "일치하는 필라멘트"
+
+msgid "Calculating filament combinations..."
+msgstr "필라멘트 조합 계산 중..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "필라멘트 조합 평가: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Wonderprint-Orca Beta를 사용해 보려면 다음을 클릭하세요"
 

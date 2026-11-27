@@ -22052,6 +22052,15 @@ msgstr "Dostępne tylko z funkcją szybkiego ładowania. Jeśli ta opcja jest "
 msgid "Auto Mixing Match"
 msgstr "Automatyczne dopasowanie miksowania"
 
+msgid "Matching filaments"
+msgstr "Pasujące włókna"
+
+msgid "Calculating filament combinations..."
+msgstr "Obliczanie kombinacji włókien..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Ocena kombinacji filamentów: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr ""
 #~ "Jeśli chciałbyś wypróbować Wonderprint-Orca Beta, możesz kliknąć tutaj."

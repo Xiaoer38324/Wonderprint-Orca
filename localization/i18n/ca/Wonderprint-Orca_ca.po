@@ -23144,6 +23144,15 @@ msgstr "Només disponible amb càrrega ràpida. Si està activat, l'obertura d'u
 msgid "Auto Mixing Match"
 msgstr "Coincidència de mescla automàtica"
 
+msgid "Matching filaments"
+msgstr "Filaments coincidents"
+
+msgid "Calculating filament combinations..."
+msgstr "Càlcul de combinacions de filaments..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Avaluació de combinacions de filaments: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Si voleu provar Wonderprint-Orca Beta, podeu fer clic a"
 

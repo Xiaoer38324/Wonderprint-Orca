@@ -23670,6 +23670,15 @@ msgstr "Доступно только с быстрой загрузкой. Ес
 msgid "Auto Mixing Match"
 msgstr "Автоматическое смешивание"
 
+msgid "Matching filaments"
+msgstr "Соответствующие нити"
+
+msgid "Calculating filament combinations..."
+msgstr "Расчет комбинаций нитей..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Оценка комбинаций филаментов: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Нажмите, если хотите попробовать бета-версию Wonderprint-Orca:"
 

@@ -283,13 +283,16 @@ MixMatchResult MixedColorMatchEngine::run(const std::vector<MixBaseFilament>& ba
 
 MixMatchResult MixedColorMatchEngine::run_best(const std::vector<MixBaseFilament>& bases,
                                                const std::vector<MixModelColor>& colors,
-                                               std::atomic<bool>*                cancel) const
+                                               std::atomic<bool>*                cancel,
+                                               const std::function<void(size_t, size_t)>& progress) const
 {
     BOOST_LOG_TRIVIAL(warning) << "MixedColorMatchEngine: run_best start (bases=" << bases.size()
                                << ", painted colors=" << colors.size() << ")";
     // 2..4 filaments: every filament is an ingredient, no enumeration needed.
     if (bases.size() <= kMixingBaseCount) {
         MixMatchResult direct = run(bases, colors, cancel);
+        if (progress)
+            progress(1, 1);
         if (!direct.success)
             BOOST_LOG_TRIVIAL(warning) << "MixedColorMatchEngine: direct run failed: " << direct.error
                                        << " (cancelled=" << direct.cancelled << ")";
@@ -325,6 +328,7 @@ MixMatchResult MixedColorMatchEngine::run_best(const std::vector<MixBaseFilament
 
     MixMatchResult best;
     size_t         evaluated = 0;
+    const size_t   total_subsets = ranked.size() * (ranked.size() - 1) * (ranked.size() - 2) * (ranked.size() - 3) / 24;
     for (size_t a = 0; a + 3 < ranked.size(); ++a) {
         for (size_t b = a + 1; b + 2 < ranked.size(); ++b) {
             for (size_t c = b + 1; c + 1 < ranked.size(); ++c) {
@@ -337,10 +341,10 @@ MixMatchResult MixedColorMatchEngine::run_best(const std::vector<MixBaseFilament
                     ++evaluated;
                     const std::vector<MixBaseFilament> subset = { ranked[a], ranked[b], ranked[c], ranked[d] };
                     MixMatchResult                    candidate = run(subset, colors, cancel);
-                    if (!candidate.success)
-                        continue;
-                    if (!best.success || candidate.weighted_delta_e < best.weighted_delta_e)
+                    if (candidate.success && (!best.success || candidate.weighted_delta_e < best.weighted_delta_e))
                         best = std::move(candidate);
+                    if (progress)
+                        progress(evaluated, total_subsets);
                 }
             }
         }

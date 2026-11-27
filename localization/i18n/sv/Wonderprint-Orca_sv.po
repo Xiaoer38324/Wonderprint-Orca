@@ -22581,6 +22581,15 @@ msgstr "Endast tillgänglig med Quick Load. Om det är aktiverat matchar öppnin
 msgid "Auto Mixing Match"
 msgstr "Auto Mixing Match"
 
+msgid "Matching filaments"
+msgstr "Matchande filament"
+
+msgid "Calculating filament combinations..."
+msgstr "Beräknar filamentkombinationer..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Utvärdera filamentkombinationer: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "If you would like to try Wonderprint-Orca Beta, you may click to"
 

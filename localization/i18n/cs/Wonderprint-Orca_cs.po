@@ -22455,6 +22455,15 @@ msgstr "K dispozici pouze s funkcí Quick Load. Je-li povoleno, otevření "
 msgid "Auto Mixing Match"
 msgstr "Auto Mixing Match"
 
+msgid "Matching filaments"
+msgstr "Odpovídající vlákna"
+
+msgid "Calculating filament combinations..."
+msgstr "Výpočet kombinací vláken..."
+
+msgid "Evaluating filament combinations: %u/%u"
+msgstr "Hodnocení kombinací filamentů: %u/%u"
+
 #~ msgid "If you would like to try Wonderprint-Orca Beta, you may click to"
 #~ msgstr "Pokud chcete vyzkoušet Wonderprint-Orca Beta, klikněte zde"
 
